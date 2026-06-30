@@ -84,17 +84,21 @@ app.use("/api/check-ins", checkInRoutes);
 
 
 // 404 Route handler
-app.use((req, res, next) => {
+const notFound = (req, res, next) => {
   res.status(404).json({ error: "API endpoint not found." });
-});
+};
 
 // Global Error Handler
-app.use((err, req, res, next) => {
+const errorHandler = (err, req, res, next) => {
   console.error("Unhandled Server Error:", err);
   if (res.headersSent) {
     return next(err);
   }
   res.status(500).json({ error: "An unexpected error occurred on the server." });
-});
+};
+
+// after all API routes
+app.use(notFound);
+app.use(errorHandler);
 
 module.exports = app;
