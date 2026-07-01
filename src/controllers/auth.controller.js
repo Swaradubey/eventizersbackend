@@ -3,13 +3,13 @@ const jwt = require("jsonwebtoken");
 const authService = require("../services/auth.service");
 
 // Helper function to generate token and set cookie
-const sendTokenResponse = (user, statusCode, res) => {
+const sendTokenResponse = (user, statusCode, res, message = "Success") => {
   if (res.headersSent) {
     console.warn(`[WARN] sendTokenResponse attempted but headers were already sent to client. User ID: ${user.id}`);
     return;
   }
   const token = jwt.sign(
-    { id: user.id },
+    { id: user.id, role: user.role },
     process.env.JWT_SECRET,
     { expiresIn: "7d" }
   );
@@ -29,6 +29,7 @@ const sendTokenResponse = (user, statusCode, res) => {
     .cookie("token", token, cookieOptions)
     .json({
       success: true,
+      message,
       user: userWithoutPassword,
       token,
     });
@@ -44,9 +45,11 @@ const register = async (req, res) => {
       return res.status(400).json({ error: "Please provide name, email, and password." });
     }
 
+    const normalizedEmail = email.trim().toLowerCase();
+
     // Email format validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
+    if (!emailRegex.test(normalizedEmail)) {
       return res.status(400).json({ error: "Invalid email format." });
     }
 
@@ -55,7 +58,7 @@ const register = async (req, res) => {
     }
 
     // 2. Check if email already exists
-    const existingUser = await authService.findUserByEmail(email);
+    const existingUser = await authService.findUserByEmail(normalizedEmail);
     if (existingUser) {
       return res.status(400).json({ error: "Email already exists." });
     }
@@ -67,12 +70,12 @@ const register = async (req, res) => {
     // 4. Create user
     const user = await authService.createUser({
       name,
-      email,
+      email: normalizedEmail,
       password: hashedPassword,
     });
 
     // 5. Send response with cookie
-    return sendTokenResponse(user, 201, res);
+    return sendTokenResponse(user, 201, res, "Registration successful");
   } catch (error) {
     console.error("Register Error:", error);
     if (res.headersSent) {
@@ -89,30 +92,48 @@ const login = async (req, res) => {
 
     // 1. Missing fields check
     if (!email || !password) {
-      return res.status(400).json({ error: "Please provide email and password." });
+      return res.status(400).json({
+        success: false,
+        error: "Email and password are required.",
+        message: "Email and password are required."
+      });
     }
+
+    const normalizedEmail = email.trim().toLowerCase();
 
     // Email format validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return res.status(400).json({ error: "Invalid email format." });
+    if (!emailRegex.test(normalizedEmail)) {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid email format.",
+        message: "Invalid email format."
+      });
     }
 
     // 2. Find user in database
-    const dbUser = await authService.findUserByEmail(email);
+    const dbUser = await authService.findUserByEmail(normalizedEmail);
     if (!dbUser) {
-      return res.status(404).json({ error: "User not found." });
+      return res.status(401).json({
+        success: false,
+        error: "Invalid email or password.",
+        message: "Invalid email or password."
+      });
     }
 
     // 3. Check password match
     const isMatch = await bcrypt.compare(password, dbUser.password);
     if (!isMatch) {
-      return res.status(401).json({ error: "Incorrect password." });
+      return res.status(401).json({
+        success: false,
+        error: "Invalid email or password.",
+        message: "Invalid email or password."
+      });
     }
 
     // 4. Send response with cookie
     console.log(`[DEBUG] Login successful. Sending dbUser token response for email: ${dbUser.email}`);
-    return sendTokenResponse(dbUser, 200, res);
+    return sendTokenResponse(dbUser, 200, res, "Login successful");
   } catch (error) {
     console.error("Login Error:", error);
     if (res.headersSent) {

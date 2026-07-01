@@ -84,6 +84,10 @@ app.use("/api/ticketing", ticketingRoutes);
 const checkInRoutes = require("./routes/checkIn.routes");
 app.use("/api/check-ins", checkInRoutes);
 
+// Registries Routes
+const registryRoutes = require("./routes/registry.routes");
+app.use("/api/registries", registryRoutes);
+
 
 
 

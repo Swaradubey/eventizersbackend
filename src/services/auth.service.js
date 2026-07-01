@@ -1,4 +1,4 @@
-const db = require("../config/db");
+const prisma = require("../config/prisma");
 
 /**
  * Find user by email
@@ -6,11 +6,9 @@ const db = require("../config/db");
  * @returns {Promise<Object|null>}
  */
 const findUserByEmail = async (email) => {
-  const result = await db.query(
-    "SELECT id, name, email, password_hash AS password, created_at AS \"createdAt\" FROM users WHERE email = $1",
-    [email]
-  );
-  return result.rows[0] || null;
+  return await prisma.user.findUnique({
+    where: { email },
+  });
 };
 
 /**
@@ -19,11 +17,9 @@ const findUserByEmail = async (email) => {
  * @returns {Promise<Object|null>}
  */
 const findUserById = async (id) => {
-  const result = await db.query(
-    "SELECT id, name, email, password_hash AS password, created_at AS \"createdAt\" FROM users WHERE id = $1",
-    [parseInt(id, 10)]
-  );
-  return result.rows[0] || null;
+  return await prisma.user.findUnique({
+    where: { id: parseInt(id, 10) },
+  });
 };
 
 /**
@@ -35,11 +31,13 @@ const findUserById = async (id) => {
  * @returns {Promise<Object>}
  */
 const createUser = async ({ name, email, password }) => {
-  const result = await db.query(
-    "INSERT INTO users (name, email, password_hash) VALUES ($1, $2, $3) RETURNING id, name, email, created_at AS \"createdAt\"",
-    [name, email, password]
-  );
-  return result.rows[0];
+  return await prisma.user.create({
+    data: {
+      name,
+      email,
+      password,
+    },
+  });
 };
 
 module.exports = {

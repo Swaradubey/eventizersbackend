@@ -7,6 +7,16 @@ CREATE TABLE IF NOT EXISTS users (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Create Role enum if not exists
+DO $$ BEGIN
+    CREATE TYPE "Role" AS ENUM ('USER', 'ADMIN');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+-- Add role column to users table if it doesn't exist
+ALTER TABLE users ADD COLUMN IF NOT EXISTS role "Role" DEFAULT 'USER';
+
 -- Insert mock user 9999 if not exists
 INSERT INTO users (id, name, email, password_hash)
 VALUES (9999, 'Hexerve', 'hexerve@gmail.com', '$2a$10$w/XkZzYp4dFh21y3lQ2v3O/mKeeSjT.a/Xv4XoD2K2aFq4DkWzJyK')
