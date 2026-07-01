@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const authRoutes = require("./routes/auth.routes");
+const adminRoutes = require("./routes/admin.routes");
 const eventRoutes = require("./routes/event.routes");
 const dashboardRoutes = require("./routes/dashboard.routes");
 const invitationRoutes = require("./routes/invitation.routes");
@@ -60,6 +61,9 @@ app.get("/api/health", (req, res) => {
 
 // Auth Routes
 app.use("/api/auth", authRoutes);
+
+// Admin Routes
+app.use("/api/admin", adminRoutes);
 
 // Event Routes
 app.use("/api/events", eventRoutes);
