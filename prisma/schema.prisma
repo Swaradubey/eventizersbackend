@@ -20,6 +20,7 @@ model User {
   createdAt    DateTime      @default(now()) @map("created_at")
   events       Event[]
   ticketOrders TicketOrder[]
+  registries   Registry[]
 
   @@map("users")
 }
@@ -219,6 +220,7 @@ enum RegistryType {
 model Registry {
   id               String                 @id @default(cuid())
   eventId          String                 @map("event_id") @db.Uuid
+  userId           Int                    @map("user_id")
   type             RegistryType
   title            String
   description      String?
@@ -232,9 +234,11 @@ model Registry {
   updatedAt        DateTime               @updatedAt @map("updated_at")
 
   event            Event                  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user             User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
   contributions    RegistryContribution[]
 
   @@index([eventId])
+  @@index([userId])
   @@index([type])
   @@map("registries")
 }

@@ -17,11 +17,16 @@ const findRegistryById = async (id) => {
 /**
  * Find all registries for a specific event
  * @param {string} eventId
+ * @param {number} [userId]
  * @returns {Promise<Array>}
  */
-const findRegistriesByEventId = async (eventId) => {
+const findRegistriesByEventId = async (eventId, userId) => {
+  const whereClause = { eventId };
+  if (userId) {
+    whereClause.userId = Number(userId);
+  }
   return await prisma.registry.findMany({
-    where: { eventId },
+    where: whereClause,
     orderBy: { createdAt: "desc" },
   });
 };
@@ -32,10 +37,11 @@ const findRegistriesByEventId = async (eventId) => {
  * @returns {Promise<Object>}
  */
 const createRegistry = async (data) => {
-  const { eventId, type, title, description, goalAmount, currency, externalUrl, isActive } = data;
+  const { eventId, userId, type, title, description, goalAmount, currency, externalUrl, isActive } = data;
   return await prisma.registry.create({
     data: {
       eventId,
+      userId: Number(userId),
       type,
       title,
       description: description || null,

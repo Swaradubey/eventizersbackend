@@ -42,7 +42,7 @@ const getRegistries = async (req, res) => {
       return res.status(403).json({ error: "Access Denied. You do not own this event." });
     }
 
-    const registries = await registryService.findRegistriesByEventId(eventId);
+    const registries = await registryService.findRegistriesByEventId(eventId, userId);
     const serialized = registries.map(serializeRegistry);
 
     return res.status(200).json({
@@ -153,6 +153,7 @@ const createRegistry = async (req, res) => {
 
     const newRegistry = await registryService.createRegistry({
       eventId,
+      userId,
       type,
       title: title.trim(),
       description,
