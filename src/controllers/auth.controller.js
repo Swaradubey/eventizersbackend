@@ -199,10 +199,12 @@ const googleLogin = (req, res) => {
     return res.status(500).json({ error: "Google client ID is not configured on the backend." });
   }
 
-  // Construct dynamic callback redirect URI
+  // Construct dynamic callback redirect URI or use environment variable
   const protocol = req.headers["x-forwarded-proto"] || req.protocol;
   const host = req.headers["x-forwarded-host"] || req.get("host");
-  const redirectUri = `${protocol}://${host}/api/auth/google/callback`;
+  const redirectUri = process.env.GOOGLE_CALLBACK_URL || `${protocol}://${host}/api/auth/google/callback`;
+
+  console.log(`[Google Auth] Initiating login. Redirect URI: ${redirectUri}`);
 
   const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent("profile email")}&prompt=select_account`;
 
@@ -233,7 +235,9 @@ const googleCallback = async (req, res) => {
 
     const protocol = req.headers["x-forwarded-proto"] || req.protocol;
     const host = req.headers["x-forwarded-host"] || req.get("host");
-    const redirectUri = `${protocol}://${host}/api/auth/google/callback`;
+    const redirectUri = process.env.GOOGLE_CALLBACK_URL || `${protocol}://${host}/api/auth/google/callback`;
+
+    console.log(`[Google Auth] Callback received. Exchange Redirect URI: ${redirectUri}`);
 
     // 1. Exchange auth code for access & ID tokens
     const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
