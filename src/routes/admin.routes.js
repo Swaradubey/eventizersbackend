@@ -50,4 +50,10 @@ router.get("/registries", adminController.getRegistries);
 router.put("/registries/:id", adminController.updateRegistry);
 router.delete("/registries/:id", adminController.deleteRegistry);
 
+// Admin Messages management
+const messageController = require("../controllers/message.controller");
+router.get("/messages", messageController.adminGetMessages);
+router.get("/messages/stats", messageController.adminGetStats);
+router.get("/messages/:id", messageController.adminGetMessageById);
+
 module.exports = router;

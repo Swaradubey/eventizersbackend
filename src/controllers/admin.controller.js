@@ -6,7 +6,7 @@ const eventService = require("../services/event.service");
 // Helper function to generate token and set cookie (matches auth.controller.js)
 const sendTokenResponse = (user, statusCode, res) => {
   const token = jwt.sign(
-    { id: user.id },
+    { id: user.id, role: user.role },
     process.env.JWT_SECRET,
     { expiresIn: "7d" }
   );
@@ -44,8 +44,10 @@ const login = async (req, res) => {
       return res.status(400).json({ error: "Please provide email and password." });
     }
 
+    const normalizedEmail = email.trim().toLowerCase();
+
     const user = await prisma.user.findUnique({
-      where: { email },
+      where: { email: normalizedEmail },
     });
 
     if (!user) {
@@ -1172,24 +1174,39 @@ const undoCheckIn = async (req, res) => {
  */
 const getRegistries = async (req, res) => {
   try {
-    const rawRegistries = await prisma.registry.findMany({
-      include: {
-        event: {
-          select: {
-            title: true,
-            user: {
-              select: {
-                name: true,
-                email: true,
-              },
+    const [rawRegistries, totalRegistries, activeRegistries, contributionSummary] = await Promise.all([
+      prisma.registry.findMany({
+        include: {
+          user: {
+            select: {
+              name: true,
+              email: true,
+            },
+          },
+          event: {
+            select: {
+              title: true,
             },
           },
         },
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
+        orderBy: {
+          createdAt: "desc",
+        },
+      }),
+      prisma.registry.count(),
+      prisma.registry.count({
+        where: {
+          isActive: true,
+        },
+      }),
+      prisma.registryContribution.aggregate({
+        _sum: {
+          amount: true,
+        },
+      }),
+    ]);
+
+    const totalContributions = Number(contributionSummary._sum.amount || 0);
 
     const registries = rawRegistries.map((r) => ({
       id: r.id,
@@ -1206,13 +1223,26 @@ const getRegistries = async (req, res) => {
       createdAt: r.createdAt,
       updatedAt: r.updatedAt,
       eventTitle: r.event?.title || "General",
-      eventCreator: r.event?.user || null,
+      eventCreator: r.user || null,
     }));
 
-    return res.status(200).json({ success: true, registries });
+    return res.status(200).json({
+      success: true,
+      data: {
+        registries,
+        stats: {
+          totalRegistries,
+          activeRegistries,
+          totalContributions,
+        },
+      },
+    });
   } catch (error) {
-    console.error("Admin Get Registries Error:", error);
-    return res.status(500).json({ error: "Server error retrieving registries." });
+    console.error("Failed to fetch admin registries:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to load registries",
+    });
   }
 };
 

@@ -8,12 +8,12 @@ require("dotenv").config({ path: envPath });
 
 console.log("[database] Environment loaded");
 
-// Validate DATABASE_URL existence and format
-const dbUrl = process.env.DATABASE_URL;
-if (!dbUrl) {
-  console.error("FATAL ERROR: DATABASE_URL is missing from backend/.env");
+// Validate DATABASE_URL existence
+if (!process.env.DATABASE_URL) {
+  console.error("[env] DATABASE_URL is missing.");
   process.exit(1);
 }
+const dbUrl = process.env.DATABASE_URL;
 
 try {
   const parsed = new URL(dbUrl);
@@ -87,6 +87,10 @@ async function runMigration() {
 function handleConnectionError(error) {
   console.error("[database] PostgreSQL connection failed");
 
+  if (error && typeof error === "object" && "code" in error) {
+    console.error("[database] Prisma error code:", error.code);
+  }
+
   const errMsg = error.message || "";
   const errCode = error.code || "";
   
@@ -147,6 +151,25 @@ function handleConnectionError(error) {
   process.exit(1);
 }
 
+async function connectDatabase() {
+  try {
+    await prisma.$connect();
+    await prisma.$queryRaw`SELECT 1`;
+    console.log("[database] PostgreSQL connected successfully.");
+  } catch (error) {
+    console.error(
+      "[database] PostgreSQL connection failed:",
+      error instanceof Error ? error.message : "Unknown database error"
+    );
+
+    console.error(
+      "[database] Check DATABASE_URL, Neon project status, SSL mode, database, role, branch, and network access."
+    );
+
+    throw error;
+  }
+}
+
 async function startServer() {
   try {
     console.log("[database] Connecting to PostgreSQL...");
@@ -162,9 +185,8 @@ async function startServer() {
     // Run database migrations
     await runMigration();
 
-    // Verify database connection on startup using Prisma (keeping existing functionality)
-    await prisma.$connect();
-    console.log("[database] PostgreSQL connected successfully");
+    // Verify database connection on startup using Prisma
+    await connectDatabase();
 
     app.listen(PORT, () => {
       console.log(`[Eventizers Backend] Server is running on port ${PORT}`);

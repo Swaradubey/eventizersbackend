@@ -151,6 +151,12 @@ const createRegistry = async (req, res) => {
       return res.status(403).json({ error: "Access Denied. You do not own this event." });
     }
 
+    // Check for duplicate registry name under the same event
+    const existingRegistry = await registryService.findRegistryByEventAndTitle(eventId, title.trim());
+    if (existingRegistry) {
+      return res.status(409).json({ error: "Conflict: Registry already exists." });
+    }
+
     const newRegistry = await registryService.createRegistry({
       eventId,
       userId,

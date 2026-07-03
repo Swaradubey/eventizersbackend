@@ -1,4 +1,5 @@
 const db = require("../config/db");
+const prisma = require("../config/prisma");
 
 /**
  * Get dashboard statistics for a specific user
@@ -39,10 +40,13 @@ const getStatsByUserId = async (userId) => {
   );
   const avgRsvpRate = rsvpResult.rows[0].rate;
 
-  // Messages sent — no messages table exists yet, so query returns 0
-  // When a messages table is added, replace with:
-  // SELECT COUNT(*)::int FROM messages m JOIN events e ON m.event_id = e.id WHERE e.created_by = $1
-  const messagesSent = 0;
+  // Messages sent
+  const messagesSent = await prisma.message.count({
+    where: {
+      senderId: userId,
+      status: "SENT",
+    },
+  });
 
   return {
     totalEvents,

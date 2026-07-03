@@ -167,3 +167,54 @@ CREATE TABLE IF NOT EXISTS check_ins (
 
 
 
+
+-- Create MessageStatus enum if not exists
+DO $$ BEGIN
+    CREATE TYPE "MessageStatus" AS ENUM ('DRAFT', 'SENT', 'FAILED');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+-- Create MessageRecipientType enum if not exists
+DO $$ BEGIN
+    CREATE TYPE "MessageRecipientType" AS ENUM ('ALL_GUESTS', 'ATTENDING', 'DECLINED', 'PENDING', 'SELECTED');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+-- Create messages table
+CREATE TABLE IF NOT EXISTS messages (
+  id VARCHAR(255) PRIMARY KEY,
+  subject VARCHAR(255) NOT NULL,
+  body TEXT NOT NULL,
+  status "MessageStatus" DEFAULT 'SENT',
+  recipient_type "MessageRecipientType" NOT NULL,
+  sender_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  sent_at TIMESTAMP,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create message_recipients table
+CREATE TABLE IF NOT EXISTS message_recipients (
+  id VARCHAR(255) PRIMARY KEY,
+  message_id VARCHAR(255) NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+  guest_id UUID NOT NULL REFERENCES guests(id) ON DELETE CASCADE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT uq_message_guest UNIQUE (message_id, guest_id)
+);
+
+-- Create indexes for messages
+CREATE INDEX IF NOT EXISTS idx_messages_sender_id ON messages(sender_id);
+CREATE INDEX IF NOT EXISTS idx_messages_event_id ON messages(event_id);
+CREATE INDEX IF NOT EXISTS idx_messages_status ON messages(status);
+CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at);
+
+-- Create indexes for message_recipients
+CREATE INDEX IF NOT EXISTS idx_message_recipients_message_id ON message_recipients(message_id);
+CREATE INDEX IF NOT EXISTS idx_message_recipients_guest_id ON message_recipients(guest_id);
+
+
+
+

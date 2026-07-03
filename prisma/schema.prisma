@@ -21,6 +21,7 @@ model User {
   events       Event[]
   ticketOrders TicketOrder[]
   registries   Registry[]
+  messages     Message[]
 
   @@map("users")
 }
@@ -49,6 +50,7 @@ model Event {
   ticketOrders TicketOrder[]
   checkIns     CheckIn[]
   registries   Registry[]
+  messages     Message[]
 
   @@map("events")
 }
@@ -90,6 +92,7 @@ model Guest {
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
   checkIns  CheckIn[]
+  messageRecipients MessageRecipient[]
 
   @@map("guests")
 }
@@ -262,4 +265,56 @@ model RegistryContribution {
 enum Role {
   USER
   ADMIN
+}
+
+enum MessageStatus {
+  DRAFT
+  SENT
+  FAILED
+}
+
+enum MessageRecipientType {
+  ALL_GUESTS
+  ATTENDING
+  DECLINED
+  PENDING
+  SELECTED
+}
+
+model Message {
+  id              String                 @id @default(cuid())
+  subject         String
+  body            String
+  status          MessageStatus          @default(SENT)
+  recipientType   MessageRecipientType   @map("recipient_type")
+  senderId        Int                    @map("sender_id")
+  eventId         String                 @map("event_id") @db.Uuid
+  sentAt          DateTime?              @map("sent_at")
+  createdAt       DateTime               @default(now()) @map("created_at")
+  updatedAt       DateTime               @updatedAt @map("updated_at")
+
+  sender          User                   @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  event           Event                  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  recipients      MessageRecipient[]
+
+  @@index([senderId])
+  @@index([eventId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("messages")
+}
+
+model MessageRecipient {
+  id          String    @id @default(cuid())
+  messageId   String    @map("message_id")
+  guestId     String    @map("guest_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  message     Message   @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  guest       Guest     @relation(fields: [guestId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, guestId])
+  @@index([messageId])
+  @@index([guestId])
+  @@map("message_recipients")
 }

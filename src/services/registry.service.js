@@ -32,6 +32,24 @@ const findRegistriesByEventId = async (eventId, userId) => {
 };
 
 /**
+ * Find registry by event ID and title (case-insensitive)
+ * @param {string} eventId
+ * @param {string} title
+ * @returns {Promise<Object|null>}
+ */
+const findRegistryByEventAndTitle = async (eventId, title) => {
+  return await prisma.registry.findFirst({
+    where: {
+      eventId,
+      title: {
+        equals: title,
+        mode: "insensitive",
+      },
+    },
+  });
+};
+
+/**
  * Create a new registry
  * @param {Object} data
  * @returns {Promise<Object>}
@@ -120,6 +138,7 @@ const getRegistrySummary = async (eventId) => {
 module.exports = {
   findRegistryById,
   findRegistriesByEventId,
+  findRegistryByEventAndTitle,
   createRegistry,
   updateRegistry,
   deleteRegistry,

@@ -88,6 +88,10 @@ app.use("/api/check-ins", checkInRoutes);
 const registryRoutes = require("./routes/registry.routes");
 app.use("/api/registries", registryRoutes);
 
+// Messages Routes
+const messageRoutes = require("./routes/message.routes");
+app.use("/api/messages", messageRoutes);
+
 
 
 
