@@ -40,8 +40,23 @@ const createUser = async ({ name, email, password }) => {
   });
 };
 
+/**
+ * Update user's password
+ * @param {string} email
+ * @param {string} password
+ * @returns {Promise<Object>}
+ */
+const updateUserPassword = async (email, password) => {
+  return await prisma.user.update({
+    where: { email },
+    data: { password },
+  });
+};
+
 module.exports = {
   findUserByEmail,
   findUserById,
   createUser,
+  updateUserPassword,
 };
+

@@ -7,7 +7,13 @@ const pool = new Pool({
     : false,
 });
 
+// Log any pool errors to prevent application crashes
+pool.on("error", (err) => {
+  console.error("[database] Unexpected error on idle client:", err.message);
+});
+
 module.exports = {
   query: (text, params) => pool.query(text, params),
   pool,
 };
+

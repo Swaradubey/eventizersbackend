@@ -28,6 +28,9 @@ const authMiddleware = async (req, res, next) => {
 
     // Remove password from user object before attaching it
     const { password, ...userWithoutPassword } = user;
+    if (decoded.isGoogleLogin) {
+      userWithoutPassword.role = "USER";
+    }
     req.user = userWithoutPassword;
 
     next();
