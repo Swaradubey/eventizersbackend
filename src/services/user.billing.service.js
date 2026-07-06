@@ -259,11 +259,12 @@ const getInvoices = async (userId) => {
     const formattedDate = dateObj.toISOString().split("T")[0];
     return {
       id: row.id,
+      invoiceNumber: row.invoice_number,
       amount: parseFloat(row.amount),
       currency: row.currency,
       status: row.status,
       date: formattedDate,
-      downloadUrl: row.pdf_url,
+      downloadUrl: `/api/user/billing/invoices/${row.invoice_number}/download`,
     };
   });
 };
@@ -275,7 +276,7 @@ const getInvoices = async (userId) => {
  */
 const getInvoiceByIdAndUser = async (userId, invoiceId) => {
   const result = await db.query(
-    `SELECT * FROM invoices WHERE user_id = $1 AND id = $2 LIMIT 1`,
+    `SELECT * FROM invoices WHERE user_id = $1 AND (id = $2 OR invoice_number = $2) LIMIT 1`,
     [userId, invoiceId]
   );
   return result.rows[0] || null;
