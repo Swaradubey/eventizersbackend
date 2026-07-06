@@ -92,6 +92,10 @@ app.use("/api/registries", registryRoutes);
 const messageRoutes = require("./routes/message.routes");
 app.use("/api/messages", messageRoutes);
 
+// Security Routes
+const securityRoutes = require("./routes/security.routes");
+app.use("/api/security", securityRoutes);
+
 
 
 

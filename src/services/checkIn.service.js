@@ -1,5 +1,6 @@
 const prisma = require("../config/prisma");
 const { Prisma } = require("@prisma/client");
+const { createAuditLog, createSecurityAlert } = require("../utils/auditLogger");
 
 /**
  * Helper to verify that a user owns the event
@@ -361,6 +362,18 @@ const checkInGuestScan = async (eventId, qrCode, latitude, longitude, userId) =>
 
   // If still not resolved
   if (!guest) {
+    await createSecurityAlert({
+      type: "VERIFICATION_FAILED",
+      description: `Failed verification: Invalid QR code or ticket '${qrCode?.substring(0, 50)}' scanned.`,
+      severity: "MEDIUM",
+      eventId
+    });
+    await createAuditLog({
+      userId,
+      action: "VERIFICATION_FAILED",
+      eventId
+    });
+
     const error = new Error("Invalid ticket or QR code.");
     error.status = 404;
     throw error;
@@ -378,6 +391,18 @@ const checkInGuestScan = async (eventId, qrCode, latitude, longitude, userId) =>
   });
 
   if (existingCheckIn) {
+    await createSecurityAlert({
+      type: "DUPLICATE_TICKET",
+      description: `Duplicate Scan Detected: Ticket for ${guest.name} (${guest.email}) was scanned more than once.`,
+      severity: "HIGH",
+      eventId
+    });
+    await createAuditLog({
+      userId,
+      action: "DUPLICATE_TICKET_DETECTED",
+      eventId
+    });
+
     const error = new Error("Guest is already checked in.");
     error.status = 409;
     throw error;
@@ -394,6 +419,13 @@ const checkInGuestScan = async (eventId, qrCode, latitude, longitude, userId) =>
       longitude: longitude ? new Prisma.Decimal(longitude) : null,
       checkedInById: String(userId),
     },
+  });
+
+  // Log successful scan in AuditLog
+  await createAuditLog({
+    userId,
+    action: "TICKET_SCANNED",
+    eventId
   });
 
   // Get ticket tier

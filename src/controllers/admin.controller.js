@@ -1192,30 +1192,42 @@ const getRegistries = async (req, res) => {
         orderBy: {
           createdAt: "desc",
         },
+      }).catch(err => {
+        console.error("Prisma error in registry.findMany:", err);
+        throw err;
       }),
-      prisma.registry.count(),
+      prisma.registry.count().catch(err => {
+        console.error("Prisma error in registry.count:", err);
+        throw err;
+      }),
       prisma.registry.count({
         where: {
           isActive: true,
         },
+      }).catch(err => {
+        console.error("Prisma error in registry.count active:", err);
+        throw err;
       }),
       prisma.registryContribution.aggregate({
         _sum: {
           amount: true,
         },
+      }).catch(err => {
+        console.error("Prisma error in registryContribution.aggregate:", err);
+        throw err;
       }),
     ]);
 
-    const totalContributions = Number(contributionSummary._sum.amount || 0);
+    const totalContributions = Number(contributionSummary?._sum?.amount || 0);
 
     const registries = rawRegistries.map((r) => ({
       id: r.id,
       eventId: r.eventId,
-      type: r.type,
+      type: r.type === "CASH_FUND" ? "CASH" : (r.type === "GIFT_REGISTRY" ? "WISHLIST" : (r.type === "DONATION" ? "WISHLIST" : (r.type === "EXTERNAL_LINK" ? "WISHLIST" : r.type))),
       title: r.title,
       description: r.description,
       goalAmount: r.goalAmount !== null ? Number(r.goalAmount) : null,
-      currentAmount: Number(r.currentAmount),
+      currentAmount: Number(r.currentAmount || 0),
       currency: r.currency,
       externalUrl: r.externalUrl,
       contributorCount: r.contributorCount,
@@ -1257,7 +1269,15 @@ const updateRegistry = async (req, res) => {
     }
 
     const updateData = {};
-    if (type !== undefined) updateData.type = type;
+    if (type !== undefined) {
+      if (type === "CASH") {
+        updateData.type = "CASH_FUND";
+      } else if (type === "WISHLIST") {
+        updateData.type = "GIFT_REGISTRY";
+      } else {
+        updateData.type = type;
+      }
+    }
     if (title !== undefined) updateData.title = title;
     if (description !== undefined) updateData.description = description || null;
     if (goalAmount !== undefined) updateData.goalAmount = goalAmount !== null ? Number(goalAmount) : null;

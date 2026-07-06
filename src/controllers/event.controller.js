@@ -59,6 +59,15 @@ const createEvent = async (req, res) => {
     }
 
     const newEvent = await eventService.createEvent(req.body, userId);
+
+    // Log event creation
+    const { createAuditLog } = require("../utils/auditLogger");
+    await createAuditLog({
+      userId,
+      action: "EVENT_CREATED",
+      eventId: newEvent.id
+    });
+
     return res.status(201).json({
       success: true,
       message: "Event created successfully",
@@ -91,6 +100,14 @@ const updateEvent = async (req, res) => {
     if (!updatedEvent) {
       return res.status(404).json({ error: "Event not found or unauthorized access." });
     }
+
+    // Log event update
+    const { createAuditLog } = require("../utils/auditLogger");
+    await createAuditLog({
+      userId,
+      action: "EVENT_UPDATED",
+      eventId: updatedEvent.id
+    });
 
     return res.status(200).json({
       success: true,
