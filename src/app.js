@@ -8,6 +8,9 @@ const dashboardRoutes = require("./routes/dashboard.routes");
 const invitationRoutes = require("./routes/invitation.routes");
 const guestRoutes = require("./routes/guest.routes");
 const ticketingRoutes = require("./routes/ticketing.routes");
+const userBillingRoutes = require("./routes/user.billing.routes");
+const stripeWebhookRoutes = require("./routes/stripe.webhook.routes");
+const subscriptionRoutes = require("./routes/subscription.routes");
 
 const app = express();
 
@@ -42,6 +45,9 @@ app.use(
     credentials: true,
   })
 );
+
+// Stripe Webhook Route — must be BEFORE express.json() for raw body signature verification
+app.use("/api/webhooks/stripe", express.raw({ type: "application/json" }), stripeWebhookRoutes);
 
 app.use(express.json());
 app.use(cookieParser());
@@ -79,6 +85,10 @@ app.use("/api/guests", guestRoutes);
 
 // Ticketing Routes
 app.use("/api/ticketing", ticketingRoutes);
+
+// User Billing Routes
+app.use("/api/user/billing", userBillingRoutes);
+app.use("/api/plans", subscriptionRoutes);
 
 // Check-In Routes
 const checkInRoutes = require("./routes/checkIn.routes");

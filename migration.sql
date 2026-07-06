@@ -215,6 +215,42 @@ CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at);
 CREATE INDEX IF NOT EXISTS idx_message_recipients_message_id ON message_recipients(message_id);
 CREATE INDEX IF NOT EXISTS idx_message_recipients_guest_id ON message_recipients(guest_id);
 
+-- Add subscription billing columns to users table
+ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_status VARCHAR(50) DEFAULT 'ACTIVE';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS billing_status VARCHAR(50) DEFAULT 'PAID';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS plan_start_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS plan_expiry_date TIMESTAMP DEFAULT (CURRENT_TIMESTAMP + INTERVAL '30 days');
 
+-- Create payment_methods table if not exists
+CREATE TABLE IF NOT EXISTS payment_methods (
+  id VARCHAR(255) PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  stripe_payment_method_id VARCHAR(255) UNIQUE NOT NULL,
+  brand VARCHAR(50) NOT NULL,
+  last4 VARCHAR(4) NOT NULL,
+  expiry_month VARCHAR(2) NOT NULL,
+  expiry_year VARCHAR(4) NOT NULL,
+  is_default BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
+-- Create invoices table if not exists
+CREATE TABLE IF NOT EXISTS invoices (
+  id VARCHAR(255) PRIMARY KEY,
+  invoice_number VARCHAR(100) UNIQUE NOT NULL,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  stripe_invoice_id VARCHAR(255) UNIQUE NOT NULL,
+  amount NUMERIC(10, 2) NOT NULL,
+  currency VARCHAR(10) NOT NULL,
+  status VARCHAR(50) NOT NULL,
+  invoice_date DATE NOT NULL,
+  pdf_url VARCHAR(500) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Add stripe_customer_id to users table for Stripe integration
+ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_customer_id VARCHAR(255);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_subscription_id VARCHAR(255);
 

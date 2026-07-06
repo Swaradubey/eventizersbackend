@@ -56,4 +56,14 @@ router.get("/messages", messageController.adminGetMessages);
 router.get("/messages/stats", messageController.adminGetStats);
 router.get("/messages/:id", messageController.adminGetMessageById);
 
+// Admin Billing management
+const adminBillingController = require("../controllers/admin.billing.controller");
+router.get("/billing/stats", adminBillingController.getBillingStats);
+router.get("/billing/users", adminBillingController.getBillingUsers);
+router.patch("/billing/users/:userId/plan", adminBillingController.updateUserPlan);
+router.post("/billing/users/:userId/reset-usage", adminBillingController.resetUsage);
+router.patch("/billing/users/:userId/subscription-status", adminBillingController.updateSubscriptionStatus);
+router.patch("/billing/users/:userId/billing-status", adminBillingController.updateBillingStatus);
+router.delete("/users/:id", adminBillingController.deleteUser);
+
 module.exports = router;
