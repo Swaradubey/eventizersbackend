@@ -83,13 +83,94 @@ const getBillingStats = async (req, res) => {
 };
 
 /**
- * Get all users and their billing/usage details
+ * Get all users and their billing/usage details (supports server-side pagination, filters, and sorting)
  * GET /api/admin/billing/users
  */
 const getBillingUsers = async (req, res) => {
   try {
-    // Fetch users with their usage data (including role)
-    const queryResult = await db.query(`
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = req.query.limit ? parseInt(req.query.limit, 10) : null;
+    const search = req.query.search || "";
+    const role = req.query.role || "";
+    const currentPlan = req.query.currentPlan || req.query.plan || "";
+    const billingStatus = req.query.billingStatus || req.query.billing || "";
+    const subscriptionStatus = req.query.subscriptionStatus || req.query.subscription || req.query.subscription_status || "";
+
+    const whereClauses = [];
+    const params = [];
+
+    // Search query: filters by name or email (case-insensitive)
+    if (search) {
+      params.push(`%${search}%`);
+      whereClauses.push(`(u.name ILIKE $${params.length} OR u.email ILIKE $${params.length})`);
+    }
+
+    // Role filter
+    if (role && role.toUpperCase() !== "ALL") {
+      params.push(role.toUpperCase());
+      whereClauses.push(`u.role::text = $${params.length}`);
+    }
+
+    // Plan filter
+    if (currentPlan && currentPlan.toUpperCase() !== "ALL") {
+      params.push(currentPlan.toUpperCase());
+      whereClauses.push(`u.plan ILIKE $${params.length}`);
+    }
+
+    // Billing status filter
+    if (billingStatus && billingStatus.toUpperCase() !== "ALL") {
+      params.push(billingStatus.toUpperCase());
+      whereClauses.push(`u.billing_status ILIKE $${params.length}`);
+    }
+
+    // Subscription status filter
+    if (subscriptionStatus && subscriptionStatus.toUpperCase() !== "ALL") {
+      params.push(subscriptionStatus.toUpperCase());
+      whereClauses.push(`u.subscription_status ILIKE $${params.length}`);
+    }
+
+    const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(" AND ")}` : "";
+
+    // Count query for total matching records
+    const countQuery = `
+      SELECT COUNT(*)::int AS count 
+      FROM users u
+      LEFT JOIN "SubscriptionUsage" su ON u.id = su.user_id
+      ${whereSql}
+    `;
+    const countResult = await db.query(countQuery, params);
+    const total = countResult.rows[0].count;
+
+    // Sorting whitelisting to block SQL injection
+    const sortFieldMap = {
+      name: "u.name",
+      email: "u.email",
+      role: "u.role",
+      plan: "u.plan",
+      subscriptionStatus: "u.subscription_status",
+      subscription_status: "u.subscription_status",
+      billingStatus: "u.billing_status",
+      billing_status: "u.billing_status",
+      planStartDate: "u.plan_start_date",
+      plan_start_date: "u.plan_start_date",
+      planExpiryDate: "u.plan_expiry_date",
+      plan_expiry_date: "u.plan_expiry_date",
+      createdAt: "u.created_at",
+      created_at: "u.created_at"
+    };
+
+    let sortCol = "u.created_at";
+    if (req.query.sortBy && sortFieldMap[req.query.sortBy]) {
+      sortCol = sortFieldMap[req.query.sortBy];
+    }
+
+    let order = "DESC";
+    if (req.query.sortOrder && req.query.sortOrder.toUpperCase() === "ASC") {
+      order = "ASC";
+    }
+
+    // Pagination query builder
+    let selectQuery = `
       SELECT 
         u.id, 
         u.name, 
@@ -110,8 +191,21 @@ const getBillingUsers = async (req, res) => {
         su."updatedAt"
       FROM users u
       LEFT JOIN "SubscriptionUsage" su ON u.id = su.user_id
-      ORDER BY u.created_at DESC
-    `);
+      ${whereSql}
+      ORDER BY ${sortCol} ${order}
+    `;
+
+    const paginatedParams = [...params];
+    if (limit !== null) {
+      const offset = (page - 1) * limit;
+      paginatedParams.push(limit);
+      const limitPlaceholder = `$${paginatedParams.length}`;
+      paginatedParams.push(offset);
+      const offsetPlaceholder = `$${paginatedParams.length}`;
+      selectQuery += ` LIMIT ${limitPlaceholder} OFFSET ${offsetPlaceholder}`;
+    }
+
+    const queryResult = await db.query(selectQuery, paginatedParams);
 
     const users = [];
 
@@ -208,15 +302,35 @@ const getBillingUsers = async (req, res) => {
       });
     }
 
+    const paginationMetadata = {
+      page: limit !== null ? page : 1,
+      limit: limit !== null ? limit : total,
+      total,
+      totalPages: limit !== null ? Math.ceil(total / limit) : 1,
+      hasNextPage: limit !== null ? page * limit < total : false,
+      hasPreviousPage: limit !== null ? page > 1 : false
+    };
+
     return res.status(200).json({
       success: true,
       users,
+      data: users,
+      pagination: paginationMetadata
     });
   } catch (error) {
     console.error("Admin Get Billing Users Error:", error);
     return res.status(200).json({
       success: true,
       users: [],
+      data: [],
+      pagination: {
+        page: 1,
+        limit: 10,
+        total: 0,
+        totalPages: 0,
+        hasNextPage: false,
+        hasPreviousPage: false
+      },
       error: "Server error retrieving admin billing users list."
     });
   }

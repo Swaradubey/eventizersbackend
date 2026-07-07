@@ -1,5 +1,6 @@
 const stripe = require("../config/stripe");
 const db = require("../config/db");
+const prisma = require("../config/prisma");
 const userBillingService = require("../services/user.billing.service");
 const billingService = require("../services/billing.service");
 
@@ -68,6 +69,10 @@ const handleWebhook = async (req, res) => {
       case "customer.subscription.created":
       case "customer.subscription.updated":
         await handleSubscriptionCreatedOrUpdated(event.data.object);
+        break;
+
+      case "checkout.session.completed":
+        await handleCheckoutSessionCompleted(event.data.object);
         break;
 
       default:
@@ -240,6 +245,43 @@ const handleSubscriptionCreatedOrUpdated = async (subscription) => {
   await billingService.updatePlanByUserId(userId, localPlan);
 
   console.log(`[webhook] Subscription ${subscription.id} status updated to ${status} for user ${userId}. Plan set to ${localPlan}.`);
+};
+
+/**
+ * Handle checkout.session.completed event for ticket purchases.
+ */
+const handleCheckoutSessionCompleted = async (session) => {
+  const sessionId = session.id;
+  const paymentIntentId = session.payment_intent;
+
+  console.log(`[webhook] Processing checkout.session.completed for session ${sessionId}`);
+
+  // Find the pending ticket order
+  const order = await prisma.ticketOrder.findUnique({
+    where: { stripeSessionId: sessionId },
+  });
+
+  if (!order) {
+    console.log(`[webhook] No matching TicketOrder found for session ${sessionId}. This could be a subscription checkout.`);
+    return;
+  }
+
+  if (order.status === "PAID") {
+    console.log(`[webhook] TicketOrder ${order.id} is already PAID. Skipping duplicate processing.`);
+    return;
+  }
+
+  // Update order status to PAID
+  await prisma.ticketOrder.update({
+    where: { id: order.id },
+    data: {
+      status: "PAID",
+      paymentIntentId: paymentIntentId,
+      paidAt: new Date(),
+    },
+  });
+
+  console.log(`[webhook] TicketOrder ${order.id} successfully updated to PAID.`);
 };
 
 module.exports = {

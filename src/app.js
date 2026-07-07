@@ -8,6 +8,7 @@ const dashboardRoutes = require("./routes/dashboard.routes");
 const invitationRoutes = require("./routes/invitation.routes");
 const guestRoutes = require("./routes/guest.routes");
 const ticketingRoutes = require("./routes/ticketing.routes");
+const ticketPurchaseRoutes = require("./routes/ticket.purchase.routes");
 const userBillingRoutes = require("./routes/user.billing.routes");
 const stripeWebhookRoutes = require("./routes/stripe.webhook.routes");
 const subscriptionRoutes = require("./routes/subscription.routes");
@@ -85,6 +86,7 @@ app.use("/api/guests", guestRoutes);
 
 // Ticketing Routes
 app.use("/api/ticketing", ticketingRoutes);
+app.use("/api/tickets", ticketPurchaseRoutes);
 
 // User Billing Routes
 app.use("/api/user/billing", userBillingRoutes);
@@ -105,6 +107,10 @@ app.use("/api/messages", messageRoutes);
 // Security Routes
 const securityRoutes = require("./routes/security.routes");
 app.use("/api/security", securityRoutes);
+
+// Admin Settings Routes
+const settingsRoutes = require("./routes/settings.routes");
+app.use("/api/admin/settings", settingsRoutes);
 
 
 

@@ -22,6 +22,11 @@ model User {
   ticketOrders TicketOrder[]
   registries   Registry[]
   messages     Message[]
+  adminProfile              AdminProfile?
+  adminNotificationSettings AdminNotificationSettings?
+  adminSecuritySettings     AdminSecuritySettings?
+  adminPreferences          AdminPreferences?
+  adminTeamMembers          AdminTeamMember[]
 
   @@map("users")
 }
@@ -153,6 +158,8 @@ model TicketOrder {
   totalAmount      Decimal           @map("total_amount") @db.Decimal(10, 2)
   currency         String            @default("INR")
   paymentReference String?           @map("payment_reference")
+  stripeSessionId  String?           @unique @map("stripe_session_id")
+  paymentIntentId  String?           @map("payment_intent_id")
   paidAt           DateTime?         @map("paid_at")
   createdAt        DateTime          @default(now()) @map("created_at")
   updatedAt        DateTime          @updatedAt @map("updated_at")
@@ -344,3 +351,75 @@ model AuditLog {
 
   @@map("AuditLog")
 }
+
+model AdminProfile {
+  id           String   @id @default(uuid())
+  userId       Int      @unique @map("user_id")
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullName     String   @map("full_name")
+  email        String
+  organization String?
+  profileImage String?  @map("profile_image")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("admin_profiles")
+}
+
+model AdminNotificationSettings {
+  id             String   @id @default(uuid())
+  userId         Int      @unique @map("user_id")
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rsvpResponses  Boolean  @default(true) @map("rsvp_responses")
+  eventReminders Boolean  @default(true) @map("event_reminders")
+  securityAlerts Boolean  @default(true) @map("security_alerts")
+  weeklySummary  Boolean  @default(false) @map("weekly_summary")
+  productUpdates Boolean  @default(false) @map("product_updates")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("admin_notification_settings")
+}
+
+model AdminSecuritySettings {
+  id             String   @id @default(uuid())
+  userId         Int      @unique @map("user_id")
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  twoFactorAuth  Boolean  @default(false) @map("two_factor_auth")
+  publicProfile  Boolean  @default(true) @map("public_profile")
+  dataSharing    Boolean  @default(true) @map("data_sharing")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("admin_security_settings")
+}
+
+model AdminTeamMember {
+  id          String   @id @default(uuid())
+  name        String
+  email       String   @unique
+  role        String   @default("Member")
+  status      String   @default("active")
+  invitedById Int      @map("invited_by_id")
+  invitedBy   User     @relation(fields: [invitedById], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("admin_team_members")
+}
+
+model AdminPreferences {
+  id         String   @id @default(uuid())
+  userId     Int      @unique @map("user_id")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  theme      String   @default("light")
+  language   String   @default("en")
+  timezone   String   @default("UTC")
+  dateFormat String   @default("YYYY-MM-DD") @map("date_format")
+  timeFormat String   @default("24h") @map("time_format")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("admin_preferences")
+}
+

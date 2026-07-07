@@ -254,3 +254,11 @@ CREATE TABLE IF NOT EXISTS invoices (
 ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_customer_id VARCHAR(255);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_subscription_id VARCHAR(255);
 
+-- Create indexes for users table for performance optimization
+CREATE INDEX IF NOT EXISTS idx_users_name ON users(name);
+CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+CREATE INDEX IF NOT EXISTS idx_users_plan ON users(plan);
+CREATE INDEX IF NOT EXISTS idx_users_billing_status ON users(billing_status);
+CREATE INDEX IF NOT EXISTS idx_users_subscription_status ON users(subscription_status);
+
+
