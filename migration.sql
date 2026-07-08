@@ -261,4 +261,11 @@ CREATE INDEX IF NOT EXISTS idx_users_plan ON users(plan);
 CREATE INDEX IF NOT EXISTS idx_users_billing_status ON users(billing_status);
 CREATE INDEX IF NOT EXISTS idx_users_subscription_status ON users(subscription_status);
 
+-- Extend AuditLog table with optional fields if they don't exist
+ALTER TABLE "AuditLog" ADD COLUMN IF NOT EXISTS "userEmail" TEXT;
+ALTER TABLE "AuditLog" ADD COLUMN IF NOT EXISTS "entityType" TEXT;
+ALTER TABLE "AuditLog" ADD COLUMN IF NOT EXISTS "entityId" TEXT;
+ALTER TABLE "AuditLog" ADD COLUMN IF NOT EXISTS "metadata" JSONB;
+
+
 

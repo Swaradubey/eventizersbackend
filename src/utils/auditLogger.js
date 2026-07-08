@@ -8,7 +8,7 @@ const prisma = require("../config/prisma");
  * @param {string} params.action - The action being performed (e.g. EVENT_CREATED, SECURITY_PAGE_VIEWED).
  * @param {string} params.eventId - The event ID associated with the audit log.
  */
-async function createAuditLog({ userId, actorEmail, action, eventId }) {
+async function createAuditLog({ userId, actorEmail, action, eventId, userEmail, entityType, entityId, metadata }) {
   try {
     if (!eventId) {
       console.warn("Audit Log ignored: eventId is required");
@@ -32,6 +32,10 @@ async function createAuditLog({ userId, actorEmail, action, eventId }) {
       data: {
         action,
         actorEmail: email,
+        userEmail: userEmail || email,
+        entityType,
+        entityId,
+        metadata: metadata ? metadata : undefined,
         eventId,
       },
     });
