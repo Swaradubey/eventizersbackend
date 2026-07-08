@@ -427,3 +427,13 @@ model AdminPreferences {
   @@map("admin_preferences")
 }
 
+model Template {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now())
+  category  String
+  content   String
+  isPremium Boolean  @default(false)
+
+  @@map("templates")
+}

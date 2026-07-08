@@ -386,6 +386,83 @@ const resetPasswordDirect = async (req, res) => {
   }
 };
 
+const otpStore = new Map(); // Store OTPs in memory for now.
+
+const sendOtp = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: "Email is required." });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = await authService.findUserByEmail(normalizedEmail);
+    if (!user) {
+      return res.status(404).json({ error: "No user found with this email." });
+    }
+
+    // Generate a 6-digit OTP or use 123456 as a default testing OTP
+    const generatedOtp = "123456"; 
+    
+    // Store with 10 mins expiry
+    otpStore.set(normalizedEmail, {
+      otp: generatedOtp,
+      expiresAt: Date.now() + 10 * 60 * 1000
+    });
+
+    console.log(`[DEV ONLY] OTP for ${normalizedEmail} is ${generatedOtp}`);
+
+    return res.status(200).json({ success: true, message: "OTP sent successfully." });
+  } catch (error) {
+    console.error("Send OTP Error:", error.message);
+    return res.status(500).json({ error: "Server error sending OTP." });
+  }
+};
+
+const verifyOtpReset = async (req, res) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+    
+    if (!email || !otp || !newPassword) {
+      return res.status(400).json({ error: "Email, OTP and new password are required." });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const storedOtpData = otpStore.get(normalizedEmail);
+    
+    if (!storedOtpData) {
+      return res.status(400).json({ error: "No OTP request found for this email." });
+    }
+
+    if (Date.now() > storedOtpData.expiresAt) {
+      otpStore.delete(normalizedEmail);
+      return res.status(400).json({ error: "OTP has expired. Please request a new one." });
+    }
+
+    if (storedOtpData.otp !== otp) {
+      return res.status(400).json({ error: "Invalid OTP." });
+    }
+
+    const user = await authService.findUserByEmail(normalizedEmail);
+    if (!user) {
+      return res.status(404).json({ error: "User not found." });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+    
+    await authService.updateUserPassword(normalizedEmail, hashedPassword);
+    
+    // Clear OTP after success
+    otpStore.delete(normalizedEmail);
+
+    return res.status(200).json({ success: true, message: "Password updated successfully." });
+  } catch (error) {
+    console.error("Verify OTP Error:", error.message);
+    return res.status(500).json({ error: "Server error during OTP verification." });
+  }
+};
+
 module.exports = {
   register,
   login,
@@ -394,5 +471,6 @@ module.exports = {
   googleLogin,
   googleCallback,
   resetPasswordDirect,
+  sendOtp,
+  verifyOtpReset,
 };
-

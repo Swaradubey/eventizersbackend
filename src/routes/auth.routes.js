@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { register, login, logout, me, googleLogin, googleCallback, resetPasswordDirect } = require("../controllers/auth.controller");
+const { register, login, logout, me, googleLogin, googleCallback, resetPasswordDirect, sendOtp, verifyOtpReset } = require("../controllers/auth.controller");
 const authMiddleware = require("../middleware/auth.middleware");
 
 // Public routes
@@ -22,5 +22,8 @@ router.get("/google/callback", googleCallback);
 // Protected routes
 router.get("/me", authMiddleware, me);
 router.get("/session", authMiddleware, me); // Alias for session
+
+router.post("/send-otp", sendOtp);
+router.post("/verify-otp-reset", verifyOtpReset);
 
 module.exports = router;

@@ -7,6 +7,9 @@ const authMiddleware = require("../middleware/auth.middleware");
 router.use(authMiddleware);
 
 // Event routes
+const aiController = require("../controllers/ai.controller");
+router.post("/ai-generate", aiController.generateEvent);
+
 router.get("/", eventController.getEvents);
 router.get("/:id", eventController.getEventById);
 router.post("/", eventController.createEvent);
