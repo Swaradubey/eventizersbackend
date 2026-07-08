@@ -35,8 +35,12 @@ const fs = require('fs');
 
 // Ensure uploads directory exists
 const uploadDir = path.join(__dirname, '../../uploads/templates');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
+try {
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  }
+} catch (err) {
+  console.warn("Failed to create templates uploads directory (read-only filesystem):", err.message);
 }
 
 // Multer config
