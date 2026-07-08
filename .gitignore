@@ -8,25 +8,44 @@ node_modules/
 out/
 **/out/
 
+# Build and dist
+dist/
+**/dist/
+build/
+**/build/
+coverage/
+**/coverage/
+
+# Uploads
+uploads/
+**/uploads/
+
 # Environment files
 .env
-.env.*
-!.env.example
+.env.local
+.env.development.local
+.env.production.local
+.env.test.local
+.env.production
+.env.development
 **/.env
-**/.env.*
-!**/.env.example
+**/.env.local
+**/.env.development.local
+**/.env.production.local
+**/.env.test.local
+**/.env.production
+**/.env.development
 
-# Build folders
-dist/
-build/
-**/dist/
-**/build/
-
-# Logs
+# Logs & OS files
 *.log
-npm-debug.log*
-
-# Editor
-.vscode/
 .DS_Store
 Thumbs.db
+
+# IDE/Editor
+.vscode/
+**/.vscode/
+*.code-workspace
+
+# Ignore frontend files
+../invitehub/
+invitehub/
