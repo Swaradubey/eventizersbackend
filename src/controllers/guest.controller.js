@@ -55,7 +55,13 @@ const createGuest = async (req, res) => {
     const userId = req.user.id;
 
     // Validate required fields
-    if (!eventId || !name || !email) {
+    if (!eventId) {
+      return res.status(400).json({
+        error: "Please select a valid event.",
+      });
+    }
+
+    if (!name || !email) {
       return res.status(400).json({
         error: "Missing required fields. Please provide eventId, name, and email.",
       });
@@ -65,6 +71,12 @@ const createGuest = async (req, res) => {
     const event = await eventService.findEventByIdAndUserId(eventId, userId);
     if (!event) {
       return res.status(404).json({ error: "Event not found or unauthorized access." });
+    }
+
+    // Check if guest email already exists for this event
+    const existingGuest = await guestService.findGuestByEmailAndEventId(email, eventId);
+    if (existingGuest) {
+      return res.status(400).json({ error: "Guest with this email already exists." });
     }
 
     const newGuest = await guestService.createGuest({ eventId, name, email, phone, status });
@@ -100,6 +112,16 @@ const updateGuest = async (req, res) => {
       const event = await eventService.findEventByIdAndUserId(eventId, userId);
       if (!event) {
         return res.status(404).json({ error: "Target event not found or unauthorized access." });
+      }
+    }
+
+    // If email or eventId is modified, check for duplicates
+    const targetEmail = email || existingGuest.email;
+    const targetEventId = eventId || existingGuest.eventId;
+    if (targetEmail !== existingGuest.email || targetEventId !== existingGuest.eventId) {
+      const duplicate = await guestService.findGuestByEmailAndEventId(targetEmail, targetEventId);
+      if (duplicate && duplicate.id !== id) {
+        return res.status(400).json({ error: "Guest with this email already exists." });
       }
     }
 

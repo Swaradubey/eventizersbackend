@@ -835,8 +835,8 @@ const getCheckInEvents = async (req, res) => {
 };
 
 const getCheckInSummary = async (req, res) => {
+  const { eventId } = req.params;
   try {
-    const { eventId } = req.params;
     const total = await prisma.guest.count({ where: { eventId } });
     const checkedIn = await prisma.checkIn.count({ where: { eventId } });
     const pending = Math.max(0, total - checkedIn);
@@ -846,15 +846,19 @@ const getCheckInSummary = async (req, res) => {
       summary: { checkedIn, pending, total },
     });
   } catch (error) {
-    console.error("Admin Get Check-In Summary Error:", error);
+    console.error(`Admin Get Check-In Summary Error [eventId=${eventId}]:`, {
+      message: error.message,
+      code: error.code,
+      stack: error.stack,
+    });
     return res.status(500).json({ error: "Server error retrieving check-in summary." });
   }
 };
 
 const getCheckInGuests = async (req, res) => {
+  const { eventId } = req.params;
+  const { search = "", status = "all", page = 1, limit = 50 } = req.query;
   try {
-    const { eventId } = req.params;
-    const { search = "", status = "all", page = 1, limit = 50 } = req.query;
     const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
     const take = parseInt(limit, 10);
 
@@ -862,19 +866,29 @@ const getCheckInGuests = async (req, res) => {
 
     if (search.trim()) {
       const searchTerm = search.trim();
-      const matchingOrders = await prisma.ticketOrder.findMany({
-        where: {
-          eventId,
-          OR: [
-            { id: searchTerm },
-            { paymentReference: searchTerm },
-            { items: { some: { id: searchTerm } } },
-          ],
-        },
-        select: { customerEmail: true },
-      });
 
-      const orderEmails = matchingOrders.map((o) => o.customerEmail);
+      // Try to find matching orders by order ID / payment ref / item ID for email cross-match
+      let orderEmails = [];
+      try {
+        const matchingOrders = await prisma.ticketOrder.findMany({
+          where: {
+            eventId,
+            OR: [
+              { id: searchTerm },
+              { paymentReference: searchTerm },
+              { items: { some: { id: searchTerm } } },
+            ],
+          },
+          select: { customerEmail: true },
+        });
+        orderEmails = matchingOrders.map((o) => o.customerEmail);
+      } catch (orderSearchErr) {
+        console.error(
+          `Admin Check-In Guests: ticket order search failed [eventId=${eventId}, search=${searchTerm}]:`,
+          { message: orderSearchErr.message, code: orderSearchErr.code }
+        );
+        // Fall through — guest name/email/phone search will still work
+      }
 
       whereClause.OR = [
         { name: { contains: searchTerm, mode: "insensitive" } },
@@ -901,20 +915,34 @@ const getCheckInGuests = async (req, res) => {
 
     const guestsWithState = await Promise.all(
       guests.map(async (guest) => {
-        const order = await prisma.ticketOrder.findFirst({
-          where: {
-            eventId: guest.eventId,
-            customerEmail: guest.email,
-            status: "PAID",
-          },
-          include: {
-            items: {
-              include: { ticketTier: true },
+        // Lookup the paid ticket order for this guest to get their ticket tier name.
+        // Wrapped in try/catch so any DB schema mismatch or missing column does NOT
+        // crash the entire guest list — it gracefully falls back to "General".
+        let ticketTierName = "General";
+        try {
+          const order = await prisma.ticketOrder.findFirst({
+            where: {
+              eventId: guest.eventId,
+              customerEmail: guest.email,
+              status: "PAID",
             },
-          },
-        });
+            include: {
+              items: {
+                include: { ticketTier: true },
+              },
+            },
+          });
+          if (order?.items?.[0]?.ticketTier?.name) {
+            ticketTierName = order.items[0].ticketTier.name;
+          }
+        } catch (orderErr) {
+          console.error(
+            `Admin Check-In Guests: ticket order lookup failed [guestId=${guest.id}, eventId=${eventId}]:`,
+            { message: orderErr.message, code: orderErr.code }
+          );
+          // Fall through — ticketTierName stays "General"
+        }
 
-        const ticketTierName = order?.items[0]?.ticketTier?.name || "General";
         const checkIn = guest.checkIns[0] || null;
 
         return {
@@ -945,7 +973,11 @@ const getCheckInGuests = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Admin Get Check-In Guests Error:", error);
+    console.error(`Admin Get Check-In Guests Error [eventId=${eventId}, status=${status}, page=${page}]:`, {
+      message: error.message,
+      code: error.code,
+      stack: error.stack,
+    });
     return res.status(500).json({ error: "Server error retrieving guests with check-in state." });
   }
 };

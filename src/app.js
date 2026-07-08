@@ -112,6 +112,10 @@ app.use("/api/security", securityRoutes);
 const settingsRoutes = require("./routes/settings.routes");
 app.use("/api/admin/settings", settingsRoutes);
 
+// User Settings Routes
+const userSettingsRoutes = require("./routes/user.settings.routes");
+app.use("/api/user/settings", userSettingsRoutes);
+
 
 
 

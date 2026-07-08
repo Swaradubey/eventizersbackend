@@ -1,5 +1,6 @@
 const db = require("../config/db");
 const prisma = require("../config/prisma");
+const { getBillingCycleStart } = require("../utils/billing.helper");
 
 /**
  * Get dashboard statistics for a specific user
@@ -14,13 +15,16 @@ const getStatsByUserId = async (userId) => {
   );
   const totalEvents = eventsResult.rows[0].count;
 
-  // Total guests across all events owned by this user
+  // Calculate billing cycle start
+  const billingCycleStart = await getBillingCycleStart(userId);
+
+  // Total guests across all events owned by this user in the current billing month
   const guestsResult = await db.query(
-    `SELECT COUNT(*)::int AS count
+    `SELECT COUNT(g.id)::int AS count
      FROM guests g
      JOIN events e ON g.event_id = e.id
-     WHERE e.created_by = $1`,
-    [userId]
+     WHERE e.created_by = $1 AND g.created_at >= $2`,
+    [userId, billingCycleStart]
   );
   const totalGuests = guestsResult.rows[0].count;
 

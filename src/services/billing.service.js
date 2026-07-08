@@ -1,5 +1,6 @@
 const db = require("../config/db");
 const crypto = require("crypto");
+const { getBillingCycleStart } = require("../utils/billing.helper");
 
 /**
  * Get dynamic usage statistics for a user
@@ -71,16 +72,8 @@ const getBillingUsageByUserId = async (userId) => {
     month = usage.month;
   }
 
-  // Calculate billing cycle start
-  const now = new Date();
-  const signupDate = new Date(month);
-  const signupDay = signupDate.getDate();
-  
-  let billingCycleStart = new Date(now.getFullYear(), now.getMonth(), signupDay);
-  if (now.getDate() < signupDay) {
-    billingCycleStart.setMonth(billingCycleStart.getMonth() - 1);
-  }
-  billingCycleStart.setHours(0, 0, 0, 0);
+  // Calculate billing cycle start dynamically using the shared helper
+  const billingCycleStart = await getBillingCycleStart(userId);
 
   // 3. Count actual events created
   const eventsCountResult = await db.query(

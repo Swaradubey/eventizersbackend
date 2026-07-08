@@ -130,10 +130,17 @@ CREATE TABLE IF NOT EXISTS ticket_orders (
   total_amount NUMERIC(10, 2) NOT NULL,
   currency VARCHAR(10) DEFAULT 'INR',
   payment_reference VARCHAR(255),
+  stripe_session_id VARCHAR(500) UNIQUE,
+  payment_intent_id VARCHAR(500),
   paid_at TIMESTAMP,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Add stripe_session_id and payment_intent_id to ticket_orders if they don't exist
+-- (for databases where the table was already created without these columns)
+ALTER TABLE ticket_orders ADD COLUMN IF NOT EXISTS stripe_session_id VARCHAR(500) UNIQUE;
+ALTER TABLE ticket_orders ADD COLUMN IF NOT EXISTS payment_intent_id VARCHAR(500);
 
 -- Create ticket_order_items table
 CREATE TABLE IF NOT EXISTS ticket_order_items (
@@ -215,7 +222,22 @@ CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at);
 CREATE INDEX IF NOT EXISTS idx_message_recipients_message_id ON message_recipients(message_id);
 CREATE INDEX IF NOT EXISTS idx_message_recipients_guest_id ON message_recipients(guest_id);
 
+-- Create SubscriptionUsage table if not exists
+CREATE TABLE IF NOT EXISTS "SubscriptionUsage" (
+  id VARCHAR(255) PRIMARY KEY,
+  user_id INTEGER UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  "eventsCreated" INTEGER DEFAULT 0,
+  "guestsThisMonth" INTEGER DEFAULT 0,
+  "messagesSent" INTEGER DEFAULT 0,
+  "eventsLimit" INTEGER DEFAULT 10,
+  "guestsLimit" INTEGER DEFAULT 25,
+  "messagesLimit" INTEGER DEFAULT 100,
+  month TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Add subscription billing columns to users table
+ALTER TABLE users ADD COLUMN IF NOT EXISTS plan VARCHAR(50) DEFAULT 'FREE';
 ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_status VARCHAR(50) DEFAULT 'ACTIVE';
 ALTER TABLE users ADD COLUMN IF NOT EXISTS billing_status VARCHAR(50) DEFAULT 'PAID';
 ALTER TABLE users ADD COLUMN IF NOT EXISTS plan_start_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
@@ -268,4 +290,110 @@ ALTER TABLE "AuditLog" ADD COLUMN IF NOT EXISTS "entityId" TEXT;
 ALTER TABLE "AuditLog" ADD COLUMN IF NOT EXISTS "metadata" JSONB;
 
 
+
+-- ============================================================
+-- Admin Settings Tables (added 2026-07-08)
+-- These tables back the Settings & Admin Settings pages.
+-- ============================================================
+
+-- Create admin_profiles table
+CREATE TABLE IF NOT EXISTS "admin_profiles" (
+    "id" TEXT NOT NULL,
+    "user_id" INTEGER NOT NULL,
+    "full_name" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "organization" TEXT,
+    "profile_image" TEXT,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "admin_profiles_pkey" PRIMARY KEY ("id")
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "admin_profiles_user_id_key" ON "admin_profiles"("user_id");
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'admin_profiles_user_id_fkey') THEN
+        ALTER TABLE "admin_profiles" ADD CONSTRAINT "admin_profiles_user_id_fkey"
+            FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+END $$;
+
+-- Create admin_notification_settings table
+CREATE TABLE IF NOT EXISTS "admin_notification_settings" (
+    "id" TEXT NOT NULL,
+    "user_id" INTEGER NOT NULL,
+    "rsvp_responses" BOOLEAN NOT NULL DEFAULT true,
+    "event_reminders" BOOLEAN NOT NULL DEFAULT true,
+    "security_alerts" BOOLEAN NOT NULL DEFAULT true,
+    "weekly_summary" BOOLEAN NOT NULL DEFAULT false,
+    "product_updates" BOOLEAN NOT NULL DEFAULT false,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "admin_notification_settings_pkey" PRIMARY KEY ("id")
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "admin_notification_settings_user_id_key" ON "admin_notification_settings"("user_id");
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'admin_notification_settings_user_id_fkey') THEN
+        ALTER TABLE "admin_notification_settings" ADD CONSTRAINT "admin_notification_settings_user_id_fkey"
+            FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+END $$;
+
+-- Create admin_security_settings table
+CREATE TABLE IF NOT EXISTS "admin_security_settings" (
+    "id" TEXT NOT NULL,
+    "user_id" INTEGER NOT NULL,
+    "two_factor_auth" BOOLEAN NOT NULL DEFAULT false,
+    "public_profile" BOOLEAN NOT NULL DEFAULT true,
+    "data_sharing" BOOLEAN NOT NULL DEFAULT true,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "admin_security_settings_pkey" PRIMARY KEY ("id")
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "admin_security_settings_user_id_key" ON "admin_security_settings"("user_id");
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'admin_security_settings_user_id_fkey') THEN
+        ALTER TABLE "admin_security_settings" ADD CONSTRAINT "admin_security_settings_user_id_fkey"
+            FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+END $$;
+
+-- Create admin_team_members table
+CREATE TABLE IF NOT EXISTS "admin_team_members" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "role" TEXT NOT NULL DEFAULT 'Member',
+    "status" TEXT NOT NULL DEFAULT 'active',
+    "invited_by_id" INTEGER NOT NULL,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "admin_team_members_pkey" PRIMARY KEY ("id")
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "admin_team_members_email_key" ON "admin_team_members"("email");
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'admin_team_members_invited_by_id_fkey') THEN
+        ALTER TABLE "admin_team_members" ADD CONSTRAINT "admin_team_members_invited_by_id_fkey"
+            FOREIGN KEY ("invited_by_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+END $$;
+
+-- Create admin_preferences table
+CREATE TABLE IF NOT EXISTS "admin_preferences" (
+    "id" TEXT NOT NULL,
+    "user_id" INTEGER NOT NULL,
+    "theme" TEXT NOT NULL DEFAULT 'light',
+    "language" TEXT NOT NULL DEFAULT 'en',
+    "timezone" TEXT NOT NULL DEFAULT 'UTC',
+    "date_format" TEXT NOT NULL DEFAULT 'YYYY-MM-DD',
+    "time_format" TEXT NOT NULL DEFAULT '24h',
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "admin_preferences_pkey" PRIMARY KEY ("id")
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "admin_preferences_user_id_key" ON "admin_preferences"("user_id");
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'admin_preferences_user_id_fkey') THEN
+        ALTER TABLE "admin_preferences" ADD CONSTRAINT "admin_preferences_user_id_fkey"
+            FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+END $$;
 

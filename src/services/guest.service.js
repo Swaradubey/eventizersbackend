@@ -139,6 +139,20 @@ const deleteGuest = async (id) => {
 };
 
 /**
+ * Find guest by email and event ID
+ * @param {string} email
+ * @param {string} eventId
+ * @returns {Promise<Object|null>}
+ */
+const findGuestByEmailAndEventId = async (email, eventId) => {
+  const result = await db.query(
+    `SELECT id FROM guests WHERE email = $1 AND event_id = $2 LIMIT 1`,
+    [email, eventId]
+  );
+  return result.rows[0] || null;
+};
+
+/**
  * Batch import guests
  * @param {Array} guestsList
  * @returns {Promise<Array>}
@@ -155,6 +169,7 @@ const importGuests = async (guestsList) => {
 module.exports = {
   findGuestsByUserId,
   findGuestById,
+  findGuestByEmailAndEventId,
   createGuest,
   updateGuest,
   deleteGuest,
