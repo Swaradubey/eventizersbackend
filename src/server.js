@@ -2,11 +2,21 @@ const path = require("path");
 const fs = require("fs");
 const dns = require("dns").promises;
 
+// Capture port from environment before dotenv potentially loads it from .env
+const envPort = process.env.PORT;
+
 // Ensure dotenv is loaded before anything else
 const envPath = path.resolve(__dirname, "../.env");
 require("dotenv").config({ path: envPath });
 
 console.log("[database] Environment loaded");
+
+// Gemini API key diagnostic (log only whether loaded, not the actual key)
+const geminiKey = process.env.GEMINI_API_KEY;
+console.log(`Gemini API key loaded: ${geminiKey && geminiKey !== 'your_gemini_api_key_here' && geminiKey !== '' ? 'yes' : 'no'}`);
+
+// Gemini model diagnostic
+console.log(`Gemini model used: ${process.env.GEMINI_MODEL || 'gemini-2.0-flash'}`);
 
 // Validate DATABASE_URL existence
 if (!process.env.DATABASE_URL) {
@@ -58,7 +68,7 @@ const app = require("./app");
 const prisma = require("./config/prisma");
 const db = require("./config/db");
 
-const PORT = process.env.PORT || 5000;
+const PORT = parseInt(envPort || process.env.PORT || 5000, 10);
 
 async function verifyDns(hostname) {
   try {

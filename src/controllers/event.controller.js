@@ -1,4 +1,5 @@
 const eventService = require("../services/event.service");
+const prisma = require("../config/prisma");
 
 /**
  * Get all events for the logged-in user
@@ -48,7 +49,7 @@ const getEventById = async (req, res) => {
  */
 const createEvent = async (req, res) => {
   try {
-    const { title, eventDate, eventTime, venue } = req.body;
+    const { title, eventDate, eventTime, venue, templateId } = req.body;
     const userId = req.user.id;
 
     // Validate required fields
@@ -59,6 +60,29 @@ const createEvent = async (req, res) => {
     }
 
     const newEvent = await eventService.createEvent(req.body, userId);
+
+    // Automatically create invitation if templateId is provided
+    if (templateId) {
+      const template = await prisma.template.findUnique({ where: { id: templateId } });
+      if (template) {
+        let design = {};
+        try {
+          design = JSON.parse(template.content);
+        } catch (e) {
+          console.error("Failed to parse template content:", e);
+        }
+        await prisma.invitation.create({
+          data: {
+            eventId: newEvent.id,
+            title: newEvent.title,
+            subtitle: newEvent.venue || "TBD",
+            message: design.description || newEvent.description || "",
+            accentColor: design.accentColor || "#5B5FEF",
+            backgroundColor: design.backgroundColor || (design.gradient ? design.gradient.split(',')[1]?.trim()?.split(' ')[0] : "#F6F9FC"),
+          }
+        });
+      }
+    }
 
     // Log event creation
     const { createAuditLog } = require("../utils/auditLogger");
