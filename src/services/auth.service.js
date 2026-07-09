@@ -27,14 +27,16 @@ const findUserById = async (id) => {
  * @param {Object} userData
  * @param {string} userData.name
  * @param {string} userData.email
+ * @param {string} userData.phoneNumber
  * @param {string} userData.password
  * @returns {Promise<Object>}
  */
-const createUser = async ({ name, email, password }) => {
+const createUser = async ({ name, email, phoneNumber, password }) => {
   return await prisma.user.create({
     data: {
       name,
       email,
+      phoneNumber,
       password,
     },
   });

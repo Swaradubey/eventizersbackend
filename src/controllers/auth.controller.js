@@ -36,13 +36,23 @@ const sendTokenResponse = (user, statusCode, res, message = "Success") => {
 };
 
 
+const validateAndFormatIndianMobile = (phone) => {
+  if (!phone) return null;
+  const cleaned = phone.trim().replace(/[\s\-()]/g, "");
+  if (/^\+91[6-9]\d{9}$/.test(cleaned)) return cleaned;
+  if (/^91[6-9]\d{9}$/.test(cleaned)) return `+${cleaned}`;
+  if (/^0[6-9]\d{9}$/.test(cleaned)) return `+91${cleaned.slice(1)}`;
+  if (/^[6-9]\d{9}$/.test(cleaned)) return `+91${cleaned}`;
+  return null;
+};
+
 const register = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, phoneNumber, password } = req.body;
 
     // 1. Missing fields check
-    if (!name || !email || !password) {
-      return res.status(400).json({ error: "Please provide name, email, and password." });
+    if (!name || !email || !phoneNumber || !password) {
+      return res.status(400).json({ error: "Please provide name, email, phone number, and password." });
     }
 
     const normalizedEmail = email.trim().toLowerCase();
@@ -51,6 +61,12 @@ const register = async (req, res) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(normalizedEmail)) {
       return res.status(400).json({ error: "Invalid email format." });
+    }
+
+    // Phone format validation
+    const formattedPhone = validateAndFormatIndianMobile(phoneNumber);
+    if (!formattedPhone) {
+      return res.status(400).json({ error: "Invalid Indian mobile number." });
     }
 
     if (password.length < 6) {
@@ -71,6 +87,7 @@ const register = async (req, res) => {
     const user = await authService.createUser({
       name,
       email: normalizedEmail,
+      phoneNumber: formattedPhone,
       password: hashedPassword,
     });
 
