@@ -130,6 +130,7 @@ const generateEventWithAI = async (req, res) => {
 
     // Guard: API key must be present — never fall back to mock data
     if (!keyIsValid) {
+      console.error("AI Generation failed: Gemini API key is missing or not configured in environment variables.");
       return res.status(500).json({ error: 'Gemini API key is not configured.' });
     }
 
@@ -144,64 +145,126 @@ const generateEventWithAI = async (req, res) => {
       ${time ? `Required Event Time: ${time}` : ''}
       ${guestListName || guestListId ? `Target Guest List: ${guestListName || guestListId}` : ''}
 
-      Generate a creative, detailed event structure including:
-      1. A catchy title.
-      2. A beautiful, inviting description.
-      3. Suggested event date (choose a realistic future date, like next month, ISO string${date ? `, or use the provided date: ${date}` : ''}).
-      4. Suggested event time (e.g. "18:00"${time ? `, or use the provided time: ${time}` : ''}).
-      5. Venue name (e.g. "Grand Plaza Hotel").
-      6. A design palette for the invitation card (accentColor and backgroundColor in Hex, e.g. #FF5733).
-
+      Generate a creative, detailed event structure including both event parameters and invitation design options.
       Return the response STRICTLY as a JSON object with NO markdown formatting, NO \`\`\`json block, just raw JSON matching this schema:
       {
-        "title": "string",
-        "description": "string",
-        "eventDate": "string",
-        "eventTime": "string",
-        "venue": "string",
-        "accentColor": "string",
-        "backgroundColor": "string"
+        "title": "string (the catchy event title)",
+        "eventType": "string (one of: Birthday, Baby Shower, Graduation, Wedding, Corporate Event, Networking, Fundraiser, Community Event, Private Dinner, or other suitable type)",
+        "eventDate": "string (YYYY-MM-DD format)",
+        "eventTime": "string (HH:MM format, 24-hour, e.g. '18:00')",
+        "venue": "string (venue name/location)",
+        "host": "string (the host name, e.g. 'The Patels' or individual/organization)",
+        "description": "string (engaging event description)",
+        "accentColor": "string (Hex color code, e.g. #FF5733)",
+        "backgroundColor": "string (Hex color code, e.g. #2D1B3D)",
+        "textColor": "string (Hex color code, readable against the background, e.g. #FAF8F5)",
+        "invitationText": "string (formal/fun invite text to print on card, e.g. 'You are cordially invited...')",
+        "fontFamily": "string (one of: 'Playfair Display', 'Inter', 'Georgia', 'monospace')",
+        "fontWeight": "string (one of: '300', '400', '500', '600', '700', '800')",
+        "titleSize": "number (an integer between 28 and 64)",
+        "buttonText": "string (button text, e.g. 'RSVP Now')",
+        "buttonColor": "string (Hex color code, e.g. #FF5733)",
+        "buttonRadius": "number (an integer between 0 and 24)"
       }
     `;
 
     // Call Gemini with automatic retry on 429
-    const response = await callGeminiWithRetry(client, aiPrompt);
-
-    let aiResultText = response.text;
-
-    // Strip markdown code fences if present
-    if (aiResultText.startsWith('```json')) {
-      aiResultText = aiResultText.replace(/^```json/, '').replace(/```$/, '').trim();
-    } else if (aiResultText.startsWith('```')) {
-      aiResultText = aiResultText.replace(/^```/, '').replace(/```$/, '').trim();
+    console.log("Calling Gemini API for prompt:", prompt);
+    let response;
+    try {
+      response = await callGeminiWithRetry(client, aiPrompt);
+    } catch (geminiError) {
+      console.error("Gemini API call failed:", geminiError);
+      throw geminiError;
     }
 
-    const aiData = JSON.parse(aiResultText);
+    let aiResultText = response.text;
+    console.log("Raw Gemini Response:", aiResultText);
+
+    // Strip markdown code fences if present, also trim whitespace
+    let cleanedText = aiResultText.trim();
+    if (cleanedText.includes('```json')) {
+      cleanedText = cleanedText.substring(cleanedText.indexOf('```json') + 7);
+      if (cleanedText.includes('```')) {
+        cleanedText = cleanedText.substring(0, cleanedText.lastIndexOf('```'));
+      }
+    } else if (cleanedText.includes('```')) {
+      cleanedText = cleanedText.substring(cleanedText.indexOf('```') + 3);
+      if (cleanedText.includes('```')) {
+        cleanedText = cleanedText.substring(0, cleanedText.lastIndexOf('```'));
+      }
+    }
+    cleanedText = cleanedText.trim();
+
+    let aiData;
+    try {
+      aiData = JSON.parse(cleanedText);
+    } catch (parseError) {
+      console.error("Failed to parse Gemini response as JSON.", {
+        rawResponse: aiResultText,
+        cleanedText: cleanedText,
+        error: parseError
+      });
+      return res.status(500).json({
+        error: 'Gemini returned an invalid JSON response. Please try again.'
+      });
+    }
+
+    // Robust validation/formatting of date and time to prevent database crashes
+    let finalDate = date || aiData.eventDate;
+    if (!finalDate || isNaN(new Date(finalDate).getTime())) {
+      const fallbackDate = new Date();
+      fallbackDate.setDate(fallbackDate.getDate() + 30);
+      finalDate = fallbackDate.toISOString().split('T')[0];
+      console.warn(`Malformed date received: ${aiData.eventDate}. Using fallback date: ${finalDate}`);
+    }
+
+    let finalTime = time || aiData.eventTime;
+    const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
+    if (!finalTime || !timeRegex.test(String(finalTime).trim())) {
+      finalTime = "18:00";
+      console.warn(`Malformed time received: ${aiData.eventTime}. Using fallback time: ${finalTime}`);
+    } else {
+      finalTime = String(finalTime).trim();
+    }
 
     // Create the event in the database using the AI-generated data
     const eventPayload = {
-      title: aiData.title,
-      description: aiData.description,
+      title: aiData.title || 'AI Generated Event',
+      description: aiData.description || 'Join us for our AI-generated event.',
       eventType: eventType || aiData.eventType || 'Other',
-      eventDate: date || aiData.eventDate,
-      eventTime: time || aiData.eventTime,
-      venue: aiData.venue || 'TBD',
+      eventDate: finalDate,
+      eventTime: finalTime,
+      venue: aiData.venue || 'Grand Plaza Hotel',
       status: 'draft',
     };
 
+    console.log("Saving generated event to database with payload:", eventPayload);
     const newEvent = await eventService.createEvent(eventPayload, userId);
+    console.log(`Event saved successfully with ID: ${newEvent.id}`);
 
-    // Automatically create a base invitation for this event
+    // Automatically create a fully styled base invitation for this event
     const newInvitation = await prisma.invitation.create({
       data: {
         eventId: newEvent.id,
-        title: aiData.title,
-        subtitle: aiData.venue || 'TBD',
-        message: aiData.description,
-        accentColor: aiData.accentColor || '#9970d0',
-        backgroundColor: aiData.backgroundColor || '#2D1B3D',
+        title: aiData.title || newEvent.title,
+        subtitle: aiData.host || aiData.venue || 'TBD',
+        mainText: aiData.invitationText || aiData.description || 'You are cordially invited.',
+        message: aiData.description || 'Event Details description',
+        accentColor: aiData.accentColor || '#5B5FEF',
+        backgroundColor: aiData.backgroundColor || '#F6F9FC',
+        textColor: aiData.textColor || '#1A1118',
+        titleSize: Number(aiData.titleSize) || 48,
+        fontWeight: String(aiData.fontWeight) || '700',
+        fontFamily: aiData.fontFamily || 'Playfair Display',
+        textAlignment: 'center',
+        buttonText: aiData.buttonText || 'RSVP Now',
+        buttonColor: aiData.buttonColor || aiData.accentColor || '#5B5FEF',
+        buttonRadius: Number(aiData.buttonRadius) || 12,
+        status: 'draft',
       },
     });
+    console.log(`Invitation design saved successfully with ID: ${newInvitation.id}`);
 
     // Automatically seed mock guests if a guest list was selected
     const selectedList = guestListName || guestListId;
@@ -245,6 +308,7 @@ const generateEventWithAI = async (req, res) => {
             status: 'invited',
           })),
         });
+        console.log(`Seeded ${mockGuests.length} mock guests for the event.`);
       }
     }
 
@@ -255,7 +319,7 @@ const generateEventWithAI = async (req, res) => {
       invitation: newInvitation,
     });
   } catch (error) {
-    console.error('AI Generation Error:', error);
+    console.error('AI Generation Error / Gemini failure:', error);
     const code = classifyGeminiError(error);
 
     // 429 — quota exhausted after all retries
