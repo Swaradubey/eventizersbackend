@@ -44,6 +44,7 @@ model Event {
   eventDate    DateTime      @map("event_date")
   eventTime    DateTime      @map("event_time") @db.Time(6)
   coverImage   String?       @map("cover_image")
+  selectedTemplateId String?   @map("selected_template_id")
   status       String        @default("draft")
   createdBy    Int           @map("created_by")
   user         User          @relation(fields: [createdBy], references: [id], onDelete: Cascade)

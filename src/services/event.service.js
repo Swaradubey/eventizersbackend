@@ -21,6 +21,7 @@ const findEventsByUserId = async (userId) => {
       TO_CHAR(event_date, 'YYYY-MM-DD') AS "eventDate", 
       event_time AS "eventTime", 
       cover_image AS "coverImage", 
+      selected_template_id AS "selectedTemplateId",
       status, 
       created_by AS "createdBy", 
       created_at AS "createdAt", 
@@ -54,6 +55,7 @@ const findEventByIdAndUserId = async (id, userId) => {
       TO_CHAR(event_date, 'YYYY-MM-DD') AS "eventDate", 
       event_time AS "eventTime", 
       cover_image AS "coverImage", 
+      selected_template_id AS "selectedTemplateId",
       status, 
       created_by AS "createdBy", 
       created_at AS "createdAt", 
@@ -84,6 +86,7 @@ const createEvent = async (eventData, userId) => {
     eventDate,
     eventTime,
     coverImage,
+    selectedTemplateId,
     status
   } = eventData;
 
@@ -110,6 +113,7 @@ const createEvent = async (eventData, userId) => {
       eventDate: parsedEventDate,
       eventTime: parsedEventTime,
       coverImage: coverImage || null,
+      selectedTemplateId: selectedTemplateId || null,
       status: status || 'draft',
       createdBy: Number(userId),
     }
@@ -132,6 +136,7 @@ const createEvent = async (eventData, userId) => {
       ? `${String(createdEvent.eventTime.getUTCHours()).padStart(2, '0')}:${String(createdEvent.eventTime.getUTCMinutes()).padStart(2, '0')}:${String(createdEvent.eventTime.getUTCSeconds()).padStart(2, '0')}`
       : createdEvent.eventTime,
     coverImage: createdEvent.coverImage,
+    selectedTemplateId: createdEvent.selectedTemplateId,
     status: createdEvent.status,
     createdBy: createdEvent.createdBy,
     createdAt: createdEvent.createdAt,
@@ -191,6 +196,7 @@ const updateEvent = async (id, eventData, userId) => {
       TO_CHAR(event_date, 'YYYY-MM-DD') AS "eventDate", 
       event_time AS "eventTime", 
       cover_image AS "coverImage", 
+      selected_template_id AS "selectedTemplateId",
       status, 
       created_by AS "createdBy", 
       created_at AS "createdAt", 

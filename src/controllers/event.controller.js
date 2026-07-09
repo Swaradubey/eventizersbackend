@@ -43,13 +43,113 @@ const getEventById = async (req, res) => {
   }
 };
 
+// Template styles matching frontend designs
+const TEMPLATE_STYLES = {
+  "tpl-birthday-maya": {
+    imageUrl: "/assets/templates/birthday.jpg",
+    accentColor: "#e07090",
+    backgroundColor: "#FAF8F5",
+    textColor: "#2D1B3D",
+    titleSize: 48,
+    fontWeight: "700",
+    fontFamily: "Playfair Display",
+    buttonColor: "#e07090",
+    buttonRadius: 12,
+    textAlignment: "center",
+  },
+  "tpl-wedding-liam": {
+    imageUrl: "/assets/templates/wedding.jpg",
+    accentColor: "#9070c0",
+    backgroundColor: "#FAF8F5",
+    textColor: "#2D1B3D",
+    titleSize: 48,
+    fontWeight: "700",
+    fontFamily: "Playfair Display",
+    buttonColor: "#9070c0",
+    buttonRadius: 12,
+    textAlignment: "center",
+  },
+  "tpl-corporate-launch": {
+    imageUrl: "/assets/templates/corporate.jpg",
+    accentColor: "#4080b0",
+    backgroundColor: "#FAF8F5",
+    textColor: "#2D1B3D",
+    titleSize: 44,
+    fontWeight: "600",
+    fontFamily: "Inter",
+    buttonColor: "#4080b0",
+    buttonRadius: 8,
+    textAlignment: "center",
+  },
+  "tpl-dinner-party": {
+    imageUrl: "/assets/templates/dinner.jpg",
+    accentColor: "#907030",
+    backgroundColor: "#FAF8F5",
+    textColor: "#2D1B3D",
+    titleSize: 48,
+    fontWeight: "700",
+    fontFamily: "Playfair Display",
+    buttonColor: "#907030",
+    buttonRadius: 12,
+    textAlignment: "center",
+  },
+  "tpl-baby-shower": {
+    imageUrl: "/assets/templates/babyshower.jpg",
+    accentColor: "#4a9a4a",
+    backgroundColor: "#FAF8F5",
+    textColor: "#2D1B3D",
+    titleSize: 48,
+    fontWeight: "700",
+    fontFamily: "Playfair Display",
+    buttonColor: "#4a9a4a",
+    buttonRadius: 12,
+    textAlignment: "center",
+  },
+  "tpl-charity-gala": {
+    imageUrl: "/assets/templates/gala.jpg",
+    accentColor: "#a07820",
+    backgroundColor: "#FAF8F5",
+    textColor: "#2D1B3D",
+    titleSize: 48,
+    fontWeight: "700",
+    fontFamily: "Playfair Display",
+    buttonColor: "#a07820",
+    buttonRadius: 12,
+    textAlignment: "center",
+  },
+  "tpl-live-music": {
+    imageUrl: "/assets/templates/music.jpg",
+    accentColor: "#9970d0",
+    backgroundColor: "#2D1B3D",
+    textColor: "#FAF8F5",
+    titleSize: 52,
+    fontWeight: "700",
+    fontFamily: "Inter",
+    buttonColor: "#9970d0",
+    buttonRadius: 16,
+    textAlignment: "center",
+  },
+  "tpl-anniversary-james": {
+    imageUrl: "/assets/templates/anniversary.jpg",
+    accentColor: "#c06840",
+    backgroundColor: "#FAF8F5",
+    textColor: "#2D1B3D",
+    titleSize: 48,
+    fontWeight: "700",
+    fontFamily: "Playfair Display",
+    buttonColor: "#c06840",
+    buttonRadius: 12,
+    textAlignment: "center",
+  }
+};
+
 /**
  * Create a new event
  * POST /api/events
  */
 const createEvent = async (req, res) => {
   try {
-    const { title, eventDate, eventTime, venue, templateId } = req.body;
+    const { title, eventDate, eventTime, venue, selectedTemplateId, templateId } = req.body;
     const userId = req.user.id;
 
     // Validate required fields
@@ -59,11 +159,16 @@ const createEvent = async (req, res) => {
       });
     }
 
-    const newEvent = await eventService.createEvent(req.body, userId);
+    const effectiveTemplateId = selectedTemplateId || templateId;
+
+    const newEvent = await eventService.createEvent({
+      ...req.body,
+      selectedTemplateId: effectiveTemplateId
+    }, userId);
 
     // Automatically create invitation if templateId is provided
-    if (templateId) {
-      const template = await prisma.template.findUnique({ where: { id: templateId } });
+    if (effectiveTemplateId) {
+      const template = await prisma.template.findUnique({ where: { id: effectiveTemplateId } });
       if (template) {
         let design = {};
         try {
@@ -71,14 +176,28 @@ const createEvent = async (req, res) => {
         } catch (e) {
           console.error("Failed to parse template content:", e);
         }
+
+        const style = TEMPLATE_STYLES[effectiveTemplateId] || {};
+
         await prisma.invitation.create({
           data: {
             eventId: newEvent.id,
             title: newEvent.title,
             subtitle: newEvent.venue || "TBD",
+            mainText: design.description || newEvent.description || "Join us for an unforgettable experience filled with joy and celebration. Please RSVP using the button below to secure your spot.",
             message: design.description || newEvent.description || "",
-            accentColor: design.accentColor || "#5B5FEF",
-            backgroundColor: design.backgroundColor || (design.gradient ? design.gradient.split(',')[1]?.trim()?.split(' ')[0] : "#F6F9FC"),
+            accentColor: style.accentColor || design.accentColor || "#5B5FEF",
+            backgroundColor: style.backgroundColor || design.backgroundColor || "#FAF8F5",
+            textColor: style.textColor || "#2D1B3D",
+            titleSize: style.titleSize || 48,
+            fontWeight: style.fontWeight || "700",
+            fontFamily: style.fontFamily || "Playfair Display",
+            textAlignment: style.textAlignment || "center",
+            imageUrl: style.imageUrl || null,
+            buttonText: "RSVP Now",
+            buttonColor: style.buttonColor || style.accentColor || "#5B5FEF",
+            buttonRadius: style.buttonRadius || 12,
+            status: "draft"
           }
         });
       }
