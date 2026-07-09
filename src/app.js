@@ -12,6 +12,7 @@ const ticketPurchaseRoutes = require("./routes/ticket.purchase.routes");
 const userBillingRoutes = require("./routes/user.billing.routes");
 const stripeWebhookRoutes = require("./routes/stripe.webhook.routes");
 const subscriptionRoutes = require("./routes/subscription.routes");
+const aiRoutes = require("./routes/ai.routes");
 
 const app = express();
 
@@ -74,6 +75,9 @@ app.use("/api/admin", adminRoutes);
 
 // Event Routes
 app.use("/api/events", eventRoutes);
+
+// AI Routes
+app.use("/api/ai", aiRoutes);
 
 // Dashboard Routes
 app.use("/api/dashboard", dashboardRoutes);

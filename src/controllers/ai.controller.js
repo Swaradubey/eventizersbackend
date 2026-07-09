@@ -22,7 +22,7 @@ const keyIsValid =
 console.log(`Gemini API key loaded: ${keyIsValid ? 'yes' : 'no'}`);
 
 // Read Gemini model name from env, fall back to a known-good model
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 console.log(`Gemini model used: ${GEMINI_MODEL}`);
 
 // Single shared Gemini client — initialized once using the .env API key
@@ -347,6 +347,135 @@ const generateEventWithAI = async (req, res) => {
   }
 };
 
+const generateStructuredEventWithAI = async (req, res) => {
+  try {
+    const { prompt, eventType, guestCount, date, time, guestListName } = req.body;
+
+    if (!prompt) {
+      return res.status(400).json({ error: 'Please provide a prompt to generate the event.' });
+    }
+
+    // Guard: API key must be present — never fall back to mock data
+    if (!keyIsValid) {
+      console.error("AI Generation failed: Gemini API key is missing or not configured in environment variables.");
+      return res.status(500).json({ error: 'Gemini API key is not configured.' });
+    }
+
+    const client = getAiClient();
+
+    const aiPrompt = `
+      You are an expert event planner and designer.
+      The user wants to create an event based on this description: "${prompt}"
+      ${eventType ? `Event Type constraint: ${eventType}` : ''}
+      ${guestCount ? `Guest Count/Group constraint: ${guestCount}` : ''}
+      ${date ? `Required Event Date: ${date}` : ''}
+      ${time ? `Required Event Time: ${time}` : ''}
+      ${guestListName ? `Target Guest List: ${guestListName}` : ''}
+
+      Generate a creative, detailed event plan.
+      Return the response STRICTLY as a JSON object with NO markdown formatting, NO \`\`\`json block, just raw JSON matching this schema:
+      {
+        "title": "string (creative, catchy event title)",
+        "description": "string (engaging, detailed description of the event)",
+        "theme": "string (the overall aesthetic/theme of the event)",
+        "schedule": ["string (at least 3-5 timeline steps, e.g., '14:00 - Guests Arrive')"],
+        "decor": ["string (3-5 decor/design suggestions)"],
+        "food": ["string (3-5 food and beverage ideas)"],
+        "activities": ["string (3-5 event activities/games)"],
+        "checklist": ["string (3-5 todo list tasks for setting up the event)"],
+        "estimatedBudget": "string (an estimated budget or range, e.g., '$500 - $1,000')"
+      }
+    `;
+
+    // Call Gemini with automatic retry on 429
+    console.log("Calling Gemini API with structured prompt for:", prompt);
+    let response;
+    try {
+      response = await callGeminiWithRetry(client, aiPrompt);
+    } catch (geminiError) {
+      console.error("Gemini API call failed:", geminiError);
+      throw geminiError;
+    }
+
+    let aiResultText = response.text;
+    console.log("Raw Gemini Response:", aiResultText);
+
+    // Strip markdown code fences if present, also trim whitespace
+    let cleanedText = aiResultText.trim();
+    if (cleanedText.includes('```json')) {
+      cleanedText = cleanedText.substring(cleanedText.indexOf('```json') + 7);
+      if (cleanedText.includes('```')) {
+        cleanedText = cleanedText.substring(0, cleanedText.lastIndexOf('```'));
+      }
+    } else if (cleanedText.includes('```')) {
+      cleanedText = cleanedText.substring(cleanedText.indexOf('```') + 3);
+      if (cleanedText.includes('```')) {
+        cleanedText = cleanedText.substring(0, cleanedText.lastIndexOf('```'));
+      }
+    }
+    cleanedText = cleanedText.trim();
+
+    let aiData;
+    try {
+      aiData = JSON.parse(cleanedText);
+    } catch (parseError) {
+      console.error("Failed to parse Gemini response as JSON.", {
+        rawResponse: aiResultText,
+        cleanedText: cleanedText,
+        error: parseError
+      });
+      return res.status(500).json({
+        error: 'Gemini returned an invalid JSON response. Please try again.'
+      });
+    }
+
+    // Validate structured shape and fields
+    const requiredFields = ["title", "description", "theme", "schedule", "decor", "food", "activities", "checklist", "estimatedBudget"];
+    for (const field of requiredFields) {
+      if (!aiData[field]) {
+        aiData[field] = field === "title" || field === "description" || field === "theme" || field === "estimatedBudget" ? "TBD" : [];
+      }
+    }
+
+    // Ensure array types are arrays
+    const arrayFields = ["schedule", "decor", "food", "activities", "checklist"];
+    for (const field of arrayFields) {
+      if (!Array.isArray(aiData[field])) {
+        aiData[field] = typeof aiData[field] === 'string' ? [aiData[field]] : [];
+      }
+    }
+
+    return res.status(200).json(aiData);
+  } catch (error) {
+    console.error('AI Generation Error / Gemini failure:', error);
+    const code = classifyGeminiError(error);
+
+    // 429 — quota exhausted after all retries
+    if (code === 429) {
+      return res.status(429).json({
+        error: 'Gemini service is temporarily unavailable. Please try again in a few moments.',
+      });
+    }
+
+    // 401 / 403 — invalid or unauthorized key
+    if (code === 401 || code === 403) {
+      return res.status(401).json({
+        error: 'Invalid Gemini API key.',
+      });
+    }
+
+    // 404 — model not found or unsupported
+    if (code === 404) {
+      return res.status(500).json({
+        error: `Gemini model "${GEMINI_MODEL}" was not found or is not supported. Check your GEMINI_MODEL environment variable.`,
+      });
+    }
+
+    return res.status(500).json({ error: 'Failed to generate event with AI. Please try again later.' });
+  }
+};
+
 module.exports = {
   generateEventWithAI,
+  generateStructuredEventWithAI,
 };
