@@ -78,8 +78,8 @@ const findGuestById = async (id, userId) => {
 const createGuest = async (data) => {
   const { eventId, name, email, phone, status } = data;
   const result = await db.query(
-    `INSERT INTO guests (event_id, name, email, phone, status)
-     VALUES ($1, $2, $3, $4, $5)
+    `INSERT INTO guests (id, event_id, name, email, phone, status, updated_at)
+     VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
      RETURNING 
       id, 
       event_id AS "eventId", 
