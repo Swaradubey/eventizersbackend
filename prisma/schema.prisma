@@ -102,6 +102,11 @@ model Guest {
   updatedAt DateTime  @updatedAt @map("updated_at")
   checkIns  CheckIn[]
   messageRecipients MessageRecipient[]
+  sentAt      DateTime? @map("sent_at")
+  openedAt    DateTime? @map("opened_at")
+  clickedAt   DateTime? @map("clicked_at")
+  respondedAt DateTime? @map("responded_at")
+  rsvpStatus  String?   @map("rsvp_status")
 
   @@map("guests")
 }

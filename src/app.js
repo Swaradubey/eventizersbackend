@@ -124,6 +124,10 @@ app.use("/api/user/settings", userSettingsRoutes);
 const templatesRoutes = require("./routes/templates.routes");
 app.use("/api/templates", templatesRoutes);
 
+// Analytics Routes
+const analyticsRoutes = require("./routes/analytics.routes");
+app.use("/api/analytics", analyticsRoutes);
+
 // Serve uploads folder statically
 const path = require("path");
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
