@@ -18,6 +18,29 @@ console.log(`Gemini API key loaded: ${geminiKey && geminiKey !== 'your_gemini_ap
 // Gemini model diagnostic
 console.log(`Gemini model used: ${process.env.GEMINI_MODEL || 'gemini-2.0-flash'}`);
 
+// Validate Stripe environment variables
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY?.trim();
+const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET?.trim();
+const stripeProPrice = process.env.STRIPE_PRO_PRICE_ID?.trim();
+const stripeBusinessPrice = process.env.STRIPE_BUSINESS_PRICE_ID?.trim();
+const frontendUrl = process.env.FRONTEND_URL?.trim();
+
+if (!stripeSecretKey) {
+  console.warn("[stripe] STRIPE_SECRET_KEY is not set. Subscription billing will be unavailable.");
+}
+if (!stripeWebhookSecret) {
+  console.warn("[stripe] STRIPE_WEBHOOK_SECRET is not set. Webhook verification will fail.");
+}
+if (!stripeProPrice) {
+  console.warn("[stripe] STRIPE_PRO_PRICE_ID is not set. Pro subscription will be unavailable.");
+}
+if (!stripeBusinessPrice) {
+  console.warn("[stripe] STRIPE_BUSINESS_PRICE_ID is not set. Business subscription will be unavailable.");
+}
+if (!frontendUrl) {
+  console.warn("[stripe] FRONTEND_URL is not set. Checkout redirects may fail.");
+}
+
 // Validate DATABASE_URL existence
 if (!process.env.DATABASE_URL) {
   console.error("[env] DATABASE_URL is missing.");

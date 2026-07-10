@@ -33,7 +33,7 @@ const handleWebhook = async (req, res) => {
     event = stripe.webhooks.constructEvent(
       req.body,
       sig,
-      process.env.STRIPE_WEBHOOK_SECRET
+      process.env.STRIPE_WEBHOOK_SECRET.trim()
     );
   } catch (err) {
     console.error("[webhook] Signature verification failed:", err.message);
@@ -69,6 +69,10 @@ const handleWebhook = async (req, res) => {
       case "customer.subscription.created":
       case "customer.subscription.updated":
         await handleSubscriptionCreatedOrUpdated(event.data.object);
+        break;
+
+      case "customer.subscription.deleted":
+        await handleSubscriptionDeleted(event.data.object);
         break;
 
       case "checkout.session.completed":
@@ -225,7 +229,20 @@ const handleSubscriptionCreatedOrUpdated = async (subscription) => {
   if (userResult.rows.length === 0) return;
 
   const userId = userResult.rows[0].id;
-  const planId = subscription.metadata?.planId || "free";
+  const checkoutType = subscription.metadata?.checkoutType;
+  // Only process subscription events that belong to the billing flow
+  const planFromMetadata = subscription.metadata?.plan || subscription.metadata?.planId;
+
+  // Determine plan from metadata, or derive from price ID
+  let planId = planFromMetadata || "free";
+  if (!planFromMetadata && subscription.items?.data?.length > 0) {
+    const priceId = subscription.items.data[0]?.price?.id;
+    if (priceId === process.env.STRIPE_PRO_PRICE_ID?.trim()) {
+      planId = "pro";
+    } else if (priceId === process.env.STRIPE_BUSINESS_PRICE_ID?.trim()) {
+      planId = "business";
+    }
+  }
 
   // If the subscription is active/trialing, keep/update the plan, otherwise fall back to free
   const status = subscription.status;
@@ -248,7 +265,64 @@ const handleSubscriptionCreatedOrUpdated = async (subscription) => {
 };
 
 /**
- * Handle checkout.session.completed event for ticket purchases.
+ * Handle customer.subscription.deleted event — downgrade to free.
+ */
+const handleSubscriptionDeleted = async (subscription) => {
+  const customerId = subscription.customer;
+  if (!customerId) return;
+
+  const userResult = await db.query(
+    `SELECT id FROM users WHERE stripe_customer_id = $1`,
+    [customerId]
+  );
+
+  if (userResult.rows.length === 0) return;
+
+  const userId = userResult.rows[0].id;
+
+  await db.query(
+    `UPDATE users SET stripe_subscription_id = NULL WHERE id = $1`,
+    [userId]
+  );
+
+  await billingService.updatePlanByUserId(userId, "free");
+
+  console.log(`[webhook] Subscription ${subscription.id} deleted for user ${userId}. Downgraded to free.`);
+};
+
+/**
+ * Handle checkout.session.completed event for subscription checkouts.
+ */
+const handleSubscriptionCheckoutCompleted = async (session) => {
+  const userId = session.metadata?.userId;
+  const plan = session.metadata?.plan;
+  const customerId = session.customer;
+  const subscriptionId = session.subscription;
+
+  if (!userId || !plan || !customerId || !subscriptionId) {
+    console.log(`[webhook] Subscription checkout.session.completed missing metadata. session: ${session.id}`);
+    return;
+  }
+
+  // Update user's stripe customer and subscription IDs
+  await db.query(
+    `UPDATE users SET stripe_customer_id = $1, stripe_subscription_id = $2, plan = $3 WHERE id = $4`,
+    [customerId, subscriptionId, plan.toUpperCase(), parseInt(userId, 10)]
+  );
+
+  // Also sync usage limits for the new plan
+  try {
+    await billingService.updatePlanByUserId(parseInt(userId, 10), plan.toLowerCase());
+  } catch (err) {
+    console.error(`[webhook] Failed to sync plan limits for user ${userId}:`, err.message);
+  }
+
+  console.log(`[webhook] Subscription checkout completed for user ${userId}, plan ${plan}, sub ${subscriptionId}`);
+};
+
+/**
+ * Handle checkout.session.completed event.
+ * Routes to either ticket order or subscription handler based on session metadata.
  */
 const handleCheckoutSessionCompleted = async (session) => {
   const sessionId = session.id;
@@ -256,13 +330,25 @@ const handleCheckoutSessionCompleted = async (session) => {
 
   console.log(`[webhook] Processing checkout.session.completed for session ${sessionId}`);
 
+  // Check if this is a subscription checkout using explicit checkoutType metadata
+  if (session.metadata?.checkoutType === "subscription") {
+    await handleSubscriptionCheckoutCompleted(session);
+    return;
+  }
+
+  // Also handle legacy sessions that might not have checkoutType but are in subscription mode
+  if (session.mode === "subscription") {
+    await handleSubscriptionCheckoutCompleted(session);
+    return;
+  }
+
   // Find the pending ticket order
   const order = await prisma.ticketOrder.findUnique({
     where: { stripeSessionId: sessionId },
   });
 
   if (!order) {
-    console.log(`[webhook] No matching TicketOrder found for session ${sessionId}. This could be a subscription checkout.`);
+    console.log(`[webhook] No matching TicketOrder found for session ${sessionId}.`);
     return;
   }
 

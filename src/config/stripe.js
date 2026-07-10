@@ -1,11 +1,13 @@
 const Stripe = require("stripe");
 
-if (!process.env.STRIPE_SECRET_KEY) {
+const secretKey = process.env.STRIPE_SECRET_KEY?.trim();
+
+if (!secretKey) {
   console.warn("[stripe] STRIPE_SECRET_KEY is not set. Stripe functionality will be unavailable.");
 }
 
-const stripe = process.env.STRIPE_SECRET_KEY
-  ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2024-06-20" })
+const stripe = secretKey
+  ? new Stripe(secretKey, { apiVersion: "2024-06-20" })
   : null;
 
 module.exports = stripe;

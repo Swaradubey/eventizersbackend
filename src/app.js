@@ -96,6 +96,10 @@ app.use("/api/tickets", ticketPurchaseRoutes);
 app.use("/api/user/billing", userBillingRoutes);
 app.use("/api/plans", subscriptionRoutes);
 
+// Stripe Checkout and Billing Portal Routes
+const stripeRoutes = require("./routes/stripe.routes");
+app.use("/api/stripe", stripeRoutes);
+
 // Check-In Routes
 const checkInRoutes = require("./routes/checkIn.routes");
 app.use("/api/check-ins", checkInRoutes);
