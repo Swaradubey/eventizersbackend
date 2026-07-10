@@ -113,6 +113,132 @@ const templatesData = [
       venue: "Lakeside Manor",
       description: "Please join us in celebrating the 25th wedding anniversary of James and Elena."
     })
+  },
+  {
+    id: "tpl-grad-gala",
+    name: "Graduation Gala",
+    category: "Graduation",
+    isPremium: true,
+    content: JSON.stringify({
+      gradient: "linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)",
+      accentColor: "#d4af37",
+      emoji: "🎓",
+      host: "Hosted by The Office of the Dean",
+      venue: "University Grand Hall",
+      description: "Join us for an elegant evening of celebration and dining to honor the outstanding accomplishments of our graduating class."
+    })
+  },
+  {
+    id: "tpl-grad-class2026",
+    name: "Class of 2026 Celebration",
+    category: "Graduation",
+    isPremium: true,
+    content: JSON.stringify({
+      gradient: "linear-gradient(135deg, #f39c12 0%, #d35400 100%)",
+      accentColor: "#e67e22",
+      emoji: "🥂",
+      host: "Hosted by The Senior Class Committee",
+      venue: "Sunset Terrace Garden",
+      description: "Raise a glass to the memories we've shared and the bright futures ahead of the class of 2026!"
+    })
+  },
+  {
+    id: "tpl-grad-degree",
+    name: "Degree Award Ceremony",
+    category: "Graduation",
+    isPremium: true,
+    content: JSON.stringify({
+      gradient: "linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%)",
+      accentColor: "#1abc9c",
+      emoji: "📜",
+      host: "Faculty of Science and Arts",
+      venue: "Main Auditorium",
+      description: "You are cordially invited to witness the formal conferring of degrees and academic achievements."
+    })
+  },
+  {
+    id: "tpl-comm-meetup",
+    name: "Community Meetup",
+    category: "Community",
+    isPremium: true,
+    content: JSON.stringify({
+      gradient: "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)",
+      accentColor: "#11998e",
+      emoji: "🏡",
+      host: "Oakwood Neighborhood Association",
+      venue: "Oakwood Community Park",
+      description: "Connect with your neighbors for a lovely afternoon of conversation, sharing local updates, and outdoor fun."
+    })
+  },
+  {
+    id: "tpl-comm-celebration",
+    name: "Neighbourhood Celebration",
+    category: "Community",
+    isPremium: true,
+    content: JSON.stringify({
+      gradient: "linear-gradient(135deg, #ff9966 0%, #ff5e62 100%)",
+      accentColor: "#ff5e62",
+      emoji: "🎈",
+      host: "Maple Street Neighbors",
+      venue: "Maple Street Block",
+      description: "Join us for our annual block party! Expect live music, potluck tables, and games for all ages."
+    })
+  },
+  {
+    id: "tpl-comm-volunteer",
+    name: "Volunteer Appreciation Event",
+    category: "Community",
+    isPremium: true,
+    content: JSON.stringify({
+      gradient: "linear-gradient(135deg, #ffc3a0 0%, #ffafbd 100%)",
+      accentColor: "#e91e63",
+      emoji: "💖",
+      host: "Helping Hands Coalition",
+      venue: "Unity Civic Center",
+      description: "To the volunteers who make a difference: this evening is all about celebrating and thanking you."
+    })
+  },
+  {
+    id: "tpl-net-professional",
+    name: "Professional Networking Evening",
+    category: "Networking",
+    isPremium: true,
+    content: JSON.stringify({
+      gradient: "linear-gradient(135deg, #2b5876 0%, #4e4376 100%)",
+      accentColor: "#6f86d6",
+      emoji: "🤝",
+      host: "Metro Business Alliance",
+      venue: "The Summit Boardroom",
+      description: "Expand your network and share industry insights with leading professionals and executives in a relaxed setting."
+    })
+  },
+  {
+    id: "tpl-net-founders",
+    name: "Founders & Creators Meetup",
+    category: "Networking",
+    isPremium: true,
+    content: JSON.stringify({
+      gradient: "linear-gradient(135deg, #141e30 0%, #243b55 100%)",
+      accentColor: "#00c6ff",
+      emoji: "💡",
+      host: "Launchpad Tech Hub",
+      venue: "Co-Work Innovation space",
+      description: "A gathering of minds for startup founders, product creators, and innovators. Let's discuss ideas, challenges, and collaborations."
+    })
+  },
+  {
+    id: "tpl-net-connections",
+    name: "Business Connections Night",
+    category: "Networking",
+    isPremium: true,
+    content: JSON.stringify({
+      gradient: "linear-gradient(135deg, #3a7bd5 0%, #3a6073 100%)",
+      accentColor: "#3a7bd5",
+      emoji: "📈",
+      host: "Chamber of Commerce",
+      venue: "Downtown Sky Lounge",
+      description: "Join local entrepreneurs and business owners to build meaningful connections, explore opportunities, and grow together."
+    })
   }
 ];
 
