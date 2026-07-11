@@ -245,17 +245,29 @@ const syncPaymentMethodToDb = async (userId, pm, isDefault) => {
  * Get user's invoices from local DB.
  * @param {number} userId
  */
-const getInvoices = async (userId) => {
+const getInvoices = async (userId, page = 1, limit = 5) => {
+  const offset = (page - 1) * limit;
+
+  // Get total count for pagination metadata
+  const countResult = await db.query(
+    `SELECT COUNT(*)::int AS total FROM invoices WHERE user_id = $1`,
+    [userId]
+  );
+  const totalInvoices = countResult.rows[0].total;
+  const totalPages = Math.max(1, Math.ceil(totalInvoices / limit));
+
+  // Get paginated rows
   const result = await db.query(
     `SELECT id, invoice_number, amount, currency, status, invoice_date, pdf_url,
             plan_name, billing_period, customer_name, customer_email, transaction_id
      FROM invoices 
      WHERE user_id = $1 
-     ORDER BY invoice_date DESC`,
-    [userId]
+     ORDER BY invoice_date DESC
+     LIMIT $2 OFFSET $3`,
+    [userId, limit, offset]
   );
 
-  return result.rows.map((row) => {
+  const invoices = result.rows.map((row) => {
     const dateObj = new Date(row.invoice_date);
     const formattedDate = dateObj.toISOString().split("T")[0];
     return {
@@ -273,6 +285,13 @@ const getInvoices = async (userId) => {
       transactionId: row.transaction_id,
     };
   });
+
+  return {
+    invoices,
+    currentPage: page,
+    totalPages,
+    totalInvoices,
+  };
 };
 
 /**

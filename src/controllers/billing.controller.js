@@ -58,6 +58,9 @@ const getBillingInfo = async (req, res) => {
   try {
     const userId = req.user.id;
     const data = await billingService.getBillingByUserId(userId);
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
     return res.status(200).json({
       success: true,
       currentPlan: data.currentPlan,
@@ -109,6 +112,9 @@ const getBillingUsage = async (req, res) => {
   try {
     const userId = req.user.id;
     const usage = await billingService.getBillingUsageByUserId(userId);
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
     return res.status(200).json(usage);
   } catch (error) {
     console.error("Get Billing Usage Error:", error);

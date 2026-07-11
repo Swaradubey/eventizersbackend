@@ -1,6 +1,7 @@
 const stripe = require("../config/stripe");
 const db = require("../config/db");
 const userBillingService = require("../services/user.billing.service");
+const billingService = require("../services/billing.service");
 
 const PLAN_CONFIG = {
   pro: {
@@ -205,9 +206,35 @@ const getCheckoutSessionStatus = async (req, res) => {
     const sessionPlan = plan?.toLowerCase();
 
     const stripeActive = subscriptionStatus === "active" || subscriptionStatus === "trialing" || subscriptionStatus === "complete";
-    if (stripeActive && dbPlan !== sessionPlan) {
-      subscriptionStatus = "pending";
+    if (stripeActive && dbPlan !== sessionPlan && sessionPlan) {
+      // Proactively sync the database with the Stripe plan so the success page
+      // does not have to wait for the async webhook to arrive.
+      try {
+        const client = await db.pool.connect();
+        try {
+          await client.query("BEGIN");
+          await client.query(
+            `UPDATE users SET plan = $1, stripe_subscription_id = $2 WHERE id = $3`,
+            [sessionPlan.toUpperCase(), session.subscription, req.user.id]
+          );
+          await billingService.updatePlanByUserId(req.user.id, sessionPlan, client);
+          await client.query("COMMIT");
+          subscriptionStatus = "active";
+          console.log(`[stripe] Proactively synced plan for user ${req.user.id} to ${sessionPlan} via getCheckoutSessionStatus`);
+        } catch (txErr) {
+          await client.query("ROLLBACK");
+          console.error(`[stripe] Proactive sync transaction failed:`, txErr.message);
+        } finally {
+          client.release();
+        }
+      } catch (err) {
+        console.error(`[stripe] Proactive sync error:`, err.message);
+      }
     }
+
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
 
     return res.status(200).json({
       status: session.status,

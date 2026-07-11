@@ -113,10 +113,20 @@ const updatePaymentMethod = async (req, res) => {
 const getInvoices = async (req, res) => {
   try {
     const userId = req.user.id;
-    const data = await userBillingService.getInvoices(userId);
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 5));
+    const result = await userBillingService.getInvoices(userId, page, limit);
     return res.status(200).json({
       success: true,
-      data,
+      invoices: result.invoices,
+      pagination: {
+        currentPage: result.currentPage,
+        pageSize: limit,
+        totalInvoices: result.totalInvoices,
+        totalPages: result.totalPages,
+        hasNextPage: result.currentPage < result.totalPages,
+        hasPreviousPage: result.currentPage > 1,
+      },
     });
   } catch (error) {
     console.error("Get Invoices Error:", error);
