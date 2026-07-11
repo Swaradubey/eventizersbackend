@@ -7,8 +7,8 @@ const db = require("../config/db");
  * @param {number} userId 
  * @returns {Promise<Date>} billingCycleStart
  */
-const getBillingCycleStart = async (userId) => {
-  const userResult = await db.query(
+const getBillingCycleStart = async (userId, client = db) => {
+  const userResult = await client.query(
     `SELECT plan, plan_start_date, created_at FROM users WHERE id = $1`,
     [userId]
   );

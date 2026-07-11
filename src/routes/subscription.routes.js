@@ -9,4 +9,7 @@ router.use(authMiddleware);
 // Subscribe endpoint
 router.post("/subscribe", subscriptionController.subscribe);
 
+// Current plan endpoint
+router.get("/current-plan", subscriptionController.getCurrentPlan);
+
 module.exports = router;

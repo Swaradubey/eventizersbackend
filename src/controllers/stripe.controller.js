@@ -196,6 +196,19 @@ const getCheckoutSessionStatus = async (req, res) => {
 
     const plan = session.metadata?.plan || null;
 
+    // Verify database synchronization (ensure webhook has finished processing)
+    const userResult = await db.query(
+      `SELECT plan FROM users WHERE id = $1`,
+      [req.user.id]
+    );
+    const dbPlan = userResult.rows[0]?.plan?.toLowerCase();
+    const sessionPlan = plan?.toLowerCase();
+
+    const stripeActive = subscriptionStatus === "active" || subscriptionStatus === "trialing" || subscriptionStatus === "complete";
+    if (stripeActive && dbPlan !== sessionPlan) {
+      subscriptionStatus = "pending";
+    }
+
     return res.status(200).json({
       status: session.status,
       paymentStatus: session.payment_status,

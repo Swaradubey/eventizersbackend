@@ -293,14 +293,15 @@ const getInvoiceByIdAndUser = async (userId, invoiceId) => {
  * Handles Stripe webhook events or direct API calls.
  * @param {object} invoice - Stripe invoice object (or expanded invoice object)
  * @param {string|null} statusOverride - Override status (e.g. "Paid")
+ * @param {Object} [client=db]
  */
-const upsertInvoice = async (invoice, statusOverride = null) => {
+const upsertInvoice = async (invoice, statusOverride = null, client = db) => {
   if (!invoice || !invoice.id) return null;
 
   const customerId = typeof invoice.customer === "string" ? invoice.customer : invoice.customer?.id;
   if (!customerId) return null;
 
-  const userResult = await db.query(
+  const userResult = await client.query(
     `SELECT id, name, email, plan FROM users WHERE stripe_customer_id = $1`,
     [customerId]
   );
@@ -387,12 +388,12 @@ const upsertInvoice = async (invoice, statusOverride = null) => {
     existingParams.push(transactionId);
   }
 
-  const existing = await db.query(existingQuery, existingParams);
+  const existing = await client.query(existingQuery, existingParams);
 
   if (existing.rows.length > 0) {
     // Update existing record
     const existingId = existing.rows[0].id;
-    await db.query(
+    await client.query(
       `UPDATE invoices 
        SET status = $1, amount = $2, pdf_url = $3, plan_name = $4, billing_period = $5, 
            customer_name = $6, customer_email = $7, transaction_id = $8, updated_at = NOW() 
@@ -402,7 +403,7 @@ const upsertInvoice = async (invoice, statusOverride = null) => {
     console.log(`[billing] Invoice ${invoiceNumber} updated in DB for user ${userId}.`);
   } else {
     // Insert new record
-    await db.query(
+    await client.query(
       `INSERT INTO invoices (id, invoice_number, user_id, stripe_invoice_id, amount, currency, status, invoice_date, pdf_url, plan_name, billing_period, customer_name, customer_email, transaction_id)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
       [invoiceId, invoiceNumber, userId, invoiceId, amount, currency, status, invoiceDate, pdfUrl, planName, billingPeriod, customerName, customerEmail, transactionId]

@@ -5,11 +5,12 @@ const { getBillingCycleStart } = require("../utils/billing.helper");
 /**
  * Get dynamic usage statistics for a user
  * @param {number} userId
+ * @param {Object} [client=db]
  * @returns {Promise<Object>} Usage metrics { eventsCreated, eventsLimit, guestsUsed, guestsLimit, messagesSent, messagesLimit }
  */
-const getBillingUsageByUserId = async (userId) => {
+const getBillingUsageByUserId = async (userId, client = db) => {
   // 1. Fetch user's plan
-  const userResult = await db.query(
+  const userResult = await client.query(
     `SELECT plan FROM users WHERE id = $1`,
     [userId]
   );
@@ -22,7 +23,7 @@ const getBillingUsageByUserId = async (userId) => {
   const currentPlan = rawPlan.toLowerCase();
 
   // 2. Fetch subscription usage limits and start date
-  const usageResult = await db.query(
+  const usageResult = await client.query(
     `SELECT "eventsLimit", "guestsLimit", "messagesLimit", month
      FROM "SubscriptionUsage"
      WHERE user_id = $1`,
@@ -50,7 +51,7 @@ const getBillingUsageByUserId = async (userId) => {
       eventsLimit = -1;
     }
 
-    const insertResult = await db.query(
+    const insertResult = await client.query(
       `INSERT INTO "SubscriptionUsage" (
          id, user_id, "eventsCreated", "guestsThisMonth", "messagesSent", 
          "eventsLimit", "guestsLimit", "messagesLimit", month, "updatedAt"
@@ -73,27 +74,27 @@ const getBillingUsageByUserId = async (userId) => {
   }
 
   // Calculate billing cycle start dynamically using the shared helper
-  const billingCycleStart = await getBillingCycleStart(userId);
+  const billingCycleStart = await getBillingCycleStart(userId, client);
 
   // 3. Count actual events created
-  const eventsCountResult = await db.query(
+  const eventsCountResult = await client.query(
     `SELECT COUNT(*)::int AS count FROM events WHERE created_by = $1`,
     [userId]
   );
   const eventsCreated = eventsCountResult.rows[0].count;
 
   // 4. Count actual guests this billing month
-  const guestsCountResult = await db.query(
+  const guestsCountResult = await client.query(
     `SELECT COUNT(g.id)::int AS count
      FROM guests g
      JOIN events e ON g.event_id = e.id
      WHERE e.created_by = $1 AND g.created_at >= $2`,
-    [userId, billingCycleStart]
+     [userId, billingCycleStart]
   );
   const guestsUsed = guestsCountResult.rows[0].count;
 
   // 5. Count actual messages sent (status = SENT)
-  const messagesCountResult = await db.query(
+  const messagesCountResult = await client.query(
     `SELECT COUNT(*)::int AS count
      FROM messages
      WHERE sender_id = $1 AND status = 'SENT'`,
@@ -102,7 +103,7 @@ const getBillingUsageByUserId = async (userId) => {
   const messagesSent = messagesCountResult.rows[0].count;
 
   // Update SubscriptionUsage cache/table values to keep database synchronized
-  await db.query(
+  await client.query(
     `UPDATE "SubscriptionUsage"
      SET "eventsCreated" = $1, "guestsThisMonth" = $2, "messagesSent" = $3, "updatedAt" = NOW()
      WHERE user_id = $4`,
@@ -122,11 +123,12 @@ const getBillingUsageByUserId = async (userId) => {
 /**
  * Get billing details and usage metrics for a user
  * @param {number} userId
+ * @param {Object} [client=db]
  * @returns {Promise<Object>} { usage, currentPlan }
  */
-const getBillingByUserId = async (userId) => {
+const getBillingByUserId = async (userId, client = db) => {
   // 1. Fetch user's plan
-  const userResult = await db.query(
+  const userResult = await client.query(
     `SELECT plan FROM users WHERE id = $1`,
     [userId]
   );
@@ -139,7 +141,7 @@ const getBillingByUserId = async (userId) => {
   const currentPlan = rawPlan.toLowerCase();
 
   // Get dynamic usage stats
-  const dynamicUsage = await getBillingUsageByUserId(userId);
+  const dynamicUsage = await getBillingUsageByUserId(userId, client);
 
   return {
     currentPlan,
@@ -158,13 +160,14 @@ const getBillingByUserId = async (userId) => {
  * Update plan and limits for a user
  * @param {number} userId
  * @param {string} planId
+ * @param {Object} [client=db]
  * @returns {Promise<Object>} { usage, currentPlan }
  */
-const updatePlanByUserId = async (userId, planId) => {
+const updatePlanByUserId = async (userId, planId, client = db) => {
   const planUpper = planId.toUpperCase();
   
   // 1. Update users plan
-  const userUpdate = await db.query(
+  const userUpdate = await client.query(
     `UPDATE users SET plan = $1 WHERE id = $2 RETURNING plan`,
     [planUpper, userId]
   );
@@ -189,7 +192,7 @@ const updatePlanByUserId = async (userId, planId) => {
   }
 
   // 2. Check and update or insert SubscriptionUsage
-  const usageCheck = await db.query(
+  const usageCheck = await client.query(
     `SELECT id FROM "SubscriptionUsage" WHERE user_id = $1`,
     [userId]
   );
@@ -197,7 +200,7 @@ const updatePlanByUserId = async (userId, planId) => {
   const now = new Date();
   if (usageCheck.rows.length === 0) {
     const id = crypto.randomUUID();
-    await db.query(
+    await client.query(
       `INSERT INTO "SubscriptionUsage" (
          id, user_id, "eventsCreated", "guestsThisMonth", "messagesSent", 
          "eventsLimit", "guestsLimit", "messagesLimit", month, "updatedAt"
@@ -205,7 +208,7 @@ const updatePlanByUserId = async (userId, planId) => {
       [id, userId, 0, 0, 0, eventsLimit, guestsLimit, messagesLimit, now, now]
     );
   } else {
-    await db.query(
+    await client.query(
       `UPDATE "SubscriptionUsage"
        SET "guestsLimit" = $1, "messagesLimit" = $2, "eventsLimit" = $3, "updatedAt" = $4
        WHERE user_id = $5`,
@@ -214,7 +217,7 @@ const updatePlanByUserId = async (userId, planId) => {
   }
 
   // Get updated dynamic usage stats
-  const dynamicUsage = await getBillingUsageByUserId(userId);
+  const dynamicUsage = await getBillingUsageByUserId(userId, client);
 
   return {
     currentPlan: planId,

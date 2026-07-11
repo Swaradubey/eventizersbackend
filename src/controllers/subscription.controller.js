@@ -1,4 +1,5 @@
 const subscriptionService = require("../services/subscription.service");
+const db = require("../config/db");
 
 /**
  * POST /api/plans/subscribe
@@ -35,6 +36,40 @@ const subscribe = async (req, res) => {
   }
 };
 
+/**
+ * GET /api/plans/current-plan
+ * Gets the current active plan of the authenticated user from the database.
+ */
+const getCurrentPlan = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const userResult = await db.query(
+      `SELECT plan FROM users WHERE id = $1`,
+      [userId]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: "User not found."
+      });
+    }
+
+    const currentPlan = userResult.rows[0].plan;
+    return res.status(200).json({
+      success: true,
+      currentPlan: currentPlan
+    });
+  } catch (error) {
+    console.error("Get current plan error:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Server error retrieving current plan."
+    });
+  }
+};
+
 module.exports = {
   subscribe,
+  getCurrentPlan,
 };

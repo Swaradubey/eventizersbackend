@@ -162,7 +162,58 @@ const handleInvoiceCreated = async (invoice) => {
  * Handle invoice.payment_succeeded event — mark invoice as Paid.
  */
 const handleInvoicePaymentSucceeded = async (invoice) => {
+  // First, upsert the invoice
   await userBillingService.upsertInvoice(invoice, "Paid");
+
+  // If this is a subscription invoice, update user's plan
+  const customerId = invoice.customer;
+  const subscriptionId = invoice.subscription;
+  if (customerId && subscriptionId) {
+    const userResult = await db.query(
+      `SELECT id, plan FROM users WHERE stripe_customer_id = $1`,
+      [customerId]
+    );
+    if (userResult.rows.length > 0) {
+      const userId = userResult.rows[0].id;
+      
+      // Resolve plan from invoice lines
+      let planId = "pro"; // Default fallback
+      if (invoice.lines?.data?.length > 0) {
+        const lineItem = invoice.lines.data[0];
+        const priceId = lineItem.price?.id;
+        if (priceId === process.env.STRIPE_BUSINESS_PRICE_ID?.trim()) {
+          planId = "business";
+        } else if (priceId === process.env.STRIPE_PRO_PRICE_ID?.trim()) {
+          planId = "pro";
+        } else if (lineItem.description) {
+          const desc = lineItem.description.toLowerCase();
+          if (desc.includes("business")) {
+            planId = "business";
+          } else if (desc.includes("pro")) {
+            planId = "pro";
+          }
+        }
+      }
+      
+      // Update user plan to PRO/BUSINESS and sync limits
+      const client = await db.pool.connect();
+      try {
+        await client.query("BEGIN");
+        await client.query(
+          `UPDATE users SET stripe_subscription_id = $1, plan = $2 WHERE id = $3`,
+          [subscriptionId, planId.toUpperCase(), userId]
+        );
+        await billingService.updatePlanByUserId(userId, planId.toLowerCase(), client);
+        await client.query("COMMIT");
+        console.log(`[webhook] Invoice payment succeeded. Updated user ${userId} plan to ${planId.toUpperCase()}.`);
+      } catch (err) {
+        await client.query("ROLLBACK");
+        console.error(`[webhook] Failed to update user plan on invoice payment success:`, err.message);
+      } finally {
+        client.release();
+      }
+    }
+  }
 };
 
 /**
@@ -187,13 +238,12 @@ const handleSubscriptionCreatedOrUpdated = async (subscription) => {
   if (userResult.rows.length === 0) return;
 
   const userId = userResult.rows[0].id;
-  const checkoutType = subscription.metadata?.checkoutType;
-  // Only process subscription events that belong to the billing flow
+  const status = subscription.status;
   const planFromMetadata = subscription.metadata?.plan || subscription.metadata?.planId;
 
   // Determine plan from metadata, or derive from price ID
-  let planId = planFromMetadata || "free";
-  if (!planFromMetadata && subscription.items?.data?.length > 0) {
+  let planId = planFromMetadata || null;
+  if (!planId && subscription.items?.data?.length > 0) {
     const priceId = subscription.items.data[0]?.price?.id;
     if (priceId === process.env.STRIPE_PRO_PRICE_ID?.trim()) {
       planId = "pro";
@@ -202,24 +252,46 @@ const handleSubscriptionCreatedOrUpdated = async (subscription) => {
     }
   }
 
-  // If the subscription is active/trialing, keep/update the plan, otherwise fall back to free
-  const status = subscription.status;
-  let localPlan = planId.toLowerCase();
-  if (status === "canceled" || status === "unpaid") {
+  let localPlan = planId ? planId.toLowerCase() : "free";
+
+  // If the subscription is active/trialing, keep/update the plan.
+  // If status is incomplete, do not downgrade/overwrite plan if already updated.
+  // Otherwise (canceled, past_due, unpaid, expired), fall back to free.
+  if (status === "active" || status === "trialing") {
+    if (localPlan === "free") {
+      const currentDbPlan = userResult.rows[0].plan || "FREE";
+      if (currentDbPlan !== "FREE") {
+        localPlan = currentDbPlan.toLowerCase();
+      } else {
+        localPlan = "pro"; // Default to pro if active subscription but unresolved
+      }
+    }
+  } else if (status === "incomplete") {
+    const currentDbPlan = userResult.rows[0].plan || "FREE";
+    localPlan = currentDbPlan.toLowerCase();
+  } else {
     localPlan = "free";
   }
 
-  // Update subscription reference in user table
-  const subscriptionId = status === "canceled" ? null : subscription.id;
-  await db.query(
-    `UPDATE users SET stripe_subscription_id = $1 WHERE id = $2`,
-    [subscriptionId, userId]
-  );
+  const subscriptionId = (status === "canceled" || status === "incomplete_expired") ? null : subscription.id;
 
-  // Synchronize database local plan limits
-  await billingService.updatePlanByUserId(userId, localPlan);
-
-  console.log(`[webhook] Subscription ${subscription.id} status updated to ${status} for user ${userId}. Plan set to ${localPlan}.`);
+  // Synchronize database local plan limits using transaction
+  const client = await db.pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(
+      `UPDATE users SET stripe_subscription_id = $1, plan = $2 WHERE id = $3`,
+      [subscriptionId, localPlan.toUpperCase(), userId]
+    );
+    await billingService.updatePlanByUserId(userId, localPlan.toLowerCase(), client);
+    await client.query("COMMIT");
+    console.log(`[webhook] Subscription ${subscription.id} status updated to ${status} for user ${userId}. Plan set to ${localPlan.toUpperCase()}.`);
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error(`[webhook] Failed to update subscription status for user ${userId} in transaction:`, err.message);
+  } finally {
+    client.release();
+  }
 };
 
 /**
@@ -238,14 +310,22 @@ const handleSubscriptionDeleted = async (subscription) => {
 
   const userId = userResult.rows[0].id;
 
-  await db.query(
-    `UPDATE users SET stripe_subscription_id = NULL WHERE id = $1`,
-    [userId]
-  );
-
-  await billingService.updatePlanByUserId(userId, "free");
-
-  console.log(`[webhook] Subscription ${subscription.id} deleted for user ${userId}. Downgraded to free.`);
+  const client = await db.pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(
+      `UPDATE users SET stripe_subscription_id = NULL, plan = 'FREE' WHERE id = $1`,
+      [userId]
+    );
+    await billingService.updatePlanByUserId(userId, "free", client);
+    await client.query("COMMIT");
+    console.log(`[webhook] Subscription ${subscription.id} deleted for user ${userId}. Downgraded to free.`);
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error(`[webhook] Failed to delete subscription for user ${userId} in transaction:`, err.message);
+  } finally {
+    client.release();
+  }
 };
 
 /**
@@ -262,30 +342,47 @@ const handleSubscriptionCheckoutCompleted = async (session) => {
     return;
   }
 
-  // Update user's stripe customer and subscription IDs
-  await db.query(
-    `UPDATE users SET stripe_customer_id = $1, stripe_subscription_id = $2, plan = $3 WHERE id = $4`,
-    [customerId, subscriptionId, plan.toUpperCase(), parseInt(userId, 10)]
-  );
-
-  // Also sync usage limits for the new plan
+  const client = await db.pool.connect();
   try {
-    await billingService.updatePlanByUserId(parseInt(userId, 10), plan.toLowerCase());
-  } catch (err) {
-    console.error(`[webhook] Failed to sync plan limits for user ${userId}:`, err.message);
-  }
+    await client.query("BEGIN");
 
-  // Create invoice immediately if payment is paid
-  if (session.payment_status === "paid" && session.invoice) {
-    try {
-      const invoice = await stripe.invoices.retrieve(session.invoice);
-      await userBillingService.upsertInvoice(invoice, "Paid");
-    } catch (invErr) {
-      console.error("[webhook] Failed to retrieve/upsert invoice on subscription checkout completion:", invErr.message);
+    if (session.payment_status === "paid") {
+      // Update user's stripe customer and subscription IDs and plan name
+      await client.query(
+        `UPDATE users SET stripe_customer_id = $1, stripe_subscription_id = $2, plan = $3 WHERE id = $4`,
+        [customerId, subscriptionId, plan.toUpperCase(), parseInt(userId, 10)]
+      );
+
+      // Synchronize database usage limits for the new plan
+      await billingService.updatePlanByUserId(parseInt(userId, 10), plan.toLowerCase(), client);
+
+      // Create invoice immediately if payment is paid
+      if (session.invoice) {
+        try {
+          const invoice = await stripe.invoices.retrieve(session.invoice);
+          await userBillingService.upsertInvoice(invoice, "Paid", client);
+        } catch (invErr) {
+          console.error("[webhook] Failed to retrieve/upsert invoice on subscription checkout completion inside transaction:", invErr.message);
+        }
+      }
+      console.log(`[webhook] Subscription checkout completed & verified for user ${userId}, plan ${plan}, sub ${subscriptionId}`);
+    } else {
+      // If payment not complete, just sync stripe IDs without updating plan limits yet
+      await client.query(
+        `UPDATE users SET stripe_customer_id = $1, stripe_subscription_id = $2 WHERE id = $3`,
+        [customerId, subscriptionId, parseInt(userId, 10)]
+      );
+      console.log(`[webhook] Subscription checkout completed but payment is pending for user ${userId}, stripe IDs synchronized.`);
     }
-  }
 
-  console.log(`[webhook] Subscription checkout completed for user ${userId}, plan ${plan}, sub ${subscriptionId}`);
+    await client.query("COMMIT");
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error(`[webhook] Failed to update subscription checkout for user ${userId} in transaction:`, err.message);
+    throw err;
+  } finally {
+    client.release();
+  }
 };
 
 /**
