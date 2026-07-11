@@ -179,6 +179,16 @@ const getCheckoutSessionStatus = async (req, res) => {
       try {
         const subscription = await stripe.subscriptions.retrieve(session.subscription);
         subscriptionStatus = subscription.status;
+
+        // Immediately retrieve and upsert invoice in local database if paid
+        if (session.payment_status === "paid" && session.invoice) {
+          try {
+            const invoice = await stripe.invoices.retrieve(session.invoice);
+            await userBillingService.upsertInvoice(invoice, "Paid");
+          } catch (invErr) {
+            console.error("[stripe] Error retrieving/saving invoice in status check:", invErr.message);
+          }
+        }
       } catch (err) {
         // Subscription may still be provisioning
       }

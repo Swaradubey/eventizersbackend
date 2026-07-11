@@ -247,7 +247,8 @@ const syncPaymentMethodToDb = async (userId, pm, isDefault) => {
  */
 const getInvoices = async (userId) => {
   const result = await db.query(
-    `SELECT id, invoice_number, amount, currency, status, invoice_date, pdf_url 
+    `SELECT id, invoice_number, amount, currency, status, invoice_date, pdf_url,
+            plan_name, billing_period, customer_name, customer_email, transaction_id
      FROM invoices 
      WHERE user_id = $1 
      ORDER BY invoice_date DESC`,
@@ -265,6 +266,11 @@ const getInvoices = async (userId) => {
       status: row.status,
       date: formattedDate,
       downloadUrl: `/api/user/billing/invoices/${row.invoice_number}/download`,
+      planName: row.plan_name,
+      billingPeriod: row.billing_period,
+      customerName: row.customer_name,
+      customerEmail: row.customer_email,
+      transactionId: row.transaction_id,
     };
   });
 };
@@ -280,6 +286,129 @@ const getInvoiceByIdAndUser = async (userId, invoiceId) => {
     [userId, invoiceId]
   );
   return result.rows[0] || null;
+};
+
+/**
+ * Create or update an invoice in the database.
+ * Handles Stripe webhook events or direct API calls.
+ * @param {object} invoice - Stripe invoice object (or expanded invoice object)
+ * @param {string|null} statusOverride - Override status (e.g. "Paid")
+ */
+const upsertInvoice = async (invoice, statusOverride = null) => {
+  if (!invoice || !invoice.id) return null;
+
+  const customerId = typeof invoice.customer === "string" ? invoice.customer : invoice.customer?.id;
+  if (!customerId) return null;
+
+  const userResult = await db.query(
+    `SELECT id, name, email, plan FROM users WHERE stripe_customer_id = $1`,
+    [customerId]
+  );
+
+  if (userResult.rows.length === 0) return null;
+
+  const user = userResult.rows[0];
+  const userId = user.id;
+  const invoiceId = invoice.id;
+  const invoiceNumber = invoice.number || invoiceId;
+  const amount = (invoice.amount_paid || invoice.amount_due || 0) / 100;
+  const currency = (invoice.currency || "usd").toUpperCase();
+  
+  // Status mapping
+  let status = statusOverride || capitalizeFirst(invoice.status || "Draft");
+  if (invoice.status === "paid") {
+    status = "Paid";
+  }
+
+  const invoiceDate = new Date((invoice.created || Date.now() / 1000) * 1000).toISOString().split("T")[0];
+  const pdfUrl = invoice.invoice_pdf || `/api/user/billing/invoices/${invoiceId}/download`;
+
+  // Get additional fields required:
+  // 1. Plan name: Try parsing from invoice lines or subscription, fall back to user's plan
+  let planName = capitalizeFirst(user.plan || "Pro");
+  
+  // Try to find subscription plan from invoice lines
+  if (invoice.lines?.data?.length > 0) {
+    const lineItem = invoice.lines.data[0];
+    if (lineItem.description) {
+      planName = lineItem.description.split(" Subscription")[0];
+    } else if (lineItem.price?.id) {
+      if (lineItem.price.id === process.env.STRIPE_PRO_PRICE_ID?.trim()) {
+        planName = "Pro";
+      } else if (lineItem.price.id === process.env.STRIPE_BUSINESS_PRICE_ID?.trim()) {
+        planName = "Business";
+      }
+    }
+  }
+  planName = capitalizeFirst(planName);
+
+  // 2. Billing Period
+  let billingPeriod = "Monthly";
+  if (invoice.lines?.data?.length > 0) {
+    const lineItem = invoice.lines.data[0];
+    if (lineItem.period?.start && lineItem.period?.end) {
+      const startStr = new Date(lineItem.period.start * 1000).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric"
+      });
+      const endStr = new Date(lineItem.period.end * 1000).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric"
+      });
+      billingPeriod = `${startStr} - ${endStr}`;
+    }
+  }
+
+  // 3. Customer name & email
+  const customerName = invoice.customer_name || user.name || "Customer";
+  const customerEmail = invoice.customer_email || user.email || "";
+
+  // 4. Payment provider transaction/payment ID
+  let transactionId = null;
+  if (invoice.payment_intent) {
+    transactionId = typeof invoice.payment_intent === "string"
+      ? invoice.payment_intent
+      : invoice.payment_intent.id;
+  }
+
+  // Do not create invoices for cancelled, pending, or failed payments
+  if (status !== "Paid") {
+    console.log(`[billing] Skipping invoice creation for non-paid status: ${status}`);
+    return null;
+  }
+
+  // Prevent duplicates by checking if stripe_invoice_id OR transaction_id already exists.
+  let existingQuery = `SELECT id FROM invoices WHERE stripe_invoice_id = $1`;
+  let existingParams = [invoiceId];
+  if (transactionId) {
+    existingQuery += ` OR transaction_id = $2`;
+    existingParams.push(transactionId);
+  }
+
+  const existing = await db.query(existingQuery, existingParams);
+
+  if (existing.rows.length > 0) {
+    // Update existing record
+    const existingId = existing.rows[0].id;
+    await db.query(
+      `UPDATE invoices 
+       SET status = $1, amount = $2, pdf_url = $3, plan_name = $4, billing_period = $5, 
+           customer_name = $6, customer_email = $7, transaction_id = $8, updated_at = NOW() 
+       WHERE id = $9`,
+      [status, amount, pdfUrl, planName, billingPeriod, customerName, customerEmail, transactionId, existingId]
+    );
+    console.log(`[billing] Invoice ${invoiceNumber} updated in DB for user ${userId}.`);
+  } else {
+    // Insert new record
+    await db.query(
+      `INSERT INTO invoices (id, invoice_number, user_id, stripe_invoice_id, amount, currency, status, invoice_date, pdf_url, plan_name, billing_period, customer_name, customer_email, transaction_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+      [invoiceId, invoiceNumber, userId, invoiceId, amount, currency, status, invoiceDate, pdfUrl, planName, billingPeriod, customerName, customerEmail, transactionId]
+    );
+    console.log(`[billing] Invoice ${invoiceNumber} inserted into DB for user ${userId}.`);
+  }
 };
 
 /**
@@ -299,4 +428,6 @@ module.exports = {
   getInvoices,
   getInvoiceByIdAndUser,
   syncPaymentMethodToDb,
+  upsertInvoice,
 };
+

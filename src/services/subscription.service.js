@@ -124,6 +124,15 @@ const subscribeToPlan = async (userId, planId) => {
     [subscription.id, userId]
   );
 
+  // Immediately upsert latest invoice in database if it exists
+  if (subscription.latest_invoice) {
+    try {
+      await userBillingService.upsertInvoice(subscription.latest_invoice, "Paid");
+    } catch (invErr) {
+      console.error("[subscription] Failed to upsert latest invoice on direct creation:", invErr.message);
+    }
+  }
+
   // Update local plan & limits
   const updated = await billingService.updatePlanByUserId(userId, plan);
 

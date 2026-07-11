@@ -152,66 +152,24 @@ const handleCustomerUpdated = async (customer) => {
 };
 
 /**
- * Shared helper to insert/update invoices in the DB.
- */
-const upsertInvoice = async (invoice, statusOverride = null) => {
-  const customerId = invoice.customer;
-  if (!customerId) return;
-
-  const userResult = await db.query(
-    `SELECT id FROM users WHERE stripe_customer_id = $1`,
-    [customerId]
-  );
-
-  if (userResult.rows.length === 0) return;
-
-  const userId = userResult.rows[0].id;
-  const invoiceId = invoice.id;
-  const invoiceNumber = invoice.number || invoiceId;
-  const amount = (invoice.amount_paid || invoice.amount_due || 0) / 100;
-  const currency = (invoice.currency || "usd").toUpperCase();
-  const status = statusOverride || capitalizeFirst(invoice.status || "Draft");
-  const invoiceDate = new Date((invoice.created || Date.now()) * 1000).toISOString().split("T")[0];
-  const pdfUrl = invoice.invoice_pdf || `/api/user/billing/invoices/${invoiceId}/download`;
-
-  // Upsert invoice
-  const existing = await db.query(`SELECT id FROM invoices WHERE id = $1`, [invoiceId]);
-
-  if (existing.rows.length > 0) {
-    await db.query(
-      `UPDATE invoices SET status = $1, amount = $2, pdf_url = $3, updated_at = NOW() WHERE id = $4`,
-      [status, amount, pdfUrl, invoiceId]
-    );
-  } else {
-    await db.query(
-      `INSERT INTO invoices (id, invoice_number, user_id, stripe_invoice_id, amount, currency, status, invoice_date, pdf_url)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-      [invoiceId, invoiceNumber, userId, invoiceId, amount, currency, status, invoiceDate, pdfUrl]
-    );
-  }
-
-  console.log(`[webhook] Invoice ${invoiceNumber} (${status}) upserted for user ${userId}`);
-};
-
-/**
  * Handle invoice.created event — upsert invoice.
  */
 const handleInvoiceCreated = async (invoice) => {
-  await upsertInvoice(invoice);
+  await userBillingService.upsertInvoice(invoice);
 };
 
 /**
  * Handle invoice.payment_succeeded event — mark invoice as Paid.
  */
 const handleInvoicePaymentSucceeded = async (invoice) => {
-  await upsertInvoice(invoice, "Paid");
+  await userBillingService.upsertInvoice(invoice, "Paid");
 };
 
 /**
  * Handle invoice.payment_failed event — mark invoice as Failed.
  */
 const handleInvoicePaymentFailed = async (invoice) => {
-  await upsertInvoice(invoice, "Failed");
+  await userBillingService.upsertInvoice(invoice, "Failed");
 };
 
 /**
@@ -315,6 +273,16 @@ const handleSubscriptionCheckoutCompleted = async (session) => {
     await billingService.updatePlanByUserId(parseInt(userId, 10), plan.toLowerCase());
   } catch (err) {
     console.error(`[webhook] Failed to sync plan limits for user ${userId}:`, err.message);
+  }
+
+  // Create invoice immediately if payment is paid
+  if (session.payment_status === "paid" && session.invoice) {
+    try {
+      const invoice = await stripe.invoices.retrieve(session.invoice);
+      await userBillingService.upsertInvoice(invoice, "Paid");
+    } catch (invErr) {
+      console.error("[webhook] Failed to retrieve/upsert invoice on subscription checkout completion:", invErr.message);
+    }
   }
 
   console.log(`[webhook] Subscription checkout completed for user ${userId}, plan ${plan}, sub ${subscriptionId}`);

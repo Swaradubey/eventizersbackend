@@ -407,3 +407,11 @@ CREATE TABLE IF NOT EXISTS templates (
     "isPremium" BOOLEAN NOT NULL DEFAULT FALSE
 );
 
+-- Alter invoices table to add new columns if they do not exist
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS plan_name VARCHAR(100);
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS billing_period VARCHAR(100);
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS customer_name VARCHAR(255);
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS customer_email VARCHAR(255);
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS transaction_id VARCHAR(255);
+
+
