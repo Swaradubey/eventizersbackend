@@ -93,8 +93,8 @@ const createCheckoutSession = async (eventId, ticketTierId, quantity, user) => {
       },
     ],
     mode: "payment",
-    success_url: `${frontendUrl}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${frontendUrl}/payment/cancel`,
+    success_url: `${frontendUrl}/dashboard/ticketing?eventId=${eventId}&session_id={CHECKOUT_SESSION_ID}&success=true`,
+    cancel_url: `${frontendUrl}/dashboard/ticketing?eventId=${eventId}&canceled=true`,
     customer_email: user.email,
     metadata: {
       eventId,
@@ -138,11 +138,18 @@ const createCheckoutSession = async (eventId, ticketTierId, quantity, user) => {
 /**
  * Get all ticket purchases for a user
  */
-const getMyTickets = async (userId) => {
+const getMyTickets = async (userId, eventId) => {
+  const whereClause = {
+    userId: parseInt(userId, 10),
+    status: "PAID",
+  };
+
+  if (eventId) {
+    whereClause.eventId = eventId;
+  }
+
   return await prisma.ticketOrder.findMany({
-    where: {
-      userId: parseInt(userId, 10),
-    },
+    where: whereClause,
     include: {
       event: {
         select: {

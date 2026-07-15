@@ -51,7 +51,8 @@ const createCheckoutSession = async (req, res) => {
 const getMyTickets = async (req, res) => {
   try {
     const userId = req.user.id;
-    const tickets = await ticketPurchaseService.getMyTickets(userId);
+    const { eventId } = req.query;
+    const tickets = await ticketPurchaseService.getMyTickets(userId, eventId);
     return res.status(200).json({ success: true, tickets });
   } catch (error) {
     console.error("Get My Tickets Error:", error);

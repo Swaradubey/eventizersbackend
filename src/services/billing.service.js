@@ -83,13 +83,13 @@ const getBillingUsageByUserId = async (userId, client = db) => {
   );
   const eventsCreated = eventsCountResult.rows[0].count;
 
-  // 4. Count actual guests this billing month
+  // 4. Count actual guests (total)
   const guestsCountResult = await client.query(
     `SELECT COUNT(g.id)::int AS count
      FROM guests g
      JOIN events e ON g.event_id = e.id
-     WHERE e.created_by = $1 AND g.created_at >= $2`,
-     [userId, billingCycleStart]
+     WHERE e.created_by = $1`,
+     [userId]
   );
   const guestsUsed = guestsCountResult.rows[0].count;
 

@@ -113,7 +113,7 @@ const handlePaymentMethodAttached = async (paymentMethod) => {
  * Handle payment_method.detached event.
  */
 const handlePaymentMethodDetached = async (paymentMethod) => {
-  // Remove from local DB
+
   await db.query(
     `DELETE FROM payment_methods WHERE stripe_payment_method_id = $1`,
     [paymentMethod.id]
@@ -138,7 +138,7 @@ const handleCustomerUpdated = async (customer) => {
   const defaultPmId = customer.invoice_settings?.default_payment_method;
 
   if (defaultPmId) {
-    // Unset all defaults for user, then set the correct one
+
     await db.query(
       `UPDATE payment_methods SET is_default = FALSE, updated_at = NOW() WHERE user_id = $1`,
       [userId]
@@ -165,7 +165,7 @@ const handleInvoicePaymentSucceeded = async (invoice) => {
   // First, upsert the invoice
   await userBillingService.upsertInvoice(invoice, "Paid");
 
-  // If this is a subscription invoice, update user's plan
+
   const customerId = invoice.customer;
   const subscriptionId = invoice.subscription;
   if (customerId && subscriptionId) {
@@ -175,7 +175,7 @@ const handleInvoicePaymentSucceeded = async (invoice) => {
     );
     if (userResult.rows.length > 0) {
       const userId = userResult.rows[0].id;
-      
+
       // Resolve plan from invoice lines
       let planId = "pro"; // Default fallback
       if (invoice.lines?.data?.length > 0) {
@@ -194,7 +194,7 @@ const handleInvoicePaymentSucceeded = async (invoice) => {
           }
         }
       }
-      
+
       // Update user plan to PRO/BUSINESS and sync limits
       const client = await db.pool.connect();
       try {
@@ -254,9 +254,7 @@ const handleSubscriptionCreatedOrUpdated = async (subscription) => {
 
   let localPlan = planId ? planId.toLowerCase() : "free";
 
-  // If the subscription is active/trialing, keep/update the plan.
-  // If status is incomplete, do not downgrade/overwrite plan if already updated.
-  // Otherwise (canceled, past_due, unpaid, expired), fall back to free.
+
   if (status === "active" || status === "trialing") {
     if (localPlan === "free") {
       const currentDbPlan = userResult.rows[0].plan || "FREE";

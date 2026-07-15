@@ -59,10 +59,10 @@ const createCheckoutSession = async (req, res) => {
     }
 
     if (!price.active ||
-        !price.recurring ||
-        price.recurring.interval !== config.expectedInterval ||
-        price.currency !== config.expectedCurrency ||
-        price.unit_amount !== config.expectedAmount) {
+      !price.recurring ||
+      price.recurring.interval !== config.expectedInterval ||
+      price.currency !== config.expectedCurrency ||
+      price.unit_amount !== config.expectedAmount) {
       console.error(`[stripe] Price mismatch for ${normalizedPlan}. Expected ${config.expectedAmount} ${config.expectedCurrency}/${config.expectedInterval}, got ${price.unit_amount} ${price.currency}/${price.recurring?.interval}`);
       return res.status(503).json({ error: "The selected Stripe price does not match the configured plan." });
     }
@@ -207,8 +207,7 @@ const getCheckoutSessionStatus = async (req, res) => {
 
     const stripeActive = subscriptionStatus === "active" || subscriptionStatus === "trialing" || subscriptionStatus === "complete";
     if (stripeActive && dbPlan !== sessionPlan && sessionPlan) {
-      // Proactively sync the database with the Stripe plan so the success page
-      // does not have to wait for the async webhook to arrive.
+
       try {
         const client = await db.pool.connect();
         try {
