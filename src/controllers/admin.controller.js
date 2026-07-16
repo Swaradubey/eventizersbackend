@@ -158,19 +158,27 @@ const getStats = async (req, res) => {
  */
 const getEvents = async (req, res) => {
   try {
-    const rawEvents = await prisma.event.findMany({
-      include: {
-        user: {
-          select: {
-            name: true,
-            email: true,
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = req.query.limit ? Math.max(1, parseInt(req.query.limit, 10)) : null;
+    const skip = limit !== null ? (page - 1) * limit : 0;
+
+    const [total, rawEvents] = await Promise.all([
+      prisma.event.count(),
+      prisma.event.findMany({
+        ...(limit !== null ? { skip, take: limit } : {}),
+        include: {
+          user: {
+            select: {
+              name: true,
+              email: true,
+            },
           },
         },
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
+        orderBy: {
+          createdAt: "desc",
+        },
+      })
+    ]);
 
     // Normalize date/time representations for frontend compatibility
     const events = rawEvents.map((event) => {
@@ -205,9 +213,20 @@ const getEvents = async (req, res) => {
       };
     });
 
+    const paginationMetadata = {
+      page: limit !== null ? page : 1,
+      limit: limit !== null ? limit : total,
+      total,
+      totalPages: limit !== null ? Math.ceil(total / limit) : 1,
+      hasNextPage: limit !== null ? page * limit < total : false,
+      hasPreviousPage: limit !== null ? page > 1 : false,
+    };
+
     return res.status(200).json({
       success: true,
       events,
+      data: events,
+      pagination: paginationMetadata,
     });
   } catch (error) {
     console.error("Admin Get Events Error:", error);
