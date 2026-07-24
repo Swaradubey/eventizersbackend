@@ -389,7 +389,9 @@ const handleSubscriptionCheckoutCompleted = async (session) => {
  */
 const handleCheckoutSessionCompleted = async (session) => {
   const sessionId = session.id;
-  const paymentIntentId = session.payment_intent;
+  const paymentIntentId = typeof session.payment_intent === "string"
+    ? session.payment_intent
+    : session.payment_intent?.id || null;
 
   console.log(`[webhook] Processing checkout.session.completed for session ${sessionId}`);
 
@@ -405,32 +407,81 @@ const handleCheckoutSessionCompleted = async (session) => {
     return;
   }
 
-  // Find the pending ticket order
-  const order = await prisma.ticketOrder.findUnique({
+  // Find existing ticket order
+  let order = await prisma.ticketOrder.findUnique({
     where: { stripeSessionId: sessionId },
   });
 
-  if (!order) {
-    console.log(`[webhook] No matching TicketOrder found for session ${sessionId}.`);
+  if (order) {
+    if (order.status === "PAID") {
+      console.log(`[webhook] TicketOrder ${order.id} is already PAID. Skipping duplicate processing.`);
+      return;
+    }
+
+    // Update order status to PAID
+    await prisma.ticketOrder.update({
+      where: { id: order.id },
+      data: {
+        status: "PAID",
+        paymentIntentId: paymentIntentId,
+        paidAt: new Date(),
+      },
+    });
+
+    console.log(`[webhook] TicketOrder ${order.id} successfully updated to PAID.`);
     return;
   }
 
-  if (order.status === "PAID") {
-    console.log(`[webhook] TicketOrder ${order.id} is already PAID. Skipping duplicate processing.`);
-    return;
+  // If no matching order, attempt to create order from session metadata
+  const eventId = session.metadata?.eventId;
+  const ticketTierId = session.metadata?.ticketTierId;
+  const quantity = parseInt(session.metadata?.quantity || "1", 10);
+  const userId = session.metadata?.userId ? parseInt(session.metadata.userId, 10) : null;
+
+  if (eventId && ticketTierId && userId) {
+    const [user, event, tier] = await Promise.all([
+      prisma.user.findUnique({ where: { id: userId } }),
+      prisma.event.findUnique({ where: { id: eventId } }),
+      prisma.ticketTier.findUnique({ where: { id: ticketTierId } }),
+    ]);
+
+    if (user && event && tier) {
+      const unitPrice = parseFloat(tier.price.toString());
+      const totalAmount = unitPrice * quantity;
+      const currency = tier.currency || "INR";
+
+      order = await prisma.ticketOrder.create({
+        data: {
+          eventId,
+          userId: user.id,
+          customerName: user.name,
+          customerEmail: user.email,
+          status: "PAID",
+          subtotal: totalAmount,
+          totalAmount: totalAmount,
+          currency: currency,
+          stripeSessionId: session.id,
+          paymentIntentId: paymentIntentId,
+          paidAt: new Date(),
+          items: {
+            create: [
+              {
+                ticketTierId,
+                quantity,
+                unitPrice: unitPrice,
+                totalPrice: totalAmount,
+              },
+            ],
+          },
+        },
+      });
+
+      console.log(`[webhook] Created new PAID TicketOrder ${order.id} from webhook metadata.`);
+      return;
+    }
   }
 
-  // Update order status to PAID
-  await prisma.ticketOrder.update({
-    where: { id: order.id },
-    data: {
-      status: "PAID",
-      paymentIntentId: paymentIntentId,
-      paidAt: new Date(),
-    },
-  });
-
-  console.log(`[webhook] TicketOrder ${order.id} successfully updated to PAID.`);
+  console.log(`[webhook] No matching TicketOrder found and insufficient metadata for session ${sessionId}.`);
 };
 
 module.exports = {

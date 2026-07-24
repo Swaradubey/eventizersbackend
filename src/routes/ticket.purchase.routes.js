@@ -12,7 +12,10 @@ router.post("/create-checkout-session", ticketPurchaseController.createCheckoutS
 // Route for retrieving the user's purchased tickets
 router.get("/my-tickets", ticketPurchaseController.getMyTickets);
 
-// Route for retrieving session details
+// Route for retrieving session details & verifying payment
 router.get("/session/:sessionId", ticketPurchaseController.getSessionDetails);
+router.get("/verify/:sessionId", ticketPurchaseController.verifyPayment);
+router.post("/verify", ticketPurchaseController.verifyPayment);
 
 module.exports = router;
+

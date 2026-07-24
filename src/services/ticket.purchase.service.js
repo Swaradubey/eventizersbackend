@@ -173,16 +173,22 @@ const getMyTickets = async (userId, eventId) => {
 };
 
 /**
- * Get ticket order details by Stripe session ID (for success page)
+ * Get ticket order details by Stripe session ID and verify directly with Stripe
  */
-const getSessionDetails = async (sessionId) => {
-  return await prisma.ticketOrder.findUnique({
+const verifyAndGetSessionDetails = async (sessionId, requestingUserId) => {
+  if (!sessionId) {
+    throw new Error("Session ID is required.");
+  }
+
+  // 1. Fetch order from DB if it exists
+  let order = await prisma.ticketOrder.findUnique({
     where: {
       stripeSessionId: sessionId,
     },
     include: {
       event: {
         select: {
+          id: true,
           title: true,
         },
       },
@@ -190,6 +196,7 @@ const getSessionDetails = async (sessionId) => {
         include: {
           ticketTier: {
             select: {
+              id: true,
               name: true,
             },
           },
@@ -197,10 +204,218 @@ const getSessionDetails = async (sessionId) => {
       },
     },
   });
+
+  // Security ownership check if order exists
+  if (order && order.userId && requestingUserId && order.userId !== parseInt(requestingUserId, 10)) {
+    const error = new Error("Unauthorized access to order details.");
+    error.statusCode = 403;
+    throw error;
+  }
+
+  // Helper to format consistent ticket object
+  const formatTicketResponse = (ord) => {
+    const firstItem = ord.items?.[0] || {};
+    return {
+      id: ord.id,
+      eventId: ord.eventId,
+      eventTitle: ord.event?.title || "Event",
+      ticketTierName: firstItem.ticketTier?.name || "Ticket",
+      ticketNumber: ord.id,
+      paymentStatus: ord.status.toLowerCase(),
+      totalAmount: ord.totalAmount,
+      currency: ord.currency,
+      quantity: firstItem.quantity || 1,
+      paidAt: ord.paidAt || ord.createdAt,
+    };
+  };
+
+  // 2. If order exists and status is already PAID, return immediately (idempotent)
+  if (order && order.status === "PAID") {
+    return {
+      success: true,
+      status: "confirmed",
+      order,
+      ticket: formatTicketResponse(order),
+    };
+  }
+
+  // 3. Verify directly with Stripe if stripe instance is available
+  if (stripe) {
+    try {
+      const session = await stripe.checkout.sessions.retrieve(sessionId);
+
+      if (session) {
+        const isPaymentPaid = session.payment_status === "paid" || session.status === "complete";
+        const paymentIntentId = typeof session.payment_intent === "string"
+          ? session.payment_intent
+          : session.payment_intent?.id || null;
+
+        if (isPaymentPaid) {
+          if (order) {
+            // Update order status to PAID
+            order = await prisma.ticketOrder.update({
+              where: { id: order.id },
+              data: {
+                status: "PAID",
+                paymentIntentId: paymentIntentId,
+                paidAt: new Date(),
+              },
+              include: {
+                event: {
+                  select: {
+                    id: true,
+                    title: true,
+                  },
+                },
+                items: {
+                  include: {
+                    ticketTier: {
+                      select: {
+                        id: true,
+                        name: true,
+                      },
+                    },
+                  },
+                },
+              },
+            });
+          } else {
+            // Order does not exist in DB yet — create it from Stripe session metadata
+            const eventId = session.metadata?.eventId;
+            const ticketTierId = session.metadata?.ticketTierId;
+            const quantity = parseInt(session.metadata?.quantity || "1", 10);
+            const userId = session.metadata?.userId
+              ? parseInt(session.metadata.userId, 10)
+              : requestingUserId ? parseInt(requestingUserId, 10) : null;
+
+            if (eventId && ticketTierId && userId) {
+              const [user, event, tier] = await Promise.all([
+                prisma.user.findUnique({ where: { id: userId } }),
+                prisma.event.findUnique({ where: { id: eventId } }),
+                prisma.ticketTier.findUnique({ where: { id: ticketTierId } }),
+              ]);
+
+              if (event && tier && user) {
+                const unitPrice = parseFloat(tier.price.toString());
+                const totalAmount = unitPrice * quantity;
+                const currency = tier.currency || "INR";
+
+                order = await prisma.ticketOrder.create({
+                  data: {
+                    eventId,
+                    userId: user.id,
+                    customerName: user.name,
+                    customerEmail: user.email,
+                    status: "PAID",
+                    subtotal: totalAmount,
+                    totalAmount: totalAmount,
+                    currency: currency,
+                    stripeSessionId: session.id,
+                    paymentIntentId: paymentIntentId,
+                    paidAt: new Date(),
+                    items: {
+                      create: [
+                        {
+                          ticketTierId,
+                          quantity,
+                          unitPrice: unitPrice,
+                          totalPrice: totalAmount,
+                        },
+                      ],
+                    },
+                  },
+                  include: {
+                    event: {
+                      select: {
+                        id: true,
+                        title: true,
+                      },
+                    },
+                    items: {
+                      include: {
+                        ticketTier: {
+                          select: {
+                            id: true,
+                            name: true,
+                          },
+                        },
+                      },
+                    },
+                  },
+                });
+              }
+            }
+          }
+
+          if (order && order.status === "PAID") {
+            return {
+              success: true,
+              status: "confirmed",
+              order,
+              ticket: formatTicketResponse(order),
+            };
+          }
+        } else if (session.status === "open" || session.payment_status === "unpaid") {
+          return {
+            success: true,
+            status: "processing",
+            order: order || null,
+          };
+        } else if (session.status === "expired") {
+          if (order) {
+            await prisma.ticketOrder.update({
+              where: { id: order.id },
+              data: { status: "EXPIRED" },
+            });
+          }
+          return {
+            success: false,
+            status: "failed",
+            message: "Payment session has expired.",
+          };
+        }
+      }
+    } catch (stripeErr) {
+      console.error("[ticketPurchaseService] Error retrieving Stripe session:", stripeErr.message);
+    }
+  }
+
+  // 4. Fallback checking DB order status
+  if (order) {
+    if (order.status === "PAID") {
+      return {
+        success: true,
+        status: "confirmed",
+        order,
+        ticket: formatTicketResponse(order),
+      };
+    }
+    return {
+      success: true,
+      status: "processing",
+      order,
+    };
+  }
+
+  return {
+    success: false,
+    status: "failed",
+    message: "Payment could not be verified.",
+  };
+};
+
+const getSessionDetails = async (sessionId, requestingUserId) => {
+  const result = await verifyAndGetSessionDetails(sessionId, requestingUserId);
+  if (result.success && result.order) {
+    return result.order;
+  }
+  return null;
 };
 
 module.exports = {
   createCheckoutSession,
   getMyTickets,
   getSessionDetails,
+  verifyAndGetSessionDetails,
 };
+

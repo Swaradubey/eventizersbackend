@@ -62,33 +62,38 @@ const getMyTickets = async (req, res) => {
 
 /**
  * GET /api/tickets/session/:sessionId
+ * POST /api/tickets/verify
  */
 const getSessionDetails = async (req, res) => {
   try {
-    const { sessionId } = req.params;
+    const sessionId = req.params.sessionId || req.body?.sessionId || req.query?.sessionId;
     if (!sessionId) {
-      return res.status(400).json({ error: "Session ID is required." });
+      return res.status(400).json({ success: false, status: "failed", message: "Session ID is required." });
     }
 
-    const order = await ticketPurchaseService.getSessionDetails(sessionId);
-    if (!order) {
-      return res.status(404).json({ error: "Ticket order not found." });
+    const userId = req.user ? req.user.id : null;
+    const result = await ticketPurchaseService.verifyAndGetSessionDetails(sessionId, userId);
+
+    if (result.status === "failed") {
+      return res.status(400).json(result);
     }
 
-    // Security check: ensure requesting user owns the order (or is admin)
-    if (order.userId !== req.user.id && req.user.role !== "ADMIN") {
-      return res.status(403).json({ error: "Unauthorized access to order details." });
-    }
-
-    return res.status(200).json({ success: true, order });
+    return res.status(200).json(result);
   } catch (error) {
-    console.error("Get Session Details Error:", error);
-    return res.status(500).json({ error: error.message || "Server error retrieving session details." });
+    console.error("Get Session Details / Verify Error:", error);
+    if (error.statusCode === 403 || error.message.includes("Unauthorized")) {
+      return res.status(403).json({ success: false, status: "failed", message: "Unauthorized access to order details." });
+    }
+    return res.status(500).json({ success: false, status: "failed", message: error.message || "Server error retrieving session details." });
   }
 };
+
+const verifyPayment = getSessionDetails;
 
 module.exports = {
   createCheckoutSession,
   getMyTickets,
   getSessionDetails,
+  verifyPayment,
 };
+
