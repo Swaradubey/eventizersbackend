@@ -49,12 +49,18 @@ const getEventSummary = async (eventId, userId) => {
     throw new Error("Unauthorized event access.");
   }
 
-  // 1. Calculate ticketsSold (quantities from successful/PAID ticket orders for the event)
+  // 1. Calculate ticketsSold (quantities from successful/PAID ticket orders for active, non-archived tiers)
   const itemsAgg = await prisma.ticketOrderItem.aggregate({
     where: {
       order: {
         eventId,
         status: "PAID",
+      },
+      ticketTier: {
+        status: {
+          not: "ARCHIVED",
+        },
+        isActive: true,
       },
     },
     _sum: {
@@ -63,18 +69,26 @@ const getEventSummary = async (eventId, userId) => {
   });
   const ticketsSold = itemsAgg._sum.quantity || 0;
 
-  // 2. Calculate totalRevenue (sum of paid order totals)
-  const revenueAgg = await prisma.ticketOrder.aggregate({
+  // 2. Calculate totalRevenue (sum of paid order item totals for active, non-archived tiers)
+  const revenueAgg = await prisma.ticketOrderItem.aggregate({
     where: {
-      eventId,
-      status: "PAID",
+      order: {
+        eventId,
+        status: "PAID",
+      },
+      ticketTier: {
+        status: {
+          not: "ARCHIVED",
+        },
+        isActive: true,
+      },
     },
     _sum: {
-      totalAmount: true,
+      totalPrice: true,
     },
   });
-  const totalRevenue = revenueAgg._sum.totalAmount
-    ? parseFloat(revenueAgg._sum.totalAmount.toString())
+  const totalRevenue = revenueAgg._sum.totalPrice
+    ? parseFloat(revenueAgg._sum.totalPrice.toString())
     : 0.0;
 
   // 3. Calculate capacity (sum of capacities of all active ticket tiers)
@@ -390,13 +404,6 @@ const deleteTicketTier = async (tierId, userId) => {
     where: { id: tierId },
     include: {
       event: true,
-      orderItems: {
-        where: {
-          order: {
-            status: "PAID",
-          },
-        },
-      },
     },
   });
 
@@ -408,35 +415,20 @@ const deleteTicketTier = async (tierId, userId) => {
     throw new Error("Unauthorized event access.");
   }
 
-  const quantitySold = existingTier.orderItems.reduce((sum, item) => sum + item.quantity, 0);
+  // Purge order items and empty orders linked to this tier
+  const { cleanOrphanTicketsAndOrders } = require("../utils/orphanTicketCleaner");
+  await cleanOrphanTicketsAndOrders(tierId);
 
-  if (quantitySold > 0) {
-    // Has sales, soft delete by archiving to preserve order history
-    await prisma.ticketTier.update({
-      where: { id: tierId },
-      data: {
-        status: "ARCHIVED",
-        isActive: false,
-      },
-    });
+  // Delete the ticket tier record
+  await prisma.ticketTier.delete({
+    where: { id: tierId },
+  });
 
-    return {
-      deleted: false,
-      archived: true,
-      message: "Ticket tier archived successfully because it contains sales history.",
-    };
-  } else {
-    // No sales, safe to hard delete
-    await prisma.ticketTier.delete({
-      where: { id: tierId },
-    });
-
-    return {
-      deleted: true,
-      archived: false,
-      message: "Ticket tier deleted successfully.",
-    };
-  }
+  return {
+    deleted: true,
+    archived: false,
+    message: "Ticket tier deleted successfully.",
+  };
 };
 
 module.exports = {

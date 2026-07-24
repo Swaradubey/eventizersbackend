@@ -221,6 +221,10 @@ async function startServer() {
     // Verify database connection on startup using Prisma
     await connectDatabase();
 
+    // Clean up pre-existing orphan ticket records in the database
+    const { cleanOrphanTicketsAndOrders } = require("./utils/orphanTicketCleaner");
+    await cleanOrphanTicketsAndOrders();
+
     app.listen(PORT, () => {
       console.log(`[Eventizers Backend] Server is running on port ${PORT}`);
     });

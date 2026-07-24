@@ -798,39 +798,23 @@ const deleteTicketTier = async (req, res) => {
 
     const tier = await prisma.ticketTier.findUnique({
       where: { id: tierId },
-      include: {
-        orderItems: {
-          where: { order: { status: "PAID" } },
-        },
-      },
     });
 
     if (!tier) {
       return res.status(404).json({ error: "Ticket tier not found." });
     }
 
-    const quantitySold = tier.orderItems.reduce((sum, item) => sum + item.quantity, 0);
+    const { cleanOrphanTicketsAndOrders } = require("../utils/orphanTicketCleaner");
+    await cleanOrphanTicketsAndOrders(tierId);
 
-    if (quantitySold > 0) {
-      await prisma.ticketTier.update({
-        where: { id: tierId },
-        data: { status: "ARCHIVED", isActive: false },
-      });
-      return res.status(200).json({
-        success: true,
-        deleted: false,
-        archived: true,
-        message: "Ticket tier archived successfully because it contains sales history.",
-      });
-    } else {
-      await prisma.ticketTier.delete({ where: { id: tierId } });
-      return res.status(200).json({
-        success: true,
-        deleted: true,
-        archived: false,
-        message: "Ticket tier deleted successfully.",
-      });
-    }
+    await prisma.ticketTier.delete({ where: { id: tierId } });
+
+    return res.status(200).json({
+      success: true,
+      deleted: true,
+      archived: false,
+      message: "Ticket tier deleted successfully.",
+    });
   } catch (error) {
     console.error("Admin Delete Ticket Tier Error:", error);
     return res.status(500).json({ error: "Server error deleting ticket tier." });

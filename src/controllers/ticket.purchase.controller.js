@@ -50,6 +50,10 @@ const createCheckoutSession = async (req, res) => {
  */
 const getMyTickets = async (req, res) => {
   try {
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate, max-age=0");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+
     const userId = req.user.id;
     const { eventId } = req.query;
     const tickets = await ticketPurchaseService.getMyTickets(userId, eventId);

@@ -139,28 +139,54 @@ const createCheckoutSession = async (eventId, ticketTierId, quantity, user) => {
  * Get all ticket purchases for a user
  */
 const getMyTickets = async (userId, eventId) => {
+  const { cleanOrphanTicketsAndOrders } = require("../utils/orphanTicketCleaner");
+  await cleanOrphanTicketsAndOrders();
+
   const whereClause = {
     userId: parseInt(userId, 10),
     status: "PAID",
+    items: {
+      some: {
+        ticketTier: {
+          status: {
+            not: "ARCHIVED",
+          },
+          isActive: true,
+        },
+      },
+    },
   };
 
   if (eventId) {
     whereClause.eventId = eventId;
   }
 
-  return await prisma.ticketOrder.findMany({
+  const rawOrders = await prisma.ticketOrder.findMany({
     where: whereClause,
     include: {
       event: {
         select: {
+          id: true,
           title: true,
+          status: true,
         },
       },
       items: {
+        where: {
+          ticketTier: {
+            status: {
+              not: "ARCHIVED",
+            },
+            isActive: true,
+          },
+        },
         include: {
           ticketTier: {
             select: {
+              id: true,
               name: true,
+              status: true,
+              isActive: true,
             },
           },
         },
@@ -170,6 +196,19 @@ const getMyTickets = async (userId, eventId) => {
       createdAt: "desc",
     },
   });
+
+  // Filter out any orders where items became empty or ticketTier is deleted/archived
+  return rawOrders
+    .map((order) => {
+      const validItems = (order.items || []).filter(
+        (item) => item.ticketTier && item.ticketTier.status !== "ARCHIVED" && item.ticketTier.isActive
+      );
+      return {
+        ...order,
+        items: validItems,
+      };
+    })
+    .filter((order) => order.items.length > 0);
 };
 
 /**
