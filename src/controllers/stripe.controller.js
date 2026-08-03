@@ -2,6 +2,7 @@ const stripe = require("../config/stripe");
 const db = require("../config/db");
 const userBillingService = require("../services/user.billing.service");
 const billingService = require("../services/billing.service");
+const { normalizePlanId } = require("../config/plans.config");
 
 const PLAN_CONFIG = {
   pro: {
@@ -84,8 +85,8 @@ const createCheckoutSession = async (req, res) => {
           quantity: 1,
         },
       ],
-      success_url: `${frontendUrl}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${frontendUrl}/billing?checkout=cancelled`,
+      success_url: `${frontendUrl}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${frontendUrl}/dashboard/billing?payment=cancelled`,
       client_reference_id: String(authenticatedUser.id),
       customer: customerId,
       metadata: {
@@ -195,7 +196,7 @@ const getCheckoutSessionStatus = async (req, res) => {
       }
     }
 
-    const plan = session.metadata?.plan || null;
+    const plan = session.metadata?.plan ? normalizePlanId(session.metadata.plan) : null;
 
     // Verify database synchronization (ensure webhook has finished processing)
     const userResult = await db.query(

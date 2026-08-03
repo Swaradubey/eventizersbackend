@@ -1,6 +1,7 @@
 const db = require("../config/db");
 const crypto = require("crypto");
 const { getBillingCycleStart } = require("../utils/billing.helper");
+const { BILLING_PLANS, normalizePlanId } = require("../config/plans.config");
 
 /**
  * Get dynamic usage statistics for a user
@@ -20,7 +21,8 @@ const getBillingUsageByUserId = async (userId, client = db) => {
   }
 
   const rawPlan = userResult.rows[0].plan || "FREE";
-  const currentPlan = rawPlan.toLowerCase();
+  // Normalize: host → business; unknown → free
+  const currentPlan = normalizePlanId(rawPlan);
 
   // 2. Fetch subscription usage limits and start date
   const usageResult = await client.query(
@@ -138,13 +140,16 @@ const getBillingByUserId = async (userId, client = db) => {
   }
 
   const rawPlan = userResult.rows[0].plan || "FREE";
-  const currentPlan = rawPlan.toLowerCase();
+  // Normalize: host → business; unknown → free
+  const currentPlan = normalizePlanId(rawPlan);
 
   // Get dynamic usage stats
   const dynamicUsage = await getBillingUsageByUserId(userId, client);
 
   return {
     currentPlan,
+    // Always return the full plans array so the billing page never receives undefined
+    plans: BILLING_PLANS,
     usage: {
       eventsCreated: dynamicUsage.eventsCreated,
       eventsLimit: dynamicUsage.eventsLimit,
@@ -164,14 +169,15 @@ const getBillingByUserId = async (userId, client = db) => {
  * @returns {Promise<Object>} { usage, currentPlan }
  */
 const updatePlanByUserId = async (userId, planId, client = db) => {
-  const planUpper = planId.toUpperCase();
+  // Normalize incoming planId (handles legacy "host" values)
+  const normalizedId = normalizePlanId(planId);
+  const planUpper = normalizedId.toUpperCase();
   
   // 1. Update users plan
   const userUpdate = await client.query(
     `UPDATE users SET plan = $1 WHERE id = $2 RETURNING plan`,
     [planUpper, userId]
   );
-
   if (userUpdate.rows.length === 0) {
     throw new Error("User not found");
   }
@@ -181,11 +187,11 @@ const updatePlanByUserId = async (userId, planId, client = db) => {
   let messagesLimit = 100;
   let eventsLimit = 10;
   
-  if (planId === "pro") {
+  if (normalizedId === "pro") {
     guestsLimit = 250;
     messagesLimit = 5000;
     eventsLimit = -1;
-  } else if (planId === "business" || planId === "enterprise") {
+  } else if (normalizedId === "business" || normalizedId === "enterprise") {
     guestsLimit = -1;
     messagesLimit = -1;
     eventsLimit = -1;
@@ -220,7 +226,8 @@ const updatePlanByUserId = async (userId, planId, client = db) => {
   const dynamicUsage = await getBillingUsageByUserId(userId, client);
 
   return {
-    currentPlan: planId,
+    currentPlan: normalizedId,
+    plans: BILLING_PLANS,
     usage: {
       eventsCreated: dynamicUsage.eventsCreated,
       eventsLimit: dynamicUsage.eventsLimit,

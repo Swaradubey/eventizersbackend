@@ -100,6 +100,10 @@ app.use("/api/plans", subscriptionRoutes);
 const stripeRoutes = require("./routes/stripe.routes");
 app.use("/api/stripe", stripeRoutes);
 
+// Billing Routes (activate-free, checkout-session via billing controller)
+const billingRoutes = require("./routes/billing.routes");
+app.use("/api/billing", billingRoutes);
+
 // Check-In Routes
 const checkInRoutes = require("./routes/checkIn.routes");
 app.use("/api/check-ins", checkInRoutes);
