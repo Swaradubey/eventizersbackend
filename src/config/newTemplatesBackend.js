@@ -393,29 +393,7 @@ const newTemplatesDataBackend = [
       textAlignment: "center"
     })
   },
-  {
-    id: "tpl-babyshower-8",
-    name: "Golden Honey Bee Shower",
-    category: "Baby Shower",
-    isPremium: false,
-    content: JSON.stringify({
-      gradient: "linear-gradient(135deg, #fffde7 0%, #fff59d 100%)",
-      accentColor: "#fbc02d",
-      emoji: "🐝",
-      host: "Hosted by Aunt Beatrice",
-      venue: "Honeybee Manor House",
-      description: "Ba-bee is almost here! Join us for honey-glazed treats, floral arrangements, and warm wishes.",
-      imageUrl: "https://images.unsplash.com/photo-1587049352847-4a222e784d38?auto=format&fit=crop&w=1200&q=80",
-      backgroundColor: "#FFFEF5",
-      textColor: "#3B2E00",
-      titleSize: 48,
-      fontWeight: "700",
-      fontFamily: "Lora",
-      buttonColor: "#fbc02d",
-      buttonRadius: 10,
-      textAlignment: "center"
-    })
-  },
+
   {
     id: "tpl-babyshower-9",
     name: "Cloud & Moon Starlight Shower",
@@ -1066,29 +1044,7 @@ const newTemplatesDataBackend = [
       textAlignment: "center"
     })
   },
-  {
-    id: "tpl-community-7",
-    name: "Youth Sports Tournament Night",
-    category: "Community",
-    isPremium: false,
-    content: JSON.stringify({
-      gradient: "linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%)",
-      accentColor: "#c62828",
-      emoji: "⚽",
-      host: "Hosted by Community Sports League",
-      venue: "Civic Stadium Field",
-      description: "Support our local youth soccer teams! Concession stands, halftime raffles, and trophy ceremonies.",
-      imageUrl: "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=1200&q=80",
-      backgroundColor: "#FAF2F2",
-      textColor: "#380606",
-      titleSize: 46,
-      fontWeight: "800",
-      fontFamily: "Montserrat",
-      buttonColor: "#c62828",
-      buttonRadius: 8,
-      textAlignment: "center"
-    })
-  },
+
   {
     id: "tpl-community-8",
     name: "Open Air Cinema Under Stars",
@@ -1576,29 +1532,7 @@ const newTemplatesDataBackend = [
       textAlignment: "center"
     })
   },
-  {
-    id: "tpl-privatedinner-9",
-    name: "Artisan Cheese & Vintage Tasting",
-    category: "Private Dinner",
-    isPremium: false,
-    content: JSON.stringify({
-      gradient: "linear-gradient(135deg, #880e4f 0%, #310012 100%)",
-      accentColor: "#f48fb1",
-      emoji: "🧀",
-      host: "Hosted by Sommelier Pierre",
-      venue: "Heritage Wine Cellars",
-      description: "Sample aged European cheeses paired meticulously with reserve Bordeaux and Vintage Port.",
-      imageUrl: "https://images.unsplash.com/photo-1528823872057-9c018a7a7053?auto=format&fit=crop&w=1200&q=80",
-      backgroundColor: "#1A010A",
-      textColor: "#FCE4EC",
-      titleSize: 48,
-      fontWeight: "700",
-      fontFamily: "Playfair Display",
-      buttonColor: "#f48fb1",
-      buttonRadius: 10,
-      textAlignment: "center"
-    })
-  },
+
   {
     id: "tpl-privatedinner-10",
     name: "Holiday Warmth Feast",
