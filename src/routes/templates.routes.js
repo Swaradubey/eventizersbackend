@@ -9,8 +9,13 @@ const router = express.Router();
 // Get all templates
 router.get('/', async (req, res, next) => {
   try {
-    const templates = await prisma.template.findMany();
-    res.json(templates);
+    let dbTemplates = [];
+    try {
+      dbTemplates = await prisma.template.findMany();
+    } catch (dbErr) {
+      console.warn("DB query for templates failed, using fallback:", dbErr.message);
+    }
+    res.json(dbTemplates);
   } catch (err) {
     next(err);
   }

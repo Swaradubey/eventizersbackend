@@ -248,7 +248,8 @@ const TEMPLATE_STYLES = {
     buttonColor: "#3a6073",
     buttonRadius: 10,
     textAlignment: "center",
-  }
+  },
+  ...require("../config/newTemplatesBackend").newTemplateStylesBackend
 };
 
 /**

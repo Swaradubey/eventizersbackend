@@ -237,9 +237,9 @@ const templatesData = [
       emoji: "📈",
       host: "Chamber of Commerce",
       venue: "Downtown Sky Lounge",
-      description: "Join local entrepreneurs and business owners to build meaningful connections, explore opportunities, and grow together."
     })
-  }
+  },
+  ...require("./src/config/newTemplatesBackend").newTemplatesDataBackend
 ];
 
 async function seed() {
