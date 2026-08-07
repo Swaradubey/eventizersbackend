@@ -1,5 +1,7 @@
 const invitationService = require("../services/invitation.service");
 const eventService = require("../services/event.service");
+const guestService = require("../services/guest.service");
+const emailService = require("../services/email.service");
 
 // Helper to validate hex colors
 const isValidHexColor = (color) => {
@@ -336,40 +338,107 @@ const deleteInvitation = async (req, res) => {
   }
 };
 
+// Helper to robustly parse email addresses from string or array input
+const parseRecipientEmails = (input) => {
+  if (!input) return [];
+  if (Array.isArray(input)) {
+    return input.flatMap(item => parseRecipientEmails(item));
+  }
+  if (typeof input === "string") {
+    return input
+      .split(/[\s,;\n]+/)
+      .map(e => e.trim().toLowerCase())
+      .filter(e => e && e.includes("@") && e.includes("."));
+  }
+  return [];
+};
+
 /**
- * Send invitation placeholder
+ * Send invitation via email
  * POST /api/invitations/:id/send
  */
 const sendInvitation = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id;
+    const { recipients, guestEmails } = req.body || {};
 
     const invitation = await invitationService.findInvitationById(id, userId);
     if (!invitation) {
       return res.status(404).json({ error: "Invitation not found or unauthorized access." });
     }
 
-    // Set state to published when sending
+    let event = null;
+    if (invitation.eventId) {
+      try {
+        event = await eventService.findEventById(invitation.eventId, userId);
+      } catch (err) {
+        console.warn("[InvitationController] Could not fetch event details:", err.message);
+      }
+    }
+
+    // Determine target recipient emails
+    let targetEmails = [];
+
+    // 1. Direct recipient array or string (e.g. swaraswn@gmail.com) from request body
+    if (recipients) {
+      targetEmails = parseRecipientEmails(recipients);
+    }
+    if (targetEmails.length === 0 && guestEmails) {
+      targetEmails = parseRecipientEmails(guestEmails);
+    }
+
+    // 2. Fallback to event guest list if no explicit recipients supplied
+    if (targetEmails.length === 0 && invitation.eventId) {
+      try {
+        const guests = await guestService.findGuestsByUserId(userId, "", invitation.eventId);
+        if (Array.isArray(guests)) {
+          targetEmails = guests.map(g => g.email ? g.email.trim().toLowerCase() : "").filter(e => e && e.includes("@"));
+        }
+      } catch (err) {
+        console.warn("[InvitationController] Error fetching guests for event:", err.message);
+      }
+    }
+
+    if (targetEmails.length === 0) {
+      return res.status(400).json({
+        error: "No valid recipient email address found. Please enter valid guest email address(es) (e.g. swaraswn@gmail.com) or add guests to your event."
+      });
+    }
+
+    // Send emails via Nodemailer or Resend service
+    const sendResult = await emailService.sendInvitationEmails({
+      recipients: targetEmails,
+      invitation,
+      event,
+      senderName: req.user.name || req.user.email,
+    });
+
+    // Mark status as published
     await invitationService.updateInvitation(id, { ...invitation, status: "published" }, userId);
 
     return res.status(200).json({
       success: true,
-      message: "Invitation queued."
+      message: `Invitation successfully sent to ${sendResult.recipientCount} recipient(s)!`,
+      recipientCount: sendResult.recipientCount,
+      previewUrl: sendResult.previewUrl || null,
     });
   } catch (error) {
-    return handlePrismaError(error, res, "Server error during sending invitation.");
+    console.error("[InvitationController] Error sending invitation:", error);
+    return res.status(500).json({
+      error: error.message || "Failed to dispatch invitation email. Please check server settings."
+    });
   }
 };
 
 /**
- * Send invitation to specific guests (modular for future email integration)
+ * Send invitation to specific guests
  * POST /api/invitations/send
  */
 const sendInvitationToGuests = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { invitationId, guestIds } = req.body;
+    const { invitationId, guestIds, recipients } = req.body;
 
     if (!invitationId) {
       return res.status(400).json({ error: "invitationId is required." });
@@ -380,19 +449,119 @@ const sendInvitationToGuests = async (req, res) => {
       return res.status(404).json({ error: "Invitation not found or unauthorized access." });
     }
 
-    // Mark invitation as published
-    await invitationService.updateInvitation(invitationId, { ...invitation, status: "published" }, userId);
+    let event = null;
+    if (invitation.eventId) {
+      try {
+        event = await eventService.findEventById(invitation.eventId, userId);
+      } catch (err) {
+        console.warn("[InvitationController] Could not fetch event details:", err.message);
+      }
+    }
 
-    // Log the send action for future email integration
-    const targetGuestCount = Array.isArray(guestIds) ? guestIds.length : 0;
-    console.log(`[InvitationSend] Invitation "${invitation.title}" (${invitationId}) queued for ${targetGuestCount > 0 ? targetGuestCount + " guests" : "all guests"}.`);
+    let targetEmails = [];
+    if (recipients) {
+      targetEmails = parseRecipientEmails(recipients);
+    }
+
+    if (targetEmails.length === 0 && invitation.eventId) {
+      const guests = await guestService.findGuestsByUserId(userId, "", invitation.eventId);
+      if (Array.isArray(guests)) {
+        if (Array.isArray(guestIds) && guestIds.length > 0) {
+          targetEmails = guests.filter(g => guestIds.includes(g.id)).map(g => g.email ? g.email.trim().toLowerCase() : "").filter(e => e && e.includes("@"));
+        } else {
+          targetEmails = guests.map(g => g.email ? g.email.trim().toLowerCase() : "").filter(e => e && e.includes("@"));
+        }
+      }
+    }
+
+    if (targetEmails.length === 0) {
+      return res.status(400).json({ error: "No valid guest recipient emails found to send." });
+    }
+
+    const sendResult = await emailService.sendInvitationEmails({
+      recipients: targetEmails,
+      invitation,
+      event,
+      senderName: req.user.name || req.user.email,
+    });
+
+    await invitationService.updateInvitation(invitationId, { ...invitation, status: "published" }, userId);
 
     return res.status(200).json({
       success: true,
-      message: `Invitation sent successfully${targetGuestCount > 0 ? " to " + targetGuestCount + " guests" : ""}.`,
+      message: `Invitation successfully sent to ${sendResult.recipientCount} guest(s)!`,
+      recipientCount: sendResult.recipientCount,
     });
   } catch (error) {
-    return handlePrismaError(error, res, "Server error during sending invitation to guests.");
+    console.error("[InvitationController] Error sending to guests:", error);
+    return res.status(500).json({
+      error: error.message || "Server error during sending invitation to guests."
+    });
+  }
+};
+
+/**
+ * Public endpoint to view invitation and event details without authentication
+ * GET /api/invitations/public/:id
+ */
+const getPublicInvitation = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await invitationService.findPublicInvitation(id);
+    if (!result) {
+      return res.status(404).json({ success: false, error: "Invitation or event not found." });
+    }
+
+    return res.status(200).json({
+      success: true,
+      invitation: result.invitation,
+      event: result.event,
+    });
+  } catch (error) {
+    console.error("[InvitationController] Error in getPublicInvitation:", error);
+    return res.status(500).json({ success: false, error: "Unable to retrieve invitation details." });
+  }
+};
+
+/**
+ * Public endpoint for guests to submit RSVP
+ * POST /api/invitations/public/rsvp
+ */
+const submitPublicRSVP = async (req, res) => {
+  try {
+    const { eventId, name, email, phone, rsvpStatus } = req.body;
+
+    if (!eventId) {
+      return res.status(400).json({ error: "Event ID is required." });
+    }
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: "Name is required." });
+    }
+    if (!email || !email.trim()) {
+      return res.status(400).json({ error: "Email is required." });
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      return res.status(400).json({ error: "Please enter a valid email address." });
+    }
+
+    const guest = await invitationService.submitPublicRSVPData({
+      eventId,
+      name,
+      email,
+      phone,
+      rsvpStatus,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: `Thank you, ${guest.name}! Your RSVP has been successfully recorded.`,
+      guest,
+    });
+  } catch (error) {
+    console.error("[InvitationController] Error submitting public RSVP:", error);
+    return res.status(500).json({ error: "Failed to submit RSVP response. Please try again." });
   }
 };
 
@@ -405,4 +574,7 @@ module.exports = {
   deleteInvitation,
   sendInvitation,
   sendInvitationToGuests,
+  getPublicInvitation,
+  submitPublicRSVP,
 };
+

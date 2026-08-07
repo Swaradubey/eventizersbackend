@@ -3,7 +3,11 @@ const router = express.Router();
 const invitationController = require("../controllers/invitation.controller");
 const authMiddleware = require("../middleware/auth.middleware");
 
-// Protect all routes in this router with authMiddleware
+// Public endpoints (Accessible WITHOUT authentication)
+router.get("/public/:id", invitationController.getPublicInvitation);
+router.post("/public/rsvp", invitationController.submitPublicRSVP);
+
+// Protect all remaining invitation routes in this router with authMiddleware
 router.use(authMiddleware);
 
 // Send to guests endpoint (must be before /:id to avoid route conflict)

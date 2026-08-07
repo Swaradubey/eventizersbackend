@@ -234,6 +234,146 @@ const deleteInvitation = async (id, userId) => {
   return true;
 };
 
+/**
+ * Find public invitation and associated event details by invitation ID or Event ID
+ * @param {string} idOrEventId
+ * @returns {Promise<Object|null>}
+ */
+const findPublicInvitation = async (idOrEventId) => {
+  if (!idOrEventId) return null;
+
+  // 1. Find by Invitation ID
+  let invitation = await prisma.invitation.findUnique({
+    where: { id: idOrEventId },
+    include: {
+      event: true,
+    },
+  });
+
+  // 2. Find by Event ID if not found by Invitation ID
+  if (!invitation) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrEventId);
+    if (isUuid) {
+      invitation = await prisma.invitation.findFirst({
+        where: { eventId: idOrEventId },
+        include: {
+          event: true,
+        },
+      });
+    }
+  }
+
+  // 3. If invitation record not created yet, check if event exists
+  if (!invitation) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrEventId);
+    if (!isUuid) return null;
+
+    const event = await prisma.event.findUnique({
+      where: { id: idOrEventId },
+    });
+
+    if (!event) return null;
+
+    return {
+      invitation: {
+        id: `default_${event.id}`,
+        eventId: event.id,
+        title: event.title,
+        subtitle: event.eventType || "You're Invited!",
+        mainText: event.description || "Join us for a memorable celebration.",
+        message: null,
+        accentColor: "#5B5FEF",
+        backgroundColor: "#F6F9FC",
+        textColor: "#1A1118",
+        titleSize: 48,
+        fontWeight: "normal",
+        fontFamily: "sans-serif",
+        textAlignment: "center",
+        imageUrl: event.coverImage || null,
+        buttonText: "RSVP Now",
+        buttonColor: "#5B5FEF",
+        buttonRadius: 8,
+        status: "published",
+      },
+      event: {
+        id: event.id,
+        title: event.title,
+        description: event.description,
+        eventType: event.eventType,
+        venue: event.venue,
+        address: event.address,
+        city: event.city,
+        state: event.state,
+        country: event.country,
+        eventDate: event.eventDate,
+        eventTime: event.eventTime,
+        coverImage: event.coverImage,
+      },
+    };
+  }
+
+  const eventData = invitation.event;
+  const invData = {
+    ...invitation,
+    event: undefined,
+  };
+
+  return {
+    invitation: invData,
+    event: eventData,
+  };
+};
+
+/**
+ * Submit public guest RSVP response
+ * @param {Object} data
+ * @returns {Promise<Object>}
+ */
+const submitPublicRSVPData = async ({ eventId, name, email, phone, rsvpStatus }) => {
+  const cleanEmail = email.trim().toLowerCase();
+  const cleanName = name.trim();
+  const cleanPhone = phone ? phone.trim() : null;
+  const statusVal = (rsvpStatus || "confirmed").toLowerCase();
+  const finalStatus = (statusVal === "attending" || statusVal === "yes" || statusVal === "confirmed")
+    ? "confirmed"
+    : (statusVal === "declined" || statusVal === "no" ? "declined" : "pending");
+
+  const existingGuest = await prisma.guest.findFirst({
+    where: {
+      eventId,
+      email: cleanEmail,
+    },
+  });
+
+  let guest;
+  if (existingGuest) {
+    guest = await prisma.guest.update({
+      where: { id: existingGuest.id },
+      data: {
+        name: cleanName,
+        phone: cleanPhone || existingGuest.phone,
+        status: finalStatus,
+        rsvpStatus: finalStatus,
+        respondedAt: new Date(),
+      },
+    });
+  } else {
+    guest = await prisma.guest.create({
+      data: {
+        eventId,
+        name: cleanName,
+        email: cleanEmail,
+        phone: cleanPhone,
+        status: finalStatus,
+        rsvpStatus: finalStatus,
+        respondedAt: new Date(),
+      },
+    });
+  }
+
+  return guest;
+};
+
 module.exports = {
   findInvitationsByUserId,
   findInvitationById,
@@ -241,4 +381,7 @@ module.exports = {
   createInvitation,
   updateInvitation,
   deleteInvitation,
+  findPublicInvitation,
+  submitPublicRSVPData,
 };
+
