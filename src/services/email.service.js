@@ -212,9 +212,7 @@ const generateInvitationHtml = ({ title, subtitle, mainText, date, time, venue, 
   `;
 };
 
-/**
- * Send invitation emails to recipients
- */
+
 const sendInvitationEmails = async ({ recipients, invitation, event, senderName, frontendUrl }) => {
   if (!recipients || recipients.length === 0) {
     throw new Error("No recipient email addresses provided.");
@@ -260,12 +258,7 @@ const sendInvitationEmails = async ({ recipients, invitation, event, senderName,
   const subject = `✨ Invitation: ${title}`;
   const from = process.env.EMAIL_FROM || process.env.SMTP_FROM || `"InviteHub Events" <no-reply@invitehub.com>`;
 
-  // 1. If RESEND_API_KEY is configured in .env, use Resend API
-  if (process.env.RESEND_API_KEY) {
-    return await sendViaResend({ recipients, subject, html: htmlContent, from });
-  }
-
-  // 2. Standard SMTP transport or fallback
+  // Strict SMTP transport (bypassing Resend API)
   const transporter = await getTransporter();
 
   const mailOptions = {
