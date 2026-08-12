@@ -5,9 +5,37 @@ const db = require("../config/db");
  * @param {number} userId
  * @param {string} search
  * @param {string} eventId
- * @returns {Promise<Array>}
+ * @param {number|null} page
+ * @param {number|null} limit
+ * @returns {Promise<{guests: Array, total: number}>}
  */
-const findGuestsByUserId = async (userId, search = "", eventId = "") => {
+const findGuestsByUserId = async (userId, search = "", eventId = "", page = null, limit = null) => {
+  let whereClause = `WHERE e.created_by = $1`;
+  const params = [userId];
+  let paramIndex = 2;
+
+  if (search) {
+    whereClause += ` AND (g.name ILIKE $${paramIndex} OR g.email ILIKE $${paramIndex} OR g.phone ILIKE $${paramIndex} OR g.status ILIKE $${paramIndex} OR e.title ILIKE $${paramIndex})`;
+    params.push(`%${search}%`);
+    paramIndex++;
+  }
+
+  if (eventId) {
+    whereClause += ` AND g.event_id = $${paramIndex}`;
+    params.push(eventId);
+    paramIndex++;
+  }
+
+  const countQuery = `
+    SELECT COUNT(*)::int AS total
+    FROM guests g
+    JOIN events e ON g.event_id = e.id
+    ${whereClause}
+  `;
+
+  const countResult = await db.query(countQuery, params);
+  const total = countResult.rows[0]?.total || 0;
+
   let query = `
     SELECT 
       g.id, 
@@ -21,27 +49,24 @@ const findGuestsByUserId = async (userId, search = "", eventId = "") => {
       e.title AS "eventTitle"
     FROM guests g
     JOIN events e ON g.event_id = e.id
-    WHERE e.created_by = $1
+    ${whereClause}
+    ORDER BY g.created_at DESC
   `;
-  const params = [userId];
-  let paramIndex = 2;
 
-  if (search) {
-    query += ` AND (g.name ILIKE $${paramIndex} OR g.email ILIKE $${paramIndex} OR g.phone ILIKE $${paramIndex})`;
-    params.push(`%${search}%`);
-    paramIndex++;
+  if (page !== null && limit !== null) {
+    const parsedPage = Math.max(1, parseInt(page, 10) || 1);
+    const parsedLimit = Math.max(1, parseInt(limit, 10) || 10);
+    const offset = (parsedPage - 1) * parsedLimit;
+
+    query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    params.push(parsedLimit, offset);
   }
-
-  if (eventId) {
-    query += ` AND g.event_id = $${paramIndex}`;
-    params.push(eventId);
-    paramIndex++;
-  }
-
-  query += ` ORDER BY g.created_at DESC`;
 
   const result = await db.query(query, params);
-  return result.rows;
+  return {
+    guests: result.rows,
+    total,
+  };
 };
 
 /**

@@ -9,12 +9,35 @@ const db = require("../config/db");
 const getGuests = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { search, eventId } = req.query;
+    const { search, eventId, page, limit } = req.query;
 
-    const guests = await guestService.findGuestsByUserId(userId, search, eventId);
+    const parsedPage = page ? Math.max(1, parseInt(page, 10) || 1) : null;
+    const parsedLimit = limit ? Math.max(1, parseInt(limit, 10) || 10) : null;
+
+    const { guests, total } = await guestService.findGuestsByUserId(
+      userId,
+      search,
+      eventId,
+      parsedPage,
+      parsedLimit
+    );
+
+    const paginationMetadata = parsedLimit !== null ? {
+      page: parsedPage || 1,
+      currentPage: parsedPage || 1,
+      limit: parsedLimit,
+      total,
+      totalCount: total,
+      totalPages: Math.ceil(total / parsedLimit) || 1,
+      hasNextPage: (parsedPage || 1) * parsedLimit < total,
+      hasPreviousPage: (parsedPage || 1) > 1,
+    } : undefined;
+
     return res.status(200).json({
       success: true,
       guests,
+      data: guests,
+      pagination: paginationMetadata,
     });
   } catch (error) {
     console.error("Get Guests Error:", error);

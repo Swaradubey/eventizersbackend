@@ -465,25 +465,52 @@ const getEventGuests = async (req, res) => {
  */
 const getGuests = async (req, res) => {
   try {
-    const rawGuests = await prisma.guest.findMany({
-      include: {
-        event: {
-          select: {
-            title: true,
-            user: {
-              select: {
-                name: true,
-                email: true,
+    const page = req.query.page ? Math.max(1, parseInt(req.query.page, 10) || 1) : null;
+    const limit = req.query.limit ? Math.max(1, parseInt(req.query.limit, 10) || 10) : null;
+    const { search, eventId } = req.query;
+
+    const where = {};
+    if (eventId) {
+      where.eventId = eventId;
+    }
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: "insensitive" } },
+        { email: { contains: search, mode: "insensitive" } },
+        { phone: { contains: search, mode: "insensitive" } },
+        { status: { contains: search, mode: "insensitive" } },
+        { event: { title: { contains: search, mode: "insensitive" } } },
+      ];
+    }
+
+    const skip = page !== null && limit !== null ? (page - 1) * limit : undefined;
+    const take = limit !== null ? limit : undefined;
+
+    const [total, rawGuests] = await Promise.all([
+      prisma.guest.count({ where }),
+      prisma.guest.findMany({
+        where,
+        ...(skip !== undefined ? { skip } : {}),
+        ...(take !== undefined ? { take } : {}),
+        include: {
+          event: {
+            select: {
+              title: true,
+              user: {
+                select: {
+                  name: true,
+                  email: true,
+                },
               },
             },
           },
+          checkIns: true,
         },
-        checkIns: true,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
+        orderBy: {
+          createdAt: "desc",
+        },
+      }),
+    ]);
 
     const guests = rawGuests.map((g) => {
       const checkIn = g.checkIns[0] || null;
@@ -509,7 +536,23 @@ const getGuests = async (req, res) => {
       };
     });
 
-    return res.status(200).json({ success: true, guests });
+    const paginationMetadata = limit !== null ? {
+      page: page || 1,
+      currentPage: page || 1,
+      limit,
+      total,
+      totalCount: total,
+      totalPages: Math.ceil(total / limit) || 1,
+      hasNextPage: (page || 1) * limit < total,
+      hasPreviousPage: (page || 1) > 1,
+    } : undefined;
+
+    return res.status(200).json({
+      success: true,
+      guests,
+      data: guests,
+      pagination: paginationMetadata,
+    });
   } catch (error) {
     console.error("Admin Get Guests Error:", error);
     return res.status(500).json({ error: "Server error retrieving guests." });
