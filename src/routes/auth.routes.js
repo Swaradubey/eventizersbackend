@@ -13,7 +13,8 @@ router.post("/signin", login); // Alias for signin
 router.post("/logout", logout);
 router.post("/signout", logout); // Alias for signout
 
-router.post("/reset-password-direct", resetPasswordDirect);
+router.post("/reset-password", resetPasswordDirect);         // Standard route
+router.post("/reset-password-direct", resetPasswordDirect); // Alias
 
 router.get("/google", googleLogin);
 router.get("/google/callback", googleCallback);

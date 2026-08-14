@@ -344,13 +344,6 @@ const googleCallback = async (req, res) => {
 };
 
 const resetPasswordDirect = async (req, res) => {
-  if (process.env.NODE_ENV === "production") {
-    return res.status(403).json({
-      success: false,
-      message: "This endpoint is disabled in production"
-    });
-  }
-
   try {
     const { email, newPassword, confirmPassword } = req.body;
 
