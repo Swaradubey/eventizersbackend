@@ -429,23 +429,137 @@ const generateStructuredEventWithAI = async (req, res) => {
       });
     }
 
-    // Validate structured shape and fields
-    const requiredFields = ["title", "description", "theme", "schedule", "decor", "food", "activities", "checklist", "estimatedBudget"];
-    for (const field of requiredFields) {
-      if (!aiData[field]) {
-        aiData[field] = field === "title" || field === "description" || field === "theme" || field === "estimatedBudget" ? "TBD" : [];
+    // Format detailed description with event planning elements
+    const formattedDescription = `${aiData.description || ""}
+
+✨ **Theme**: ${aiData.theme || "TBD"}
+💰 **Estimated Budget**: ${aiData.estimatedBudget || "TBD"}
+
+📅 **Schedule**:
+${aiData.schedule?.map((item) => `• ${item}`).join('\n') || 'None'}
+
+🎈 **Decor**:
+${aiData.decor?.map((item) => `• ${item}`).join('\n') || 'None'}
+
+🍴 **Food & Drink**:
+${aiData.food?.map((item) => `• ${item}`).join('\n') || 'None'}
+
+🎮 **Activities**:
+${aiData.activities?.map((item) => `• ${item}`).join('\n') || 'None'}
+
+✅ **Checklist**:
+${aiData.checklist?.map((item) => `• ${item}`).join('\n') || 'None'}`;
+
+    // Normalize date and time
+    let finalDate = date || aiData.eventDate;
+    if (!finalDate || isNaN(new Date(finalDate).getTime())) {
+      const fallbackDate = new Date();
+      fallbackDate.setDate(fallbackDate.getDate() + 30);
+      finalDate = fallbackDate.toISOString().split('T')[0];
+    }
+
+    let finalTime = time || aiData.eventTime || "18:00";
+
+    const userId = req.user.id;
+    const { venue } = req.body;
+
+    const eventPayload = {
+      title: aiData.title || 'AI Generated Event',
+      description: formattedDescription,
+      eventType: eventType || 'Other',
+      eventDate: finalDate,
+      eventTime: finalTime,
+      venue: venue || 'TBD Venue',
+      status: 'draft',
+    };
+
+    console.log("Saving structured AI event to database for user:", userId);
+    const newEvent = await eventService.createEvent(eventPayload, userId);
+    console.log(`Structured event saved successfully with ID: ${newEvent.id}`);
+
+    // Create corresponding invitation
+    let newInvitation = null;
+    try {
+      newInvitation = await prisma.invitation.create({
+        data: {
+          eventId: newEvent.id,
+          title: aiData.title || newEvent.title,
+          subtitle: venue || 'TBD Venue',
+          mainText: aiData.description || 'You are cordially invited.',
+          message: formattedDescription,
+          accentColor: '#5B5FEF',
+          backgroundColor: '#F6F9FC',
+          textColor: '#1A1118',
+          titleSize: 48,
+          fontWeight: '700',
+          fontFamily: 'Playfair Display',
+          textAlignment: 'center',
+          buttonText: 'RSVP Now',
+          buttonColor: '#5B5FEF',
+          buttonRadius: 12,
+          status: 'draft',
+        },
+      });
+    } catch (invErr) {
+      console.warn("Could not auto-create invitation:", invErr.message);
+    }
+
+    // Seed mock guests if guest list was selected
+    const selectedList = guestListName || req.body.guestListId;
+    if (selectedList && selectedList !== '') {
+      let mockGuests = [];
+      if (selectedList.includes('Family')) {
+        mockGuests = [
+          { name: 'John Doe', email: 'john.doe@example.com' },
+          { name: 'Jane Doe', email: 'jane.doe@example.com' },
+          { name: 'Uncle Bob', email: 'bob.uncle@example.com' },
+        ];
+      } else if (selectedList.includes('Friends')) {
+        mockGuests = [
+          { name: 'Alice Smith', email: 'alice.smith@example.com' },
+          { name: 'Charlie Brown', email: 'charlie.brown@example.com' },
+          { name: 'David Miller', email: 'david.miller@example.com' },
+        ];
+      } else if (selectedList.includes('Colleagues') || selectedList.includes('Work')) {
+        mockGuests = [
+          { name: 'Manager Mark', email: 'mark.manager@example.com' },
+          { name: 'Colleague Kate', email: 'kate.colleague@example.com' },
+        ];
+      } else if (selectedList.includes('Neighbors')) {
+        mockGuests = [
+          { name: 'Neighbor Ned', email: 'ned.neighbor@example.com' },
+          { name: 'Nancy Nextdoor', email: 'nancy.nextdoor@example.com' },
+        ];
+      } else if (selectedList.includes('VIP')) {
+        mockGuests = [
+          { name: 'CEO Clara', email: 'clara.ceo@example.com' },
+          { name: 'President Paul', email: 'paul.president@example.com' },
+        ];
+      }
+
+      if (mockGuests.length > 0) {
+        try {
+          await prisma.guest.createMany({
+            data: mockGuests.map((g) => ({
+              eventId: newEvent.id,
+              name: g.name,
+              email: g.email,
+              status: 'invited',
+            })),
+          });
+        } catch (guestErr) {
+          console.warn("Could not seed mock guests:", guestErr.message);
+        }
       }
     }
 
-    // Ensure array types are arrays
-    const arrayFields = ["schedule", "decor", "food", "activities", "checklist"];
-    for (const field of arrayFields) {
-      if (!Array.isArray(aiData[field])) {
-        aiData[field] = typeof aiData[field] === 'string' ? [aiData[field]] : [];
-      }
-    }
-
-    return res.status(200).json(aiData);
+    return res.status(201).json({
+      success: true,
+      message: 'Event generated and saved to dashboard successfully',
+      event: newEvent,
+      invitation: newInvitation,
+      ...aiData,
+    });
   } catch (error) {
     console.error('AI Generation Error / Gemini failure:', error);
     const code = classifyGeminiError(error);

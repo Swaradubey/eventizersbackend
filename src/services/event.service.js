@@ -90,14 +90,28 @@ const createEvent = async (eventData, userId) => {
     status
   } = eventData;
 
-  const parsedEventDate = new Date(eventDate);
+  let parsedEventDate = new Date(eventDate);
+  if (isNaN(parsedEventDate.getTime())) {
+    parsedEventDate = new Date();
+    parsedEventDate.setDate(parsedEventDate.getDate() + 30);
+  }
 
   let parsedEventTime;
-  if (eventTime instanceof Date) {
+  if (eventTime instanceof Date && !isNaN(eventTime.getTime())) {
     parsedEventTime = eventTime;
+  } else if (typeof eventTime === "string") {
+    // Extract first valid HH:MM or HH:MM:SS (e.g. from "18:00 - 22:00" or "18:00")
+    const match = eventTime.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+    if (match) {
+      const hours = match[1].padStart(2, '0');
+      const minutes = match[2];
+      const seconds = match[3] || '00';
+      parsedEventTime = new Date(`1970-01-01T${hours}:${minutes}:${seconds}Z`);
+    } else {
+      parsedEventTime = new Date(`1970-01-01T18:00:00Z`);
+    }
   } else {
-    const timeStr = eventTime.includes(":") && eventTime.split(":").length === 2 ? `${eventTime}:00` : eventTime;
-    parsedEventTime = new Date(`1970-01-01T${timeStr}Z`);
+    parsedEventTime = new Date(`1970-01-01T18:00:00Z`);
   }
 
   const createdEvent = await prisma.event.create({
@@ -167,6 +181,28 @@ const updateEvent = async (id, eventData, userId) => {
     status
   } = eventData;
 
+  let formattedDate = eventDate;
+  if (eventDate) {
+    const d = new Date(eventDate);
+    if (!isNaN(d.getTime())) {
+      formattedDate = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+    }
+  }
+
+  let formattedTime = eventTime;
+  if (eventTime) {
+    if (eventTime instanceof Date && !isNaN(eventTime.getTime())) {
+      formattedTime = `${String(eventTime.getUTCHours()).padStart(2, '0')}:${String(eventTime.getUTCMinutes()).padStart(2, '0')}:${String(eventTime.getUTCSeconds()).padStart(2, '0')}`;
+    } else if (typeof eventTime === "string") {
+      const match = eventTime.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+      if (match) {
+        formattedTime = `${match[1].padStart(2, '0')}:${match[2]}:${match[3] || '00'}`;
+      } else {
+        formattedTime = "18:00:00";
+      }
+    }
+  }
+
   const result = await db.query(
     `UPDATE events SET 
       title = $1, 
@@ -210,8 +246,8 @@ const updateEvent = async (id, eventData, userId) => {
       city || null,
       state || null,
       country || null,
-      eventDate,
-      eventTime,
+      formattedDate,
+      formattedTime,
       coverImage || null,
       status || 'draft',
       id,
