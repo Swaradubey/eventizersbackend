@@ -12,10 +12,13 @@ let app = null;
 let bootstrapError = null;
 
 try {
-  app = require("../src/app");
+  const appPath = path.resolve(__dirname, "../src/app");
+  console.log("[api/index.js] Bootstrapping app from:", appPath);
+  app = require(appPath);
 } catch (err) {
   bootstrapError = err;
   console.error("[api/index.js] FATAL: app bootstrap failed:", err.message);
+  console.error("[api/index.js] Stack:", err.stack);
 }
 
 /**
@@ -26,11 +29,12 @@ module.exports = (req, res) => {
   // If bootstrap failed on module load, attempt a single retry then surface a clear 500.
   if (!app) {
     try {
-      app = require("../src/app");
+      app = require(path.resolve(__dirname, "../src/app"));
       bootstrapError = null;
     } catch (err) {
       bootstrapError = err;
       console.error("[api/index.js] Retry bootstrap failed:", err.message);
+      console.error("[api/index.js] Stack:", err.stack);
     }
   }
 

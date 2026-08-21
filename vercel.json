@@ -2,7 +2,7 @@
   "version": 2,
   "functions": {
     "api/index.js": {
-      "includeFiles": "prisma/**",
+      "includeFiles": "{src/**,prisma/**}",
       "maxDuration": 60
     }
   },
