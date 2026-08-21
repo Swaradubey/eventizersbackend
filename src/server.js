@@ -41,30 +41,32 @@ if (!frontendUrl) {
   console.warn("[stripe] FRONTEND_URL is not set. Checkout redirects may fail.");
 }
 
-// Validate DATABASE_URL existence
-if (!process.env.DATABASE_URL) {
-  console.error("[env] DATABASE_URL is missing.");
-  process.exit(1);
-}
-const dbUrl = process.env.DATABASE_URL;
-
-try {
-  const parsed = new URL(dbUrl);
-  if (!parsed.protocol.startsWith("postgres")) {
-    throw new Error("Invalid protocol. Must start with postgresql:// or postgres://");
+function validateEnvironment() {
+  if (!process.env.DATABASE_URL) {
+    console.error("[env] DATABASE_URL is missing.");
+    process.exit(1);
   }
-  if (!parsed.hostname) {
-    throw new Error("Hostname is missing in DATABASE_URL");
+  const dbUrl = process.env.DATABASE_URL;
+
+  try {
+    const parsed = new URL(dbUrl);
+    if (!parsed.protocol.startsWith("postgres")) {
+      throw new Error("Invalid protocol. Must start with postgresql:// or postgres://");
+    }
+    if (!parsed.hostname) {
+      throw new Error("Hostname is missing in DATABASE_URL");
+    }
+  } catch (err) {
+    console.error("[database] Malformed DATABASE_URL. Error:", err.message);
+    process.exit(1);
   }
-} catch (err) {
-  console.error("[database] Malformed DATABASE_URL in backend/.env. Error:", err.message);
-  process.exit(1);
+
+  if (!process.env.JWT_SECRET) {
+    console.error("FATAL ERROR: JWT_SECRET environment variable is missing!");
+    process.exit(1);
+  }
 }
 
-if (!process.env.JWT_SECRET) {
-  console.error("FATAL ERROR: JWT_SECRET environment variable is missing!");
-  process.exit(1);
-}
 
 // Log safe startup diagnostics
 let dbDetails = null;
@@ -205,7 +207,9 @@ async function connectDatabase() {
 
 async function startServer() {
   try {
+    validateEnvironment();
     console.log("[database] Connecting to PostgreSQL...");
+
 
     // Confirm that the hostname resolves from Node.js
     if (dbDetails) {

@@ -12,9 +12,10 @@ if (!pool) {
   pool = new Pool({
     connectionString: dbUrl || undefined,
     ssl: isSslRequired ? { rejectUnauthorized: false } : false,
-    max: 10, // Prevent exhausting serverless database connection limits
+    max: 5, // Optimized connection limit for serverless execution
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 10000,
+
   });
 
   // Log any pool errors to prevent application crashes

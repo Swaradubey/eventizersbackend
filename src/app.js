@@ -67,18 +67,23 @@ app.use("/api/webhooks/stripe", express.raw({ type: "application/json" }), strip
 app.use(express.json());
 app.use(cookieParser());
 
-// Base Route
+// Base and Health Routes
 app.get("/", (req, res) => {
-  res.json({ message: "Eventizers Authentication API is running." });
+  res.json({ status: "ok", message: "Eventizers API is running." });
 });
 
-// Health Routes
 app.get("/health", (req, res) => {
-  res.json({ success: true, message: "Backend is running" });
+  res.json({ status: "ok", message: "Backend is running" });
 });
+
+app.get("/api", (req, res) => {
+  res.json({ status: "ok", message: "Eventizers Backend API is running." });
+});
+
 app.get("/api/health", (req, res) => {
-  res.json({ success: true, message: "Backend is running" });
+  res.json({ status: "ok", message: "Backend is running" });
 });
+
 
 // Auth Routes
 app.use("/api/auth", authRoutes);
