@@ -14,7 +14,7 @@ if (!pool) {
     ssl: isSslRequired ? { rejectUnauthorized: false } : false,
     max: 5, // Optimized connection limit for serverless execution
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 10000,
+    connectionTimeoutMillis: 5000, // Fail fast — match Prisma connect_timeout=5
 
   });
 

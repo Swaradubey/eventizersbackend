@@ -69,19 +69,19 @@ app.use(cookieParser());
 
 // Base and Health Routes
 app.get("/", (req, res) => {
-  res.json({ status: "ok", message: "Eventizers API is running." });
+  res.status(200).json({ status: "healthy", message: "Backend is running on Vercel" });
 });
 
 app.get("/health", (req, res) => {
-  res.json({ status: "ok", message: "Backend is running" });
+  res.status(200).json({ status: "healthy", message: "Backend is running" });
 });
 
 app.get("/api", (req, res) => {
-  res.json({ status: "ok", message: "Eventizers Backend API is running." });
+  res.status(200).json({ status: "healthy" });
 });
 
 app.get("/api/health", (req, res) => {
-  res.json({ status: "ok", message: "Backend is running" });
+  res.status(200).json({ status: "healthy", message: "Backend is running" });
 });
 
 
