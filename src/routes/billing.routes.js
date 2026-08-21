@@ -26,4 +26,11 @@ router.post("/create-checkout-session", billingController.createCheckoutSession)
  */
 router.get("/verify-session/:sessionId", billingController.verifyCheckoutSession);
 
+/**
+ * Invoice download aliases
+ */
+const userBillingController = require("../controllers/user.billing.controller");
+router.get("/invoices/:invoiceId/download", userBillingController.downloadInvoice);
+router.get("/invoice/:invoiceId/download", userBillingController.downloadInvoice);
+
 module.exports = router;

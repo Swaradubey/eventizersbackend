@@ -29,7 +29,7 @@ const getBillingUsageByUserId = async (userId, client = db) => {
     `SELECT "eventsLimit", "guestsLimit", "messagesLimit", month
      FROM "SubscriptionUsage"
      WHERE user_id = $1`,
-     [userId]
+    [userId]
   );
 
   let eventsLimit = 10;
@@ -41,7 +41,7 @@ const getBillingUsageByUserId = async (userId, client = db) => {
     // Insert initial safe defaults if no usage record exists
     const id = crypto.randomUUID();
     const now = new Date();
-    
+
     // Determine limits based on current plan
     if (currentPlan === "pro") {
       guestsLimit = 250;
@@ -61,7 +61,7 @@ const getBillingUsageByUserId = async (userId, client = db) => {
        RETURNING *`,
       [id, userId, 0, 0, 0, eventsLimit, guestsLimit, messagesLimit, now, now]
     );
-    
+
     const usage = insertResult.rows[0];
     eventsLimit = usage.eventsLimit;
     guestsLimit = usage.guestsLimit;
@@ -91,7 +91,7 @@ const getBillingUsageByUserId = async (userId, client = db) => {
      FROM guests g
      JOIN events e ON g.event_id = e.id
      WHERE e.created_by = $1`,
-     [userId]
+    [userId]
   );
   const guestsUsed = guestsCountResult.rows[0].count;
 
@@ -140,7 +140,7 @@ const getBillingByUserId = async (userId, client = db) => {
   }
 
   const rawPlan = userResult.rows[0].plan || "FREE";
-  // Normalize: host → business; unknown → free
+
   const currentPlan = normalizePlanId(rawPlan);
 
   // Get dynamic usage stats
@@ -148,7 +148,7 @@ const getBillingByUserId = async (userId, client = db) => {
 
   return {
     currentPlan,
-    // Always return the full plans array so the billing page never receives undefined
+
     plans: BILLING_PLANS,
     usage: {
       eventsCreated: dynamicUsage.eventsCreated,
@@ -172,7 +172,7 @@ const updatePlanByUserId = async (userId, planId, client = db) => {
   // Normalize incoming planId (handles legacy "host" values)
   const normalizedId = normalizePlanId(planId);
   const planUpper = normalizedId.toUpperCase();
-  
+
   // 1. Update users plan
   const userUpdate = await client.query(
     `UPDATE users SET plan = $1 WHERE id = $2 RETURNING plan`,
@@ -186,7 +186,7 @@ const updatePlanByUserId = async (userId, planId, client = db) => {
   let guestsLimit = 25;
   let messagesLimit = 100;
   let eventsLimit = 10;
-  
+
   if (normalizedId === "pro") {
     guestsLimit = 250;
     messagesLimit = 5000;
@@ -197,7 +197,7 @@ const updatePlanByUserId = async (userId, planId, client = db) => {
     eventsLimit = -1;
   }
 
-  // 2. Check and update or insert SubscriptionUsage
+
   const usageCheck = await client.query(
     `SELECT id FROM "SubscriptionUsage" WHERE user_id = $1`,
     [userId]
@@ -222,7 +222,7 @@ const updatePlanByUserId = async (userId, planId, client = db) => {
     );
   }
 
-  // Get updated dynamic usage stats
+
   const dynamicUsage = await getBillingUsageByUserId(userId, client);
 
   return {

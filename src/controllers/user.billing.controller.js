@@ -1,4 +1,7 @@
 const userBillingService = require("../services/user.billing.service");
+const { generateInvoicePdfBuffer } = require("../services/invoicePdf.service");
+const db = require("../config/db");
+const axios = require("axios");
 
 /**
  * GET /api/user/billing/payment-method
@@ -148,7 +151,7 @@ const downloadInvoice = async (req, res) => {
     if (!invoiceId) {
       return res.status(400).json({
         success: false,
-        error: "invoiceId parameter is required.",
+        error: "Invoice ID parameter is required.",
       });
     }
 
@@ -160,33 +163,122 @@ const downloadInvoice = async (req, res) => {
       });
     }
 
-    // If Stripe PDF URL is available and starts with https, redirect
-    if (invoice.pdf_url && invoice.pdf_url.startsWith("https://")) {
-      return res.redirect(invoice.pdf_url);
+    // Fetch user details for invoice enrichment
+    let user = null;
+    try {
+      const userRes = await db.query(
+        "SELECT id, name, email, plan FROM users WHERE id = $1",
+        [userId]
+      );
+      user = userRes.rows[0] || null;
+    } catch (userErr) {
+      console.warn("[billing] Could not fetch user details for PDF:", userErr.message);
     }
 
-    // Generate a simple, valid minimal PDF buffer dynamically
-    const invoiceDateStr = new Date(invoice.invoice_date).toDateString();
-    const pdfBuffer = Buffer.from(
-      `%PDF-1.4\n` +
-      `1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n` +
-      `2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n` +
-      `3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << >> >>\nendobj\n` +
-      `4 0 obj\n<< /Length 170 >>\nstream\n` +
-      `BT\n/F1 14 Tf\n50 700 Td\n(INVITEHUB BILLING SYSTEM) Tj\n0 -30 Td\n/F1 12 Tf\n(Invoice Number: ${invoice.invoice_number}) Tj\n0 -20 Td\n(Date: ${invoiceDateStr}) Tj\n0 -20 Td\n(Amount Paid: ${invoice.amount} ${invoice.currency}) Tj\n0 -20 Td\n(Status: ${invoice.status}) Tj\n0 -30 Td\n(Thank you for your business!) Tj\nET\n` +
-      `endstream\nendobj\n` +
-      `xref\n0 5\n0000000000 65535 f\n0000000009 00000 n\n0000000058 00000 n\n0000000115 00000 n\n0000000212 00000 n\n` +
-      `trailer\n<< /Size 5 /Root 1 0 R >>\nstartxref\n435\n%%EOF`
-    );
+    const filename = `invoice-${invoice.invoice_number || invoice.id || invoiceId}.pdf`;
 
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `attachment; filename="invoice-${invoice.invoice_number}.pdf"`);
-    return res.send(pdfBuffer);
+    // 1. If Stripe hosted invoice_pdf URL is available and is a direct PDF link:
+    // Proxy/fetch the PDF directly on server to prevent browser CORS header issues
+    if (
+      invoice.pdf_url &&
+      invoice.pdf_url.startsWith("https://") &&
+      (invoice.pdf_url.includes(".pdf") ||
+        invoice.pdf_url.includes("/pdf") ||
+        invoice.pdf_url.includes("files.stripe.com"))
+    ) {
+      try {
+        const stripePdfRes = await axios.get(invoice.pdf_url, {
+          responseType: "arraybuffer",
+          timeout: 10000,
+        });
+
+        if (stripePdfRes.status === 200 && stripePdfRes.data) {
+          res.setHeader("Content-Type", "application/pdf");
+          res.setHeader(
+            "Content-Disposition",
+            `attachment; filename="${filename}"`
+          );
+          res.setHeader("Content-Length", stripePdfRes.data.length);
+          return res.send(Buffer.from(stripePdfRes.data));
+        }
+      } catch (proxyErr) {
+        console.warn(
+          "[billing] Could not fetch hosted PDF from Stripe URL, falling back to dynamic generator:",
+          proxyErr.message
+        );
+      }
+    }
+
+    // 2. Generate server-side dynamic PDF receipt using PDFKit
+    try {
+      const pdfBuffer = await generateInvoicePdfBuffer(invoice, user);
+
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${filename}"`
+      );
+      res.setHeader("Content-Length", pdfBuffer.length);
+      return res.send(pdfBuffer);
+    } catch (genErr) {
+      console.error("[billing] PDF generator error:", genErr);
+      return res.status(500).json({
+        success: false,
+        error: "Failed to generate invoice PDF receipt.",
+      });
+    }
   } catch (error) {
     console.error("Download Invoice Error:", error);
     return res.status(500).json({
       success: false,
       error: "Server error downloading invoice PDF.",
+    });
+  }
+};
+
+/**
+ * DELETE /api/user/billing/invoices/:invoiceId
+ */
+const deleteInvoice = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const { invoiceId } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: "Unauthorized access.",
+      });
+    }
+
+    if (!invoiceId) {
+      return res.status(400).json({
+        success: false,
+        error: "Invoice ID parameter is required.",
+      });
+    }
+
+    const deleted = await userBillingService.deleteInvoice(userId, invoiceId);
+    if (!deleted) {
+      return res.status(404).json({
+        success: false,
+        error: "Invoice record not found or already removed.",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Invoice record removed successfully",
+      data: {
+        id: deleted.id,
+        invoiceNumber: deleted.invoice_number,
+      },
+    });
+  } catch (error) {
+    console.error("Delete Invoice Error:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Server error removing invoice record.",
     });
   }
 };
@@ -197,4 +289,6 @@ module.exports = {
   updatePaymentMethod,
   getInvoices,
   downloadInvoice,
+  deleteInvoice,
 };
+

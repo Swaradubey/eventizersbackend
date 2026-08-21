@@ -1,3 +1,5 @@
+const path = require("path");
+const fs = require("fs");
 const db = require("../config/db");
 const stripe = require("../config/stripe");
 
@@ -250,7 +252,7 @@ const getInvoices = async (userId, page = 1, limit = 5) => {
 
   // Get total count for pagination metadata
   const countResult = await db.query(
-    `SELECT COUNT(*)::int AS total FROM invoices WHERE user_id = $1`,
+    `SELECT COUNT(*)::int AS total FROM invoices WHERE user_id = $1 AND (is_deleted IS FALSE OR is_deleted IS NULL)`,
     [userId]
   );
   const totalInvoices = countResult.rows[0].total;
@@ -261,7 +263,7 @@ const getInvoices = async (userId, page = 1, limit = 5) => {
     `SELECT id, invoice_number, amount, currency, status, invoice_date, pdf_url,
             plan_name, billing_period, customer_name, customer_email, transaction_id
      FROM invoices 
-     WHERE user_id = $1 
+     WHERE user_id = $1 AND (is_deleted IS FALSE OR is_deleted IS NULL)
      ORDER BY invoice_date DESC
      LIMIT $2 OFFSET $3`,
     [userId, limit, offset]
@@ -296,15 +298,128 @@ const getInvoices = async (userId, page = 1, limit = 5) => {
 
 /**
  * Fetch a single invoice owned by user.
+ * Looks up by local id, invoice_number, stripe_invoice_id, or transaction_id.
+ * If not found in local DB and invoiceId looks like a Stripe ID (pi_... or in_...),
+ * attempts to resolve it via Stripe API and cache/upsert to DB.
  * @param {number} userId
  * @param {string} invoiceId
  */
 const getInvoiceByIdAndUser = async (userId, invoiceId) => {
+  if (!invoiceId) return null;
+
+  // 1. Query local database first
   const result = await db.query(
-    `SELECT * FROM invoices WHERE user_id = $1 AND (id = $2 OR invoice_number = $2) LIMIT 1`,
+    `SELECT * FROM invoices 
+     WHERE user_id = $1 AND (is_deleted IS FALSE OR is_deleted IS NULL) AND (
+       id = $2 OR 
+       invoice_number = $2 OR 
+       stripe_invoice_id = $2 OR 
+       transaction_id = $2
+     ) 
+     LIMIT 1`,
     [userId, invoiceId]
   );
-  return result.rows[0] || null;
+  
+  if (result.rows.length > 0) {
+    return result.rows[0];
+  }
+
+  // 2. If not found in DB, check if it's a Stripe ID (pi_... or in_...)
+  if (stripe && typeof invoiceId === "string") {
+    try {
+      const userRes = await db.query(
+        `SELECT id, name, email, plan, stripe_customer_id FROM users WHERE id = $1`,
+        [userId]
+      );
+      const user = userRes.rows[0];
+      if (!user) return null;
+
+      if (invoiceId.startsWith("in_")) {
+        // Stripe Invoice ID
+        const stripeInvoice = await stripe.invoices.retrieve(invoiceId, {
+          expand: ["payment_intent", "charge"]
+        });
+        
+        if (stripeInvoice && (stripeInvoice.customer === user.stripe_customer_id || stripeInvoice.customer_email === user.email)) {
+          await upsertInvoice(stripeInvoice, stripeInvoice.status === "paid" ? "Paid" : null);
+          const freshRes = await db.query(
+            `SELECT * FROM invoices WHERE user_id = $1 AND (id = $2 OR stripe_invoice_id = $2) LIMIT 1`,
+            [userId, invoiceId]
+          );
+          if (freshRes.rows.length > 0) return freshRes.rows[0];
+
+          return {
+            id: stripeInvoice.id,
+            invoice_number: stripeInvoice.number || stripeInvoice.id,
+            user_id: userId,
+            stripe_invoice_id: stripeInvoice.id,
+            amount: (stripeInvoice.amount_paid || stripeInvoice.amount_due || 0) / 100,
+            currency: (stripeInvoice.currency || "USD").toUpperCase(),
+            status: stripeInvoice.status === "paid" ? "Paid" : capitalizeFirst(stripeInvoice.status || "Paid"),
+            invoice_date: new Date((stripeInvoice.created || Date.now() / 1000) * 1000).toISOString().split("T")[0],
+            pdf_url: stripeInvoice.invoice_pdf || null,
+            plan_name: capitalizeFirst(user.plan || "Pro"),
+            billing_period: "Monthly",
+            customer_name: stripeInvoice.customer_name || user.name || "Customer",
+            customer_email: stripeInvoice.customer_email || user.email || "",
+            transaction_id: typeof stripeInvoice.payment_intent === "string" ? stripeInvoice.payment_intent : stripeInvoice.payment_intent?.id || null,
+          };
+        }
+      } else if (invoiceId.startsWith("pi_")) {
+        // Stripe PaymentIntent ID
+        const pi = await stripe.paymentIntents.retrieve(invoiceId, {
+          expand: ["latest_charge", "invoice", "customer"]
+        });
+
+        const isUserMatch = 
+          pi.customer === user.stripe_customer_id || 
+          pi.metadata?.userId === String(userId) || 
+          (pi.latest_charge && pi.latest_charge.billing_details?.email === user.email);
+
+        if (pi && isUserMatch) {
+          // If this PaymentIntent has an associated Stripe Invoice
+          if (pi.invoice) {
+            const stripeInvoice = typeof pi.invoice === "string" ? await stripe.invoices.retrieve(pi.invoice) : pi.invoice;
+            if (stripeInvoice) {
+              await upsertInvoice(stripeInvoice, "Paid");
+              const freshRes = await db.query(
+                `SELECT * FROM invoices WHERE user_id = $1 AND (id = $2 OR stripe_invoice_id = $2 OR transaction_id = $3) LIMIT 1`,
+                [userId, stripeInvoice.id, invoiceId]
+              );
+              if (freshRes.rows.length > 0) return freshRes.rows[0];
+            }
+          }
+
+          const charge = pi.latest_charge && typeof pi.latest_charge === "object" ? pi.latest_charge : null;
+          const chargeReceiptUrl = charge?.receipt_url || null;
+          const amount = (pi.amount_received || pi.amount || 0) / 100;
+          const currency = (pi.currency || "USD").toUpperCase();
+          const invoiceDate = new Date((pi.created || Date.now() / 1000) * 1000).toISOString().split("T")[0];
+
+          return {
+            id: pi.id,
+            invoice_number: pi.id,
+            user_id: userId,
+            stripe_invoice_id: typeof pi.invoice === "string" ? pi.invoice : pi.invoice?.id || pi.id,
+            amount: amount,
+            currency: currency,
+            status: pi.status === "succeeded" ? "Paid" : capitalizeFirst(pi.status),
+            invoice_date: invoiceDate,
+            pdf_url: chargeReceiptUrl,
+            plan_name: capitalizeFirst(pi.metadata?.plan || user.plan || "Pro"),
+            billing_period: "Monthly",
+            customer_name: charge?.billing_details?.name || user.name || "Customer",
+            customer_email: charge?.billing_details?.email || user.email || "",
+            transaction_id: pi.id,
+          };
+        }
+      }
+    } catch (stripeErr) {
+      console.warn("[billing] Stripe retrieve invoice/paymentIntent error:", stripeErr.message);
+    }
+  }
+
+  return null;
 };
 
 /**
@@ -432,6 +547,60 @@ const upsertInvoice = async (invoice, statusOverride = null, client = db) => {
 };
 
 /**
+ * Safely delete / archive an invoice for a specific user.
+ * Sets is_deleted = TRUE and deleted_at = NOW().
+ * Strictly scoped to the authenticated user's invoice record.
+ * @param {number} userId
+ * @param {string} invoiceId
+ */
+const deleteInvoice = async (userId, invoiceId) => {
+  if (!invoiceId || !userId) return null;
+
+  // 1. Locate the specific invoice record belonging to this user
+  const checkRes = await db.query(
+    `SELECT id, invoice_number FROM invoices 
+     WHERE user_id = $1 AND (is_deleted IS FALSE OR is_deleted IS NULL) AND (
+       id = $2 OR 
+       invoice_number = $2 OR 
+       stripe_invoice_id = $2 OR 
+       transaction_id = $2
+     ) 
+     LIMIT 1`,
+    [userId, invoiceId]
+  );
+
+  if (checkRes.rows.length === 0) {
+    return null;
+  }
+
+  const invoice = checkRes.rows[0];
+
+  // 2. Perform soft-delete strictly scoped to this user and invoice
+  await db.query(
+    `UPDATE invoices 
+     SET is_deleted = TRUE, deleted_at = NOW(), updated_at = NOW() 
+     WHERE id = $1 AND user_id = $2`,
+    [invoice.id, userId]
+  );
+
+  // 3. Clean up associated generated local PDF file only if it strictly matches this invoice
+  try {
+    const safeInvoiceNum = (invoice.invoice_number || invoice.id || "").replace(/[^a-zA-Z0-9_-]/g, "");
+    if (safeInvoiceNum) {
+      const uploadsDir = path.resolve(__dirname, "../../uploads/invoices");
+      const potentialFilePath = path.join(uploadsDir, `invoice-${safeInvoiceNum}.pdf`);
+      if (potentialFilePath.startsWith(uploadsDir) && fs.existsSync(potentialFilePath)) {
+        fs.unlinkSync(potentialFilePath);
+      }
+    }
+  } catch (cleanErr) {
+    console.warn("[billing] Non-critical file cleanup note:", cleanErr.message);
+  }
+
+  return invoice;
+};
+
+/**
  * Capitalize the first letter of a string.
  * @param {string} str
  */
@@ -447,7 +616,9 @@ module.exports = {
   updatePaymentMethod,
   getInvoices,
   getInvoiceByIdAndUser,
+  deleteInvoice,
   syncPaymentMethodToDb,
   upsertInvoice,
 };
+
 

@@ -17,5 +17,9 @@ router.post("/setup-intent", userBillingController.createSetupIntent);
 // Invoices Routes
 router.get("/invoices", userBillingController.getInvoices);
 router.get("/invoices/:invoiceId/download", userBillingController.downloadInvoice);
+router.get("/invoice/:invoiceId/download", userBillingController.downloadInvoice);
+router.delete("/invoices/:invoiceId", userBillingController.deleteInvoice);
+router.delete("/invoice/:invoiceId", userBillingController.deleteInvoice);
 
 module.exports = router;
+
