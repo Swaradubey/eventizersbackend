@@ -16,6 +16,9 @@ const aiRoutes = require("./routes/ai.routes");
 
 const app = express();
 
+// Prevent 500 crashes on automatic browser favicon requests
+app.get("/favicon.ico", (req, res) => res.status(204).end());
+
 // Trust proxy for secure cookies on Vercel
 app.set("trust proxy", 1);
 
@@ -66,9 +69,6 @@ app.use("/api/webhooks/stripe", express.raw({ type: "application/json" }), strip
 
 app.use(express.json());
 app.use(cookieParser());
-
-// Prevent 500 crashes on automatic browser favicon requests
-app.get("/favicon.ico", (req, res) => res.status(204).end());
 
 // Base and Health Routes
 app.get("/", (req, res) => {

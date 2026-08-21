@@ -26,6 +26,11 @@ try {
  * The Express `app` is callable as a plain Node.js (req, res) handler.
  */
 module.exports = (req, res) => {
+  // Return early 204 for favicon requests
+  if (req.url === "/favicon.ico") {
+    return res.status(204).end();
+  }
+
   // If bootstrap failed on module load, attempt a single retry then surface a clear 500.
   if (!app) {
     try {
