@@ -17,8 +17,14 @@ const authMiddleware = async (req, res, next) => {
       return res.status(401).json({ error: "Access Denied. No token provided." });
     }
 
-    // Verify token using JWT_SECRET env strictly (no hardcoded fallback)
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret) {
+      console.error("[auth] FATAL: JWT_SECRET environment variable is missing in project configuration.");
+      return res.status(500).json({ error: "Server authentication error: JWT_SECRET is not configured." });
+    }
+
+    // Verify token using JWT_SECRET
+    const decoded = jwt.verify(token, jwtSecret);
 
     // Fetch user details from DB
     const user = await authService.findUserById(decoded.id);

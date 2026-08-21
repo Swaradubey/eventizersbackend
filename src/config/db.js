@@ -1,16 +1,29 @@
 const { Pool } = require("pg");
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_URL && process.env.DATABASE_URL.includes("neon.tech")
-    ? { rejectUnauthorized: false }
-    : false,
-});
+const globalForPg = globalThis;
 
-// Log any pool errors to prevent application crashes
-pool.on("error", (err) => {
-  console.error("[database] Unexpected error on idle client:", err.message);
-});
+let pool = globalForPg.pgPool;
+
+if (!pool) {
+  const dbUrl = process.env.DATABASE_URL || "";
+  const isNeon = dbUrl.includes("neon.tech");
+  const isSslRequired = dbUrl.includes("sslmode=require") || isNeon || process.env.NODE_ENV === "production";
+
+  pool = new Pool({
+    connectionString: dbUrl || undefined,
+    ssl: isSslRequired ? { rejectUnauthorized: false } : false,
+    max: 10, // Prevent exhausting serverless database connection limits
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 10000,
+  });
+
+  // Log any pool errors to prevent application crashes
+  pool.on("error", (err) => {
+    console.error("[database] Unexpected error on idle pg client:", err.message);
+  });
+
+  globalForPg.pgPool = pool;
+}
 
 module.exports = {
   query: (text, params) => pool.query(text, params),

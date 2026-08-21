@@ -5,9 +5,17 @@ const eventService = require("../services/event.service");
 
 // Helper function to generate token and set cookie (matches auth.controller.js)
 const sendTokenResponse = (user, statusCode, res) => {
+  if (res.headersSent) {
+    return;
+  }
+  const jwtSecret = process.env.JWT_SECRET;
+  if (!jwtSecret) {
+    console.error("[admin] FATAL: JWT_SECRET environment variable is missing in project configuration.");
+    return res.status(500).json({ error: "Server authentication error: JWT_SECRET is not configured." });
+  }
   const token = jwt.sign(
     { id: user.id, role: user.role },
-    process.env.JWT_SECRET,
+    jwtSecret,
     { expiresIn: "7d" }
   );
 

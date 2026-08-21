@@ -27,13 +27,19 @@ const handleWebhook = async (req, res) => {
     return res.status(400).json({ error: "Missing stripe-signature header." });
   }
 
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET?.trim();
+  if (!webhookSecret) {
+    console.error("[webhook] STRIPE_WEBHOOK_SECRET environment variable is missing.");
+    return res.status(500).json({ error: "Stripe webhook secret is not configured on the server." });
+  }
+
   let event;
 
   try {
     event = stripe.webhooks.constructEvent(
       req.body,
       sig,
-      process.env.STRIPE_WEBHOOK_SECRET.trim()
+      webhookSecret
     );
   } catch (err) {
     console.error("[webhook] Signature verification failed:", err.message);

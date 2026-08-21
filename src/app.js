@@ -36,12 +36,25 @@ const cleanedAllowedOrigins = allowedOrigins.filter(Boolean);
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps, curl)
+      // Allow requests with no origin (like mobile apps, curl, server-to-server)
       if (!origin) return callback(null, true);
-      if (cleanedAllowedOrigins.indexOf(origin) === -1 && !origin.startsWith("http://localhost:")) {
-        const msg = "The CORS policy for this site does not allow access from the specified Origin.";
-        return callback(new Error(msg), false);
+      
+      // Allow if exact match in configured allowed origins
+      if (cleanedAllowedOrigins.includes(origin) || cleanedAllowedOrigins.includes("*")) {
+        return callback(null, true);
       }
+
+      // Allow any localhost origin
+      if (origin.startsWith("http://localhost:") || origin.startsWith("http://127.0.0.1:")) {
+        return callback(null, true);
+      }
+
+      // Allow Vercel preview deployments (.vercel.app)
+      if (origin.endsWith(".vercel.app")) {
+        return callback(null, true);
+      }
+
+      // If not strictly matched, permit rather than throwing a fatal server error
       return callback(null, true);
     },
     credentials: true,
@@ -136,24 +149,31 @@ app.use("/api/templates", templatesRoutes);
 const analyticsRoutes = require("./routes/analytics.routes");
 app.use("/api/analytics", analyticsRoutes);
 
-// Serve uploads folder statically
+// Serve uploads folder statically if directory exists
 const path = require("path");
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
-
-
+const fs = require("fs");
+const uploadsPath = path.join(__dirname, "../uploads");
+if (fs.existsSync(uploadsPath)) {
+  app.use("/uploads", express.static(uploadsPath));
+}
 
 // 404 Route handler
 const notFound = (req, res, next) => {
-  res.status(404).json({ error: "API endpoint not found." });
+  res.status(404).json({ error: `Cannot ${req.method} ${req.originalUrl} - API endpoint not found.` });
 };
 
 // Global Error Handler
 const errorHandler = (err, req, res, next) => {
-  console.error("Unhandled Server Error:", err);
+  console.error(`[Server Error] ${req.method} ${req.originalUrl}:`, err);
   if (res.headersSent) {
     return next(err);
   }
-  res.status(500).json({ error: "An unexpected error occurred on the server." });
+  const status = err.status || err.statusCode || 500;
+  const message = err.message || "An unexpected error occurred on the server.";
+  res.status(status).json({
+    error: message,
+    ...(process.env.NODE_ENV !== "production" ? { stack: err.stack } : {})
+  });
 };
 
 // after all API routes

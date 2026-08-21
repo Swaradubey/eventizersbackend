@@ -8,9 +8,14 @@ const sendTokenResponse = (user, statusCode, res, message = "Success") => {
     console.warn(`[WARN] sendTokenResponse attempted but headers were already sent to client. User ID: ${user.id}`);
     return;
   }
+  const jwtSecret = process.env.JWT_SECRET;
+  if (!jwtSecret) {
+    console.error("[auth] FATAL: JWT_SECRET environment variable is missing in project configuration.");
+    return res.status(500).json({ error: "Server authentication error: JWT_SECRET is not configured." });
+  }
   const token = jwt.sign(
     { id: user.id, role: user.role },
-    process.env.JWT_SECRET,
+    jwtSecret,
     { expiresIn: "7d" }
   );
 

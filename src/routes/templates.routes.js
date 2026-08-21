@@ -37,28 +37,13 @@ router.post('/', authenticate, isAdmin, async (req, res, next) => {
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 
-// Ensure uploads directory exists
-const uploadDir = path.join(__dirname, '../../uploads/templates');
-try {
-  if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-  }
-} catch (err) {
-  console.warn("Failed to create templates uploads directory (read-only filesystem):", err.message);
-}
-
-// Multer config
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, 'template-' + uniqueSuffix + path.extname(file.originalname));
-  }
+// Serverless-safe Multer configuration using memory storage
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
 });
-const upload = multer({ storage: storage });
 
 // Upload a template file
 router.post('/upload', authenticate, upload.single('templateFile'), async (req, res, next) => {
@@ -67,11 +52,11 @@ router.post('/upload', authenticate, upload.single('templateFile'), async (req, 
       return res.status(400).json({ error: 'Please upload a file' });
     }
     
-    // Construct the public URL
-    const fileUrl = `/uploads/templates/${req.file.filename}`;
+    // In serverless / Vercel, convert buffer to data URL or save to /tmp if needed
+    const mimeType = req.file.mimetype || 'image/png';
+    const base64Data = req.file.buffer.toString('base64');
+    const fileUrl = `data:${mimeType};base64,${base64Data}`;
     
-    // You can also create a Template record in the database if needed here
-    // For now, returning the URL is enough for the frontend
     res.status(201).json({
       success: true,
       message: 'Template uploaded successfully',
