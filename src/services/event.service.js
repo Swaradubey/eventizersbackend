@@ -9,26 +9,51 @@ const prisma = require("../config/prisma");
 const findEventsByUserId = async (userId) => {
   const result = await db.query(
     `SELECT 
-      id, 
-      title, 
-      description, 
-      event_type AS "eventType", 
-      venue, 
-      address, 
-      city, 
-      state, 
-      country, 
-      TO_CHAR(event_date, 'YYYY-MM-DD') AS "eventDate", 
-      event_time AS "eventTime", 
-      cover_image AS "coverImage", 
-      selected_template_id AS "selectedTemplateId",
-      status, 
-      created_by AS "createdBy", 
-      created_at AS "createdAt", 
-      updated_at AS "updatedAt"
-     FROM events 
-     WHERE created_by = $1
-     ORDER BY created_at DESC`,
+      e.id, 
+      e.title, 
+      e.description, 
+      e.event_type AS "eventType", 
+      e.venue, 
+      e.address, 
+      e.city, 
+      e.state, 
+      e.country, 
+      TO_CHAR(e.event_date, 'YYYY-MM-DD') AS "eventDate", 
+      e.event_time AS "eventTime", 
+      e.cover_image AS "coverImage", 
+      e.selected_template_id AS "selectedTemplateId",
+      e.status, 
+      e.created_by AS "createdBy", 
+      e.created_at AS "createdAt", 
+      e.updated_at AS "updatedAt",
+      COALESCE(stats.total_guests, 0)::int AS "totalGuests",
+      COALESCE(stats.attending_count, 0)::int AS "attendingCount",
+      COALESCE(stats.declined_count, 0)::int AS "declinedCount",
+      COALESCE(stats.rsvp_rate, 0)::int AS "rsvpRate"
+     FROM events e
+     LEFT JOIN (
+       SELECT 
+         event_id,
+         COUNT(*)::int AS total_guests,
+         COUNT(*) FILTER (
+           WHERE LOWER(COALESCE(status, '')) IN ('confirmed', 'attending', 'accepted') 
+              OR LOWER(COALESCE(rsvp_status, '')) IN ('confirmed', 'attending', 'accepted')
+         )::int AS attending_count,
+         COUNT(*) FILTER (
+           WHERE LOWER(COALESCE(status, '')) IN ('declined', 'rejected') 
+              OR LOWER(COALESCE(rsvp_status, '')) IN ('declined', 'rejected')
+         )::int AS declined_count,
+         ROUND(
+           COUNT(*) FILTER (
+             WHERE LOWER(COALESCE(status, '')) IN ('confirmed', 'attending', 'accepted') 
+                OR LOWER(COALESCE(rsvp_status, '')) IN ('confirmed', 'attending', 'accepted')
+           ) * 100.0 / NULLIF(COUNT(*), 0)
+         )::int AS rsvp_rate
+       FROM guests
+       GROUP BY event_id
+     ) stats ON e.id = stats.event_id
+     WHERE e.created_by = $1
+     ORDER BY e.created_at DESC`,
     [userId]
   );
   return result.rows;
@@ -43,25 +68,50 @@ const findEventsByUserId = async (userId) => {
 const findEventByIdAndUserId = async (id, userId) => {
   const result = await db.query(
     `SELECT 
-      id, 
-      title, 
-      description, 
-      event_type AS "eventType", 
-      venue, 
-      address, 
-      city, 
-      state, 
-      country, 
-      TO_CHAR(event_date, 'YYYY-MM-DD') AS "eventDate", 
-      event_time AS "eventTime", 
-      cover_image AS "coverImage", 
-      selected_template_id AS "selectedTemplateId",
-      status, 
-      created_by AS "createdBy", 
-      created_at AS "createdAt", 
-      updated_at AS "updatedAt"
-     FROM events 
-     WHERE id = $1 AND created_by = $2`,
+      e.id, 
+      e.title, 
+      e.description, 
+      e.event_type AS "eventType", 
+      e.venue, 
+      e.address, 
+      e.city, 
+      e.state, 
+      e.country, 
+      TO_CHAR(e.event_date, 'YYYY-MM-DD') AS "eventDate", 
+      e.event_time AS "eventTime", 
+      e.cover_image AS "coverImage", 
+      e.selected_template_id AS "selectedTemplateId",
+      e.status, 
+      e.created_by AS "createdBy", 
+      e.created_at AS "createdAt", 
+      e.updated_at AS "updatedAt",
+      COALESCE(stats.total_guests, 0)::int AS "totalGuests",
+      COALESCE(stats.attending_count, 0)::int AS "attendingCount",
+      COALESCE(stats.declined_count, 0)::int AS "declinedCount",
+      COALESCE(stats.rsvp_rate, 0)::int AS "rsvpRate"
+     FROM events e
+     LEFT JOIN (
+       SELECT 
+         event_id,
+         COUNT(*)::int AS total_guests,
+         COUNT(*) FILTER (
+           WHERE LOWER(COALESCE(status, '')) IN ('confirmed', 'attending', 'accepted') 
+              OR LOWER(COALESCE(rsvp_status, '')) IN ('confirmed', 'attending', 'accepted')
+         )::int AS attending_count,
+         COUNT(*) FILTER (
+           WHERE LOWER(COALESCE(status, '')) IN ('declined', 'rejected') 
+              OR LOWER(COALESCE(rsvp_status, '')) IN ('declined', 'rejected')
+         )::int AS declined_count,
+         ROUND(
+           COUNT(*) FILTER (
+             WHERE LOWER(COALESCE(status, '')) IN ('confirmed', 'attending', 'accepted') 
+                OR LOWER(COALESCE(rsvp_status, '')) IN ('confirmed', 'attending', 'accepted')
+           ) * 100.0 / NULLIF(COUNT(*), 0)
+         )::int AS rsvp_rate
+       FROM guests
+       GROUP BY event_id
+     ) stats ON e.id = stats.event_id
+     WHERE e.id = $1 AND e.created_by = $2`,
     [id, userId]
   );
   return result.rows[0] || null;
