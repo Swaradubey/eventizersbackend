@@ -258,6 +258,12 @@ const TEMPLATE_STYLES = {
  */
 const createEvent = async (req, res) => {
   try {
+    if (req.file) {
+      const mimeType = req.file.mimetype || "image/png";
+      const base64Data = req.file.buffer.toString("base64");
+      req.body.coverImage = `data:${mimeType};base64,${base64Data}`;
+    }
+
     const { title, eventDate, eventTime, venue, selectedTemplateId, templateId } = req.body;
     const userId = req.user.id;
 
@@ -337,6 +343,12 @@ const createEvent = async (req, res) => {
  */
 const updateEvent = async (req, res) => {
   try {
+    if (req.file) {
+      const mimeType = req.file.mimetype || "image/png";
+      const base64Data = req.file.buffer.toString("base64");
+      req.body.coverImage = `data:${mimeType};base64,${base64Data}`;
+    }
+
     const { id } = req.params;
     const { title, eventDate, eventTime, venue } = req.body;
     const userId = req.user.id;

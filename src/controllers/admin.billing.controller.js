@@ -607,9 +607,8 @@ const deleteUser = async (req, res) => {
     `, [userIdToDelete]);
 
     // c. Delete explicitly linked user tables to avoid potential lock issues
-    await db.query(`DELETE FROM "Invoice" WHERE user_id = $1`, [userIdToDelete]);
-    await db.query(`DELETE FROM "PaymentMethod" WHERE user_id = $1`, [userIdToDelete]);
-    await db.query(`DELETE FROM "Payment" WHERE user_id = $1`, [userIdToDelete]);
+    await db.query(`DELETE FROM invoices WHERE user_id = $1`, [userIdToDelete]);
+    await db.query(`DELETE FROM payment_methods WHERE user_id = $1`, [userIdToDelete]);
     await db.query(`DELETE FROM "SubscriptionUsage" WHERE user_id = $1`, [userIdToDelete]);
 
     // d. Delete events created by the user (which triggers database cascading deletes on invitations, guests, check-ins, registries, registry_contributions, messages, message_recipients, SecurityAlert, AuditLog)
