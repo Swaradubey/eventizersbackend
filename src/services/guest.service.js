@@ -134,6 +134,30 @@ const updateGuest = async (id, data) => {
       phone = COALESCE($3, phone), 
       status = COALESCE($4, status),
       event_id = COALESCE($5, event_id),
+      is_opened = CASE 
+        WHEN LOWER(COALESCE($4, '')) IN ('confirmed', 'attending', 'declined', 'maybe', 'accepted') THEN true 
+        ELSE is_opened 
+      END,
+      is_clicked = CASE 
+        WHEN LOWER(COALESCE($4, '')) IN ('confirmed', 'attending', 'declined', 'maybe', 'accepted') THEN true 
+        ELSE is_clicked 
+      END,
+      opened_at = CASE 
+        WHEN LOWER(COALESCE($4, '')) IN ('confirmed', 'attending', 'declined', 'maybe', 'accepted') AND opened_at IS NULL THEN CURRENT_TIMESTAMP 
+        ELSE opened_at 
+      END,
+      clicked_at = CASE 
+        WHEN LOWER(COALESCE($4, '')) IN ('confirmed', 'attending', 'declined', 'maybe', 'accepted') AND clicked_at IS NULL THEN CURRENT_TIMESTAMP 
+        ELSE clicked_at 
+      END,
+      responded_at = CASE 
+        WHEN LOWER(COALESCE($4, '')) IN ('confirmed', 'attending', 'declined', 'maybe', 'accepted') AND responded_at IS NULL THEN CURRENT_TIMESTAMP 
+        ELSE responded_at 
+      END,
+      open_count = CASE 
+        WHEN LOWER(COALESCE($4, '')) IN ('confirmed', 'attending', 'declined', 'maybe', 'accepted') AND (open_count IS NULL OR open_count = 0) THEN 1 
+        ELSE open_count 
+      END,
       updated_at = CURRENT_TIMESTAMP
      WHERE id = $6
      RETURNING 

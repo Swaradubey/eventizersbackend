@@ -338,6 +338,8 @@ const submitPublicRSVPData = async ({ eventId, name, email, phone, rsvpStatus })
     ? "confirmed"
     : (statusVal === "declined" || statusVal === "no" ? "declined" : "pending");
 
+  const now = new Date();
+
   const existingGuest = await prisma.guest.findFirst({
     where: {
       eventId,
@@ -354,7 +356,12 @@ const submitPublicRSVPData = async ({ eventId, name, email, phone, rsvpStatus })
         phone: cleanPhone || existingGuest.phone,
         status: finalStatus,
         rsvpStatus: finalStatus,
-        respondedAt: new Date(),
+        respondedAt: now,
+        isOpened: true,
+        isClicked: true,
+        openedAt: existingGuest.openedAt || now,
+        clickedAt: existingGuest.clickedAt || now,
+        openCount: existingGuest.openCount > 0 ? existingGuest.openCount : 1,
       },
     });
   } else {
@@ -366,7 +373,12 @@ const submitPublicRSVPData = async ({ eventId, name, email, phone, rsvpStatus })
         phone: cleanPhone,
         status: finalStatus,
         rsvpStatus: finalStatus,
-        respondedAt: new Date(),
+        respondedAt: now,
+        isOpened: true,
+        isClicked: true,
+        openedAt: now,
+        clickedAt: now,
+        openCount: 1,
       },
     });
   }

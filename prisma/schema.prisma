@@ -111,7 +111,10 @@ model Guest {
   checkIns  CheckIn[]
   messageRecipients MessageRecipient[]
   sentAt      DateTime? @map("sent_at")
+  isOpened    Boolean   @default(false) @map("is_opened")
   openedAt    DateTime? @map("opened_at")
+  openCount   Int       @default(0) @map("open_count")
+  isClicked   Boolean   @default(false) @map("is_clicked")
   clickedAt   DateTime? @map("clicked_at")
   respondedAt DateTime? @map("responded_at")
   rsvpStatus  String?   @map("rsvp_status")

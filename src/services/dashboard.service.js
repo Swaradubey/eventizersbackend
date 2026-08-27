@@ -29,7 +29,10 @@ const getStatsByUserId = async (userId) => {
     `SELECT 
        COALESCE(
          ROUND(
-           COUNT(*) FILTER (WHERE g.status = 'confirmed') * 100.0 / NULLIF(COUNT(*), 0)
+           COUNT(*) FILTER (
+             WHERE LOWER(COALESCE(g.status, '')) IN ('confirmed', 'attending', 'accepted', 'declined', 'rejected', 'maybe')
+                OR LOWER(COALESCE(g.rsvp_status, '')) IN ('confirmed', 'attending', 'accepted', 'declined', 'rejected', 'maybe')
+           ) * 100.0 / NULLIF(COUNT(*), 0)
          ),
          0
        )::int AS rate

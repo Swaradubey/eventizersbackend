@@ -252,6 +252,8 @@ const TEMPLATE_STYLES = {
   ...require("../config/newTemplatesBackend").newTemplateStylesBackend
 };
 
+const { saveUploadedFile, saveBase64Image } = require("../utils/fileStorage");
+
 /**
  * Create a new event
  * POST /api/events
@@ -259,9 +261,13 @@ const TEMPLATE_STYLES = {
 const createEvent = async (req, res) => {
   try {
     if (req.file) {
-      const mimeType = req.file.mimetype || "image/png";
-      const base64Data = req.file.buffer.toString("base64");
-      req.body.coverImage = `data:${mimeType};base64,${base64Data}`;
+      const uploadRes = await saveUploadedFile(req.file, req, "event_cover");
+      req.body.coverImage = uploadRes.url;
+    } else if (req.body.coverImage && req.body.coverImage.startsWith("data:")) {
+      const base64Res = await saveBase64Image(req.body.coverImage, req, "event_cover");
+      if (base64Res) {
+        req.body.coverImage = base64Res.url;
+      }
     }
 
     const { title, eventDate, eventTime, venue, selectedTemplateId, templateId } = req.body;
@@ -344,9 +350,13 @@ const createEvent = async (req, res) => {
 const updateEvent = async (req, res) => {
   try {
     if (req.file) {
-      const mimeType = req.file.mimetype || "image/png";
-      const base64Data = req.file.buffer.toString("base64");
-      req.body.coverImage = `data:${mimeType};base64,${base64Data}`;
+      const uploadRes = await saveUploadedFile(req.file, req, "event_cover");
+      req.body.coverImage = uploadRes.url;
+    } else if (req.body.coverImage && req.body.coverImage.startsWith("data:")) {
+      const base64Res = await saveBase64Image(req.body.coverImage, req, "event_cover");
+      if (base64Res) {
+        req.body.coverImage = base64Res.url;
+      }
     }
 
     const { id } = req.params;

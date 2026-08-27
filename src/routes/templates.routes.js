@@ -35,33 +35,47 @@ router.post('/', authenticate, isAdmin, async (req, res, next) => {
 });
 
 const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
-const os = require('os');
+const { saveUploadedFile, saveBase64Image } = require('../utils/fileStorage');
 
-// Serverless-safe Multer configuration using memory storage
+// Multer configuration using memory storage
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  limits: { fileSize: 15 * 1024 * 1024 }, // 15MB limit
 });
 
-// Upload a template file
-router.post('/upload', authenticate, upload.single('templateFile'), async (req, res, next) => {
+// Upload a template file or canvas snapshot
+router.post('/upload', authenticate, upload.any(), async (req, res, next) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({ error: 'Please upload a file' });
+    // 1. Check if multipart file uploaded
+    const uploadedFile = req.files && req.files.length > 0 ? req.files[0] : req.file;
+
+    if (uploadedFile) {
+      const result = await saveUploadedFile(uploadedFile, req, 'template');
+      return res.status(201).json({
+        success: true,
+        message: 'Template uploaded successfully',
+        url: result.url,
+        fileUrl: result.fileUrl,
+        filename: result.filename,
+      });
     }
-    
-    // In serverless / Vercel, convert buffer to data URL or save to /tmp if needed
-    const mimeType = req.file.mimetype || 'image/png';
-    const base64Data = req.file.buffer.toString('base64');
-    const fileUrl = `data:${mimeType};base64,${base64Data}`;
-    
-    res.status(201).json({
-      success: true,
-      message: 'Template uploaded successfully',
-      fileUrl: fileUrl
-    });
+
+    // 2. Check if base64 passed in json body (e.g. { file: "data:image/...", image: "..." })
+    const base64Input = req.body?.file || req.body?.image || req.body?.coverImage || req.body?.templateFile || req.body?.snapshot;
+    if (base64Input) {
+      const result = await saveBase64Image(base64Input, req, 'snapshot');
+      if (result) {
+        return res.status(201).json({
+          success: true,
+          message: 'Template snapshot uploaded successfully',
+          url: result.url,
+          fileUrl: result.fileUrl,
+          filename: result.filename,
+        });
+      }
+    }
+
+    return res.status(400).json({ error: 'Please upload a file or provide an image payload' });
   } catch (err) {
     next(err);
   }

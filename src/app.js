@@ -158,13 +158,28 @@ app.use("/api/templates", templatesRoutes);
 const analyticsRoutes = require("./routes/analytics.routes");
 app.use("/api/analytics", analyticsRoutes);
 
-// Serve uploads folder statically if directory exists
+// Open Tracking Pixel Routes
+const trackRoutes = require("./routes/track.routes");
+app.use("/api/track", trackRoutes);
+
+// Serve uploads folder statically
 const path = require("path");
 const fs = require("fs");
 const uploadsPath = path.join(__dirname, "../uploads");
-if (fs.existsSync(uploadsPath)) {
-  app.use("/uploads", express.static(uploadsPath));
+if (!fs.existsSync(uploadsPath)) {
+  try {
+    fs.mkdirSync(uploadsPath, { recursive: true });
+  } catch (e) {
+    console.warn("Could not create uploads directory:", e.message);
+  }
 }
+app.use("/uploads", express.static(uploadsPath, {
+  maxAge: "7d",
+  setHeaders: (res) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+  }
+}));
 
 // 404 Route handler
 const notFound = (req, res, next) => {

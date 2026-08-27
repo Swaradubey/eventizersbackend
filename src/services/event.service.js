@@ -45,8 +45,8 @@ const findEventsByUserId = async (userId) => {
          )::int AS declined_count,
          ROUND(
            COUNT(*) FILTER (
-             WHERE LOWER(COALESCE(status, '')) IN ('confirmed', 'attending', 'accepted') 
-                OR LOWER(COALESCE(rsvp_status, '')) IN ('confirmed', 'attending', 'accepted')
+             WHERE LOWER(COALESCE(status, '')) IN ('confirmed', 'attending', 'accepted', 'declined', 'rejected', 'maybe') 
+                OR LOWER(COALESCE(rsvp_status, '')) IN ('confirmed', 'attending', 'accepted', 'declined', 'rejected', 'maybe')
            ) * 100.0 / NULLIF(COUNT(*), 0)
          )::int AS rsvp_rate
        FROM guests
@@ -104,8 +104,8 @@ const findEventByIdAndUserId = async (id, userId) => {
          )::int AS declined_count,
          ROUND(
            COUNT(*) FILTER (
-             WHERE LOWER(COALESCE(status, '')) IN ('confirmed', 'attending', 'accepted') 
-                OR LOWER(COALESCE(rsvp_status, '')) IN ('confirmed', 'attending', 'accepted')
+             WHERE LOWER(COALESCE(status, '')) IN ('confirmed', 'attending', 'accepted', 'declined', 'rejected', 'maybe') 
+                OR LOWER(COALESCE(rsvp_status, '')) IN ('confirmed', 'attending', 'accepted', 'declined', 'rejected', 'maybe')
            ) * 100.0 / NULLIF(COUNT(*), 0)
          )::int AS rsvp_rate
        FROM guests
@@ -321,9 +321,46 @@ const deleteEvent = async (id, userId) => {
   return result.rowCount > 0;
 };
 
+/**
+ * Find a specific event by ID (and optional userId)
+ * @param {string} id - UUID
+ * @param {number} [userId]
+ * @returns {Promise<Object|null>}
+ */
+const findEventById = async (id, userId) => {
+  if (userId) {
+    return findEventByIdAndUserId(id, userId);
+  }
+  const result = await db.query(
+    `SELECT 
+      e.id, 
+      e.title, 
+      e.description, 
+      e.event_type AS "eventType", 
+      e.venue, 
+      e.address, 
+      e.city, 
+      e.state, 
+      e.country, 
+      TO_CHAR(e.event_date, 'YYYY-MM-DD') AS "eventDate", 
+      e.event_time AS "eventTime", 
+      e.cover_image AS "coverImage", 
+      e.selected_template_id AS "selectedTemplateId",
+      e.status, 
+      e.created_by AS "createdBy", 
+      e.created_at AS "createdAt", 
+      e.updated_at AS "updatedAt"
+     FROM events e
+     WHERE e.id = $1`,
+    [id]
+  );
+  return result.rows[0] || null;
+};
+
 module.exports = {
   findEventsByUserId,
   findEventByIdAndUserId,
+  findEventById,
   createEvent,
   updateEvent,
   deleteEvent

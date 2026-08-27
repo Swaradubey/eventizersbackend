@@ -2,6 +2,7 @@ const invitationService = require("../services/invitation.service");
 const eventService = require("../services/event.service");
 const guestService = require("../services/guest.service");
 const emailService = require("../services/email.service");
+const { saveBase64Image } = require("../utils/fileStorage");
 
 // Helper to validate hex colors
 const isValidHexColor = (color) => {
@@ -191,6 +192,14 @@ const createInvitation = async (req, res) => {
       return res.status(400).json({ error: "An invitation already exists for this event." });
     }
 
+    let cleanImageUrl = imageUrl;
+    if (imageUrl && (imageUrl.startsWith("data:") || imageUrl.length > 500)) {
+      const uploadRes = await saveBase64Image(imageUrl, req, "invitation_cover");
+      if (uploadRes) {
+        cleanImageUrl = uploadRes.url;
+      }
+    }
+
     const newInvitation = await invitationService.createInvitation(
       {
         id: payloadId,
@@ -206,7 +215,7 @@ const createInvitation = async (req, res) => {
         fontWeight,
         fontFamily,
         textAlignment,
-        imageUrl,
+        imageUrl: cleanImageUrl,
         buttonText,
         buttonColor,
         buttonRadius,
@@ -282,6 +291,14 @@ const updateInvitation = async (req, res) => {
       return res.status(400).json({ error: "Invalid Button Color HEX format." });
     }
 
+    let cleanImageUrl = imageUrl;
+    if (imageUrl && (imageUrl.startsWith("data:") || imageUrl.length > 500)) {
+      const uploadRes = await saveBase64Image(imageUrl, req, "invitation_cover");
+      if (uploadRes) {
+        cleanImageUrl = uploadRes.url;
+      }
+    }
+
     const updatedInvitation = await invitationService.updateInvitation(
       id,
       {
@@ -296,7 +313,7 @@ const updateInvitation = async (req, res) => {
         fontWeight: fontWeight || existingInvitation.fontWeight,
         fontFamily: fontFamily || existingInvitation.fontFamily,
         textAlignment: textAlignment || existingInvitation.textAlignment,
-        imageUrl: imageUrl !== undefined ? imageUrl : existingInvitation.imageUrl,
+        imageUrl: cleanImageUrl !== undefined ? cleanImageUrl : existingInvitation.imageUrl,
         buttonText: buttonText || existingInvitation.buttonText,
         buttonColor: buttonColor || existingInvitation.buttonColor,
         buttonRadius: buttonRadius !== undefined ? buttonRadius : existingInvitation.buttonRadius,
@@ -353,6 +370,90 @@ const parseRecipientEmails = (input) => {
   return [];
 };
 
+// Helper to ensure all recipient emails exist as guests and record sent_at
+const ensureGuestsForEvent = async (eventId, emails, existingGuestIds = []) => {
+  const resultGuests = [];
+  const db = require("../config/db");
+
+  // If specific guest IDs provided, fetch them first
+  if (Array.isArray(existingGuestIds) && existingGuestIds.length > 0) {
+    try {
+      const res = await db.query(
+        `SELECT id, name, email, event_id FROM guests WHERE event_id = $1 AND id = ANY($2::uuid[])`,
+        [eventId, existingGuestIds]
+      );
+      for (const row of res.rows) {
+        resultGuests.push({
+          id: row.id,
+          email: row.email.toLowerCase(),
+          name: row.name,
+        });
+      }
+    } catch (err) {
+      console.warn("[InvitationController] Error querying existing guest IDs:", err.message);
+    }
+  }
+
+  // For emails not yet in resultGuests, find or create
+  for (const email of emails) {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail) continue;
+
+    if (resultGuests.some(g => g.email === cleanEmail)) continue;
+
+    try {
+      const findRes = await db.query(
+        `SELECT id, name, email FROM guests WHERE event_id = $1 AND LOWER(email) = $2 LIMIT 1`,
+        [eventId, cleanEmail]
+      );
+
+      if (findRes.rows.length > 0) {
+        resultGuests.push({
+          id: findRes.rows[0].id,
+          email: cleanEmail,
+          name: findRes.rows[0].name,
+        });
+      } else if (eventId) {
+        const defaultName = cleanEmail.split("@")[0] || "Guest";
+        const insertRes = await db.query(
+          `INSERT INTO guests (id, event_id, name, email, status, created_at, updated_at)
+           VALUES (gen_random_uuid(), $1, $2, $3, 'invited', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+           RETURNING id, name, email`,
+          [eventId, defaultName, cleanEmail]
+        );
+        if (insertRes.rows[0]) {
+          resultGuests.push({
+            id: insertRes.rows[0].id,
+            email: cleanEmail,
+            name: defaultName,
+          });
+        }
+      }
+    } catch (err) {
+      console.warn(`[InvitationController] Error checking/creating guest ${cleanEmail}:`, err.message);
+    }
+  }
+
+  // Update sent_at timestamp for all resolved guests
+  if (resultGuests.length > 0) {
+    const guestIds = resultGuests.map(g => g.id).filter(Boolean);
+    if (guestIds.length > 0) {
+      try {
+        await db.query(
+          `UPDATE guests
+           SET sent_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+           WHERE id = ANY($1::uuid[])`,
+          [guestIds]
+        );
+      } catch (err) {
+        console.warn("[InvitationController] Error updating sent_at on guests:", err.message);
+      }
+    }
+  }
+
+  return resultGuests;
+};
+
 /**
  * Send invitation via email
  * POST /api/invitations/:id/send
@@ -361,7 +462,7 @@ const sendInvitation = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id;
-    const { recipients, guestEmails } = req.body || {};
+    const { recipients, guestEmails, cardSnapshotUrl, snapshotUrl, cardImageBase64 } = req.body || {};
 
     const invitation = await invitationService.findInvitationById(id, userId);
     if (!invitation) {
@@ -377,10 +478,31 @@ const sendInvitation = async (req, res) => {
       }
     }
 
+    // Resolve snapshot image URL (convert Base64 if needed)
+    let resolvedSnapshotUrl = cardSnapshotUrl || snapshotUrl || null;
+    if (cardImageBase64) {
+      const uploadRes = await saveBase64Image(cardImageBase64, req, "invitation_snapshot");
+      if (uploadRes) {
+        resolvedSnapshotUrl = uploadRes.url;
+      }
+    }
+
+    // Auto-update invitation and event if snapshot URL was newly created
+    if (resolvedSnapshotUrl) {
+      if (!invitation.imageUrl || invitation.imageUrl.startsWith("data:")) {
+        await invitationService.updateInvitation(id, { ...invitation, imageUrl: resolvedSnapshotUrl }, userId);
+        invitation.imageUrl = resolvedSnapshotUrl;
+      }
+      if (event && (!event.coverImage || event.coverImage.startsWith("data:"))) {
+        await eventService.updateEvent(event.id, { ...event, coverImage: resolvedSnapshotUrl }, userId);
+        event.coverImage = resolvedSnapshotUrl;
+      }
+    }
+
     // Determine target recipient emails
     let targetEmails = [];
 
-    // 1. Direct recipient array or string (e.g. swaraswn@gmail.com) from request body
+    // 1. Direct recipient array or string from request body
     if (recipients) {
       targetEmails = parseRecipientEmails(recipients);
     }
@@ -406,12 +528,21 @@ const sendInvitation = async (req, res) => {
       });
     }
 
-    // Send emails via Nodemailer or Resend service
+    // Ensure guests are created/found in database and sent_at is recorded
+    const resolvedGuests = await ensureGuestsForEvent(invitation.eventId, targetEmails);
+
+    const protocol = req.protocol || "http";
+    const host = req.get("host");
+    const trackingBaseUrl = process.env.BACKEND_URL || (host ? `${protocol}://${host}` : "http://localhost:5000");
+
+    // Send emails via Nodemailer service with personalized tracking pixel and clean HTTPS card image
     const sendResult = await emailService.sendInvitationEmails({
-      recipients: targetEmails,
+      recipients: resolvedGuests.length > 0 ? resolvedGuests : targetEmails,
       invitation,
       event,
       senderName: req.user.name || req.user.email,
+      snapshotUrl: resolvedSnapshotUrl,
+      trackingBaseUrl,
     });
 
     // Mark status as published
@@ -422,6 +553,7 @@ const sendInvitation = async (req, res) => {
       message: `Invitation successfully sent to ${sendResult.recipientCount} recipient(s)!`,
       recipientCount: sendResult.recipientCount,
       previewUrl: sendResult.previewUrl || null,
+      snapshotUrl: resolvedSnapshotUrl,
     });
   } catch (error) {
     console.error("[InvitationController] Error sending invitation:", error);
@@ -438,7 +570,7 @@ const sendInvitation = async (req, res) => {
 const sendInvitationToGuests = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { invitationId, guestIds, recipients } = req.body;
+    const { invitationId, guestIds, recipients, cardSnapshotUrl, snapshotUrl, cardImageBase64 } = req.body || {};
 
     if (!invitationId) {
       return res.status(400).json({ error: "invitationId is required." });
@@ -455,6 +587,26 @@ const sendInvitationToGuests = async (req, res) => {
         event = await eventService.findEventById(invitation.eventId, userId);
       } catch (err) {
         console.warn("[InvitationController] Could not fetch event details:", err.message);
+      }
+    }
+
+    // Resolve snapshot image URL (convert Base64 if needed)
+    let resolvedSnapshotUrl = cardSnapshotUrl || snapshotUrl || null;
+    if (cardImageBase64) {
+      const uploadRes = await saveBase64Image(cardImageBase64, req, "invitation_snapshot");
+      if (uploadRes) {
+        resolvedSnapshotUrl = uploadRes.url;
+      }
+    }
+
+    if (resolvedSnapshotUrl) {
+      if (!invitation.imageUrl || invitation.imageUrl.startsWith("data:")) {
+        await invitationService.updateInvitation(invitationId, { ...invitation, imageUrl: resolvedSnapshotUrl }, userId);
+        invitation.imageUrl = resolvedSnapshotUrl;
+      }
+      if (event && (!event.coverImage || event.coverImage.startsWith("data:"))) {
+        await eventService.updateEvent(event.id, { ...event, coverImage: resolvedSnapshotUrl }, userId);
+        event.coverImage = resolvedSnapshotUrl;
       }
     }
 
@@ -478,11 +630,20 @@ const sendInvitationToGuests = async (req, res) => {
       return res.status(400).json({ error: "No valid guest recipient emails found to send." });
     }
 
+    // Ensure guests are created/found in database and sent_at is recorded
+    const resolvedGuests = await ensureGuestsForEvent(invitation.eventId, targetEmails, guestIds);
+
+    const protocol = req.protocol || "http";
+    const host = req.get("host");
+    const trackingBaseUrl = process.env.BACKEND_URL || (host ? `${protocol}://${host}` : "http://localhost:5000");
+
     const sendResult = await emailService.sendInvitationEmails({
-      recipients: targetEmails,
+      recipients: resolvedGuests.length > 0 ? resolvedGuests : targetEmails,
       invitation,
       event,
       senderName: req.user.name || req.user.email,
+      snapshotUrl: resolvedSnapshotUrl,
+      trackingBaseUrl,
     });
 
     await invitationService.updateInvitation(invitationId, { ...invitation, status: "published" }, userId);
@@ -491,6 +652,7 @@ const sendInvitationToGuests = async (req, res) => {
       success: true,
       message: `Invitation successfully sent to ${sendResult.recipientCount} guest(s)!`,
       recipientCount: sendResult.recipientCount,
+      snapshotUrl: resolvedSnapshotUrl,
     });
   } catch (error) {
     console.error("[InvitationController] Error sending to guests:", error);
