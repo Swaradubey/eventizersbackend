@@ -162,18 +162,9 @@ app.use("/api/analytics", analyticsRoutes);
 const trackRoutes = require("./routes/track.routes");
 app.use("/api/track", trackRoutes);
 
-// Serve uploads folder statically
-const path = require("path");
-const fs = require("fs");
-const uploadsPath = path.join(__dirname, "../uploads");
-if (!fs.existsSync(uploadsPath)) {
-  try {
-    fs.mkdirSync(uploadsPath, { recursive: true });
-  } catch (e) {
-    console.warn("Could not create uploads directory:", e.message);
-  }
-}
-app.use("/uploads", express.static(uploadsPath, {
+// Serve uploads folder statically (uses /tmp on serverless, ./uploads locally)
+const { UPLOADS_DIR } = require("./utils/fileStorage");
+app.use("/uploads", express.static(UPLOADS_DIR, {
   maxAge: "7d",
   setHeaders: (res) => {
     res.setHeader("Access-Control-Allow-Origin", "*");

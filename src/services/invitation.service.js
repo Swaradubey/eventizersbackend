@@ -242,13 +242,20 @@ const deleteInvitation = async (id, userId) => {
 const findPublicInvitation = async (idOrEventId) => {
   if (!idOrEventId) return null;
 
-  // 1. Find by Invitation ID
-  let invitation = await prisma.invitation.findUnique({
-    where: { id: idOrEventId },
-    include: {
-      event: true,
-    },
-  });
+  // 1. Find by Invitation ID (wrapped in try-catch because passing a UUID
+  //    to a CUID-typed `id` column can cause a Prisma validation error)
+  let invitation = null;
+  try {
+    invitation = await prisma.invitation.findUnique({
+      where: { id: idOrEventId },
+      include: {
+        event: true,
+      },
+    });
+  } catch (err) {
+    // ID format mismatch (e.g. UUID passed to CUID column) — fall through to step 2
+    console.warn("[findPublicInvitation] findUnique by invitation ID failed, trying by event ID:", err.message);
+  }
 
   // 2. Find by Event ID if not found by Invitation ID
   if (!invitation) {
@@ -308,6 +315,7 @@ const findPublicInvitation = async (idOrEventId) => {
         eventDate: event.eventDate,
         eventTime: event.eventTime,
         coverImage: event.coverImage,
+        selectedTemplateId: event.selectedTemplateId,
       },
     };
   }

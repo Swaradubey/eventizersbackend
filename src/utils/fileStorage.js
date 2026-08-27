@@ -1,13 +1,20 @@
+const os = require("os");
 const fs = require("fs");
 const path = require("path");
 
+// Use /tmp on serverless environments (Vercel, AWS Lambda), local ./uploads for development
+const isServerless = !!(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+const UPLOADS_DIR = isServerless
+  ? path.join(os.tmpdir(), "invitehub-uploads")
+  : path.join(__dirname, "../../uploads");
+
 // Ensure uploads directory exists
-const UPLOADS_DIR = path.join(__dirname, "../../uploads");
 if (!fs.existsSync(UPLOADS_DIR)) {
   try {
     fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+    console.log(`[FileStorage] Created uploads directory: ${UPLOADS_DIR}`);
   } catch (err) {
-    console.warn("[FileStorage] Could not create uploads directory synchronously:", err.message);
+    console.warn("[FileStorage] Could not create uploads directory:", err.message);
   }
 }
 

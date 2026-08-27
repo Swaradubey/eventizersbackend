@@ -587,7 +587,8 @@ const deleteInvoice = async (userId, invoiceId) => {
   try {
     const safeInvoiceNum = (invoice.invoice_number || invoice.id || "").replace(/[^a-zA-Z0-9_-]/g, "");
     if (safeInvoiceNum) {
-      const uploadsDir = path.resolve(__dirname, "../../uploads/invoices");
+      const { UPLOADS_DIR } = require("../utils/fileStorage");
+      const uploadsDir = path.join(UPLOADS_DIR, "invoices");
       const potentialFilePath = path.join(uploadsDir, `invoice-${safeInvoiceNum}.pdf`);
       if (potentialFilePath.startsWith(uploadsDir) && fs.existsSync(potentialFilePath)) {
         fs.unlinkSync(potentialFilePath);

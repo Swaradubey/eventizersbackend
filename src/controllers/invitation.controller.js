@@ -478,24 +478,12 @@ const sendInvitation = async (req, res) => {
       }
     }
 
-    // Resolve snapshot image URL (convert Base64 if needed)
+    // Resolve snapshot image URL (convert Base64 if needed) for email dispatch only
     let resolvedSnapshotUrl = cardSnapshotUrl || snapshotUrl || null;
     if (cardImageBase64) {
       const uploadRes = await saveBase64Image(cardImageBase64, req, "invitation_snapshot");
       if (uploadRes) {
         resolvedSnapshotUrl = uploadRes.url;
-      }
-    }
-
-    // Auto-update invitation and event if snapshot URL was newly created
-    if (resolvedSnapshotUrl) {
-      if (!invitation.imageUrl || invitation.imageUrl.startsWith("data:")) {
-        await invitationService.updateInvitation(id, { ...invitation, imageUrl: resolvedSnapshotUrl }, userId);
-        invitation.imageUrl = resolvedSnapshotUrl;
-      }
-      if (event && (!event.coverImage || event.coverImage.startsWith("data:"))) {
-        await eventService.updateEvent(event.id, { ...event, coverImage: resolvedSnapshotUrl }, userId);
-        event.coverImage = resolvedSnapshotUrl;
       }
     }
 
@@ -542,6 +530,7 @@ const sendInvitation = async (req, res) => {
       event,
       senderName: req.user.name || req.user.email,
       snapshotUrl: resolvedSnapshotUrl,
+      cardImageBase64,
       trackingBaseUrl,
     });
 
@@ -590,23 +579,12 @@ const sendInvitationToGuests = async (req, res) => {
       }
     }
 
-    // Resolve snapshot image URL (convert Base64 if needed)
+    // Resolve snapshot image URL (convert Base64 if needed) for email dispatch only
     let resolvedSnapshotUrl = cardSnapshotUrl || snapshotUrl || null;
     if (cardImageBase64) {
       const uploadRes = await saveBase64Image(cardImageBase64, req, "invitation_snapshot");
       if (uploadRes) {
         resolvedSnapshotUrl = uploadRes.url;
-      }
-    }
-
-    if (resolvedSnapshotUrl) {
-      if (!invitation.imageUrl || invitation.imageUrl.startsWith("data:")) {
-        await invitationService.updateInvitation(invitationId, { ...invitation, imageUrl: resolvedSnapshotUrl }, userId);
-        invitation.imageUrl = resolvedSnapshotUrl;
-      }
-      if (event && (!event.coverImage || event.coverImage.startsWith("data:"))) {
-        await eventService.updateEvent(event.id, { ...event, coverImage: resolvedSnapshotUrl }, userId);
-        event.coverImage = resolvedSnapshotUrl;
       }
     }
 
@@ -643,6 +621,7 @@ const sendInvitationToGuests = async (req, res) => {
       event,
       senderName: req.user.name || req.user.email,
       snapshotUrl: resolvedSnapshotUrl,
+      cardImageBase64,
       trackingBaseUrl,
     });
 
