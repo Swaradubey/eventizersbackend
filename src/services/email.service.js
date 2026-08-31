@@ -368,13 +368,13 @@ const generateInvitationHtml = ({
           <!-- ─── 1. FULL INVITATION TEMPLATE CARD / BANNER CARD (SAFE) ─── -->
           ${imageUrl && typeof imageUrl === "string" && (imageUrl.startsWith("http") || imageUrl.startsWith("cid:")) ? `
           <tr>
-            <td align="center" style="padding: 12px 20px 16px 20px;">
+            <td align="center" style="padding: 8px 16px 16px 16px;">
               <!--[if mso]>
-              <table align="center" border="0" cellspacing="0" cellpadding="0" width="520">
+              <table align="center" border="0" cellspacing="0" cellpadding="0" width="560">
               <tr>
               <td align="center">
               <![endif]-->
-              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 16px 0; max-width: 520px;">
+              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 0 auto; max-width: 560px;">
                 <tr>
                   <td align="center">
                     ${previewLink ? `<a href="${previewLink}" target="_blank" style="display: block; text-decoration: none;">` : ""}
@@ -382,7 +382,7 @@ const generateInvitationHtml = ({
                         src="${imageUrl}" 
                         alt="${cleanAltText}" 
                         width="100%" 
-                        style="max-width: 520px; width: 100%; height: auto; display: block; border-radius: 12px; border: 1px solid #eaeaea; outline: none; margin: 0 auto; box-shadow: 0 4px 12px rgba(0,0,0,0.08);" 
+                        style="display: block; width: 100%; max-width: 600px; height: auto; border-radius: 16px 16px 0 0; object-fit: cover; margin: 0 auto; outline: none; border: 0;" 
                       />
                     ${previewLink ? `</a>` : ""}
                   </td>

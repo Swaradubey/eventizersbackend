@@ -193,10 +193,15 @@ const createInvitation = async (req, res) => {
     }
 
     let cleanImageUrl = imageUrl;
-    if (imageUrl && (imageUrl.startsWith("data:") || imageUrl.length > 500)) {
-      const uploadRes = await saveBase64Image(imageUrl, req, "invitation_cover");
-      if (uploadRes) {
-        cleanImageUrl = uploadRes.url;
+    if (imageUrl && typeof imageUrl === "string") {
+      const trimmed = imageUrl.trim();
+      if (trimmed.startsWith("blob:")) {
+        cleanImageUrl = null;
+      } else if (trimmed.startsWith("data:") || trimmed.length > 500) {
+        const uploadRes = await saveBase64Image(trimmed, req, "invitation_cover");
+        if (uploadRes) {
+          cleanImageUrl = uploadRes.url;
+        }
       }
     }
 
@@ -292,10 +297,15 @@ const updateInvitation = async (req, res) => {
     }
 
     let cleanImageUrl = imageUrl;
-    if (imageUrl && (imageUrl.startsWith("data:") || imageUrl.length > 500)) {
-      const uploadRes = await saveBase64Image(imageUrl, req, "invitation_cover");
-      if (uploadRes) {
-        cleanImageUrl = uploadRes.url;
+    if (imageUrl && typeof imageUrl === "string") {
+      const trimmed = imageUrl.trim();
+      if (trimmed.startsWith("blob:")) {
+        cleanImageUrl = existingInvitation.imageUrl || null;
+      } else if (trimmed.startsWith("data:") || trimmed.length > 500) {
+        const uploadRes = await saveBase64Image(trimmed, req, "invitation_cover");
+        if (uploadRes) {
+          cleanImageUrl = uploadRes.url;
+        }
       }
     }
 
