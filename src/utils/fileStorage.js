@@ -18,17 +18,34 @@ if (!fs.existsSync(UPLOADS_DIR)) {
   }
 }
 
+const isValidPublicUrl = (url) => {
+  if (!url || typeof url !== "string") return false;
+  const trimmed = url.trim();
+  if (!trimmed || !/^https?:\/\//i.test(trimmed)) return false;
+  if (trimmed.includes("your-backend.vercel.app") || trimmed.includes("example.com")) return false;
+  return true;
+};
+
 /**
  * Determine the public base URL for static uploads
  * @param {Object} [req] - Express request object
  * @returns {string}
  */
 const getPublicBaseUrl = (req) => {
-  if (process.env.BACKEND_URL) {
+  if (isValidPublicUrl(process.env.PUBLIC_BACKEND_URL)) {
+    return process.env.PUBLIC_BACKEND_URL.replace(/\/+$/, "");
+  }
+  if (isValidPublicUrl(process.env.PUBLIC_APP_URL)) {
+    return process.env.PUBLIC_APP_URL.replace(/\/+$/, "");
+  }
+  if (isValidPublicUrl(process.env.NEXT_PUBLIC_APP_URL)) {
+    return process.env.NEXT_PUBLIC_APP_URL.replace(/\/+$/, "");
+  }
+  if (isValidPublicUrl(process.env.BACKEND_URL)) {
     return process.env.BACKEND_URL.replace(/\/+$/, "");
   }
-  if (process.env.API_BASE_URL) {
-    return process.env.API_BASE_URL.replace(/\/+$/, "");
+  if (isValidPublicUrl(process.env.API_BASE_URL)) {
+    return process.env.API_BASE_URL.replace(/\/api\/?$/i, "").replace(/\/+$/, "");
   }
   if (req && typeof req.get === "function") {
     const protocol = req.protocol || "http";

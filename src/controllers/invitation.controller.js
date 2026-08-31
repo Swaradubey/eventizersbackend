@@ -521,7 +521,18 @@ const sendInvitation = async (req, res) => {
 
     const protocol = req.protocol || "http";
     const host = req.get("host");
-    const trackingBaseUrl = process.env.BACKEND_URL || (host ? `${protocol}://${host}` : "http://localhost:5000");
+    const isPlaceholder = (url) => !url || url.includes("your-backend.vercel.app") || url.includes("example.com");
+    const trackingBaseUrl = (
+      (!isPlaceholder(process.env.PUBLIC_BACKEND_URL) && process.env.PUBLIC_BACKEND_URL) ||
+      (!isPlaceholder(process.env.BACKEND_URL) && process.env.BACKEND_URL) ||
+      (host ? `${protocol}://${host}` : "http://localhost:5000")
+    );
+    const frontendUrl = (
+      (!isPlaceholder(process.env.PUBLIC_APP_URL) && process.env.PUBLIC_APP_URL) ||
+      (!isPlaceholder(process.env.NEXT_PUBLIC_APP_URL) && process.env.NEXT_PUBLIC_APP_URL) ||
+      (!isPlaceholder(process.env.FRONTEND_URL) && process.env.FRONTEND_URL) ||
+      "http://localhost:3000"
+    );
 
     // Send emails via Nodemailer service with personalized tracking pixel and clean HTTPS card image
     const sendResult = await emailService.sendInvitationEmails({
@@ -529,6 +540,7 @@ const sendInvitation = async (req, res) => {
       invitation,
       event,
       senderName: req.user.name || req.user.email,
+      frontendUrl,
       snapshotUrl: resolvedSnapshotUrl,
       cardImageBase64,
       trackingBaseUrl,
@@ -613,13 +625,25 @@ const sendInvitationToGuests = async (req, res) => {
 
     const protocol = req.protocol || "http";
     const host = req.get("host");
-    const trackingBaseUrl = process.env.BACKEND_URL || (host ? `${protocol}://${host}` : "http://localhost:5000");
+    const isPlaceholder = (url) => !url || url.includes("your-backend.vercel.app") || url.includes("example.com");
+    const trackingBaseUrl = (
+      (!isPlaceholder(process.env.PUBLIC_BACKEND_URL) && process.env.PUBLIC_BACKEND_URL) ||
+      (!isPlaceholder(process.env.BACKEND_URL) && process.env.BACKEND_URL) ||
+      (host ? `${protocol}://${host}` : "http://localhost:5000")
+    );
+    const frontendUrl = (
+      (!isPlaceholder(process.env.PUBLIC_APP_URL) && process.env.PUBLIC_APP_URL) ||
+      (!isPlaceholder(process.env.NEXT_PUBLIC_APP_URL) && process.env.NEXT_PUBLIC_APP_URL) ||
+      (!isPlaceholder(process.env.FRONTEND_URL) && process.env.FRONTEND_URL) ||
+      "http://localhost:3000"
+    );
 
     const sendResult = await emailService.sendInvitationEmails({
       recipients: resolvedGuests.length > 0 ? resolvedGuests : targetEmails,
       invitation,
       event,
       senderName: req.user.name || req.user.email,
+      frontendUrl,
       snapshotUrl: resolvedSnapshotUrl,
       cardImageBase64,
       trackingBaseUrl,

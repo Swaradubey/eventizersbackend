@@ -111,7 +111,20 @@ const isDarkColor = (hex) => {
 };
 
 /**
- * Safely parse and process a cover image or snapshot URL
+ * Helper to check if a string is a valid public web URL (HTTP/HTTPS) and not a placeholder
+ * @param {string} url
+ * @returns {boolean}
+ */
+const isValidPublicUrl = (url) => {
+  if (!url || typeof url !== "string") return false;
+  const trimmed = url.trim();
+  if (!trimmed || !/^https?:\/\//i.test(trimmed)) return false;
+  if (trimmed.includes("your-backend.vercel.app") || trimmed.includes("example.com")) return false;
+  return true;
+};
+
+/**
+ * Safely parse and process a cover image or snapshot URL into an absolute public HTTPS/HTTP URL
  * @param {string} coverImage - The cover image string from event or invitation
  * @param {string} baseUrl - Backend or app base URL
  * @returns {string|null}
@@ -122,25 +135,95 @@ const resolvePublicImageUrl = (coverImage, baseUrl = "http://localhost:5000") =>
   }
 
   const trimmed = coverImage.trim();
-  if (!trimmed) return null;
+  if (!trimmed || trimmed === "undefined" || trimmed === "null") {
+    return null;
+  }
 
-  // 1. Full HTTPS/HTTP URL
+  // 1. Strip out / ignore client-side blob URLs or local file paths
+  if (trimmed.startsWith("blob:") || trimmed.startsWith("file:")) {
+    return null;
+  }
+
+  // Determine canonical public base URL
+  const publicBaseUrl = (
+    (isValidPublicUrl(process.env.NEXT_PUBLIC_APP_URL) && process.env.NEXT_PUBLIC_APP_URL) ||
+    (isValidPublicUrl(process.env.PUBLIC_APP_URL) && process.env.PUBLIC_APP_URL) ||
+    (isValidPublicUrl(process.env.PUBLIC_BACKEND_URL) && process.env.PUBLIC_BACKEND_URL) ||
+    (isValidPublicUrl(process.env.BACKEND_URL) && process.env.BACKEND_URL) ||
+    (isValidPublicUrl(process.env.FRONTEND_URL) && process.env.FRONTEND_URL) ||
+    (isValidPublicUrl(baseUrl) && baseUrl) ||
+    "http://localhost:5000"
+  ).replace(/\/+$/, "");
+
+  // 2. Full HTTPS/HTTP URL (e.g. Cloudinary, AWS S3, Supabase, Firebase, CDN)
   if (/^https?:\/\//i.test(trimmed)) {
+    // If it points to a local backend on localhost/127.0.0.1 and a public production URL is configured, normalize origin
+    const publicOrigin = (
+      (isValidPublicUrl(process.env.NEXT_PUBLIC_APP_URL) && process.env.NEXT_PUBLIC_APP_URL) ||
+      (isValidPublicUrl(process.env.PUBLIC_APP_URL) && process.env.PUBLIC_APP_URL) ||
+      (isValidPublicUrl(process.env.PUBLIC_BACKEND_URL) && process.env.PUBLIC_BACKEND_URL) ||
+      (isValidPublicUrl(process.env.BACKEND_URL) && process.env.BACKEND_URL) ||
+      null
+    );
+
+    if (publicOrigin) {
+      try {
+        const parsed = new URL(trimmed);
+        if (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1") {
+          const publicParsed = new URL(publicOrigin);
+          parsed.protocol = publicParsed.protocol;
+          parsed.host = publicParsed.host;
+          return parsed.toString();
+        }
+      } catch (e) {}
+    }
     return trimmed;
   }
 
-  // 2. Relative uploads or assets path
+  // 3. Relative uploads or assets path starting with /
   if (trimmed.startsWith("/")) {
-    const cleanBase = baseUrl.replace(/\/+$/, "");
-    return `${cleanBase}${trimmed}`;
+    return `${publicBaseUrl}${trimmed}`;
   }
 
-  if (trimmed.startsWith("uploads/") || trimmed.startsWith("assets/")) {
-    const cleanBase = baseUrl.replace(/\/+$/, "");
-    return `${cleanBase}/${trimmed}`;
+  // 4. Relative paths like uploads/..., assets/..., templates/..., images/...
+  if (
+    trimmed.startsWith("uploads/") ||
+    trimmed.startsWith("assets/") ||
+    trimmed.startsWith("templates/") ||
+    trimmed.startsWith("images/")
+  ) {
+    return `${publicBaseUrl}/${trimmed}`;
+  }
+
+  // 5. Raw filename (e.g. "image_12345.png", "Screenshot 2026...png")
+  if (/\.(png|jpe?g|webp|gif|svg|avif|heic)$/i.test(trimmed)) {
+    return `${publicBaseUrl}/uploads/${trimmed.replace(/^\/+/, "")}`;
   }
 
   return null;
+};
+
+/**
+ * Helper to sanitize titles and alt text to prevent raw filenames from rendering
+ * @param {string} titleCandidate
+ * @param {string} [fallback]
+ * @returns {string}
+ */
+const getCleanDisplayTitle = (titleCandidate, fallback = "Special Event Invitation") => {
+  if (!titleCandidate || typeof titleCandidate !== "string") return fallback;
+  const trimmed = titleCandidate.trim();
+  if (!trimmed) return fallback;
+
+  // Check if string looks like an uploaded raw filename (e.g. "Screenshot 2026...", "IMG_001.png", "upload_123.jpg")
+  const isFilename =
+    /^(Screenshot|IMG_|image_|upload_|\d+_).*\.(png|jpe?g|webp|gif|svg|avif|heic)$/i.test(trimmed) ||
+    /\.(png|jpe?g|webp|gif|svg|avif|heic)$/i.test(trimmed) ||
+    trimmed.startsWith("blob:");
+
+  if (isFilename) {
+    return fallback;
+  }
+  return trimmed;
 };
 
 /**
@@ -179,7 +262,10 @@ const generateInvitationHtml = ({
   const btnColor = buttonColor || accent || "#2563eb";
   const btnRadius = Math.max(0, Math.min(30, parseInt(buttonRadius, 10) || 10));
   const safeButtonText = buttonText || "View Invitation & RSVP";
-  const safeTitle = title || "Special Event Invitation";
+  
+  // Clean event title and alt text
+  const cleanTitle = getCleanDisplayTitle(title, "Special Event Invitation");
+  const cleanAltText = cleanTitle || "Event Invitation Card";
 
   // Font family resolution for email clients
   let fontStack = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
@@ -189,6 +275,20 @@ const generateInvitationHtml = ({
     fontStack = "'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
   }
 
+  // Strict validation: Guard to ensure image src is valid for email clients (must be HTTPS/HTTP or CID, not blob, empty, or local relative path)
+  const isValidImageUrl = Boolean(
+    cardImageSrc &&
+    typeof cardImageSrc === "string" &&
+    cardImageSrc.trim() !== "" &&
+    cardImageSrc !== "undefined" &&
+    cardImageSrc !== "null" &&
+    !cardImageSrc.startsWith("/") &&
+    !cardImageSrc.startsWith("blob:") &&
+    !cardImageSrc.startsWith("file:") &&
+    (/^https?:\/\//i.test(cardImageSrc.trim()) || cardImageSrc.trim().startsWith("cid:"))
+  );
+  const imageUrl = isValidImageUrl ? cardImageSrc.trim() : null;
+
   return `
 <!DOCTYPE html>
 <html lang="en" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
@@ -196,7 +296,7 @@ const generateInvitationHtml = ({
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <title>${safeTitle}</title>
+  <title>${cleanTitle}</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700;800&display=swap');
     body, table, td, p, a, li, blockquote {
@@ -228,7 +328,7 @@ const generateInvitationHtml = ({
         padding: 20px 16px !important;
       }
       .hero-image-padding {
-        padding: 12px 12px 16px 12px !important;
+        padding: 8px 12px 16px 12px !important;
       }
       .mobile-title {
         font-size: 22px !important;
@@ -243,37 +343,51 @@ const generateInvitationHtml = ({
         <!-- Main Card Container -->
         <table class="email-container" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 580px; background-color: ${containerBg}; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08); border: 1px solid ${metaBoxBorder};">
           
-          <!-- Top Badge & Host Header -->
+          <!-- ─── TOP BADGE & CLEAN EVENT TITLE HEADER (NO INLINE ICON) ─── -->
           <tr>
-            <td style="padding: 24px 24px 12px 24px; text-align: center;">
+            <td style="padding: 28px 24px 10px 24px; text-align: center;">
               <span style="display: inline-block; background-color: ${accent}15; color: ${accent}; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; padding: 6px 16px; border-radius: 30px; border: 1px solid ${accent}30;">
                 You're Cordially Invited
               </span>
               ${senderName ? `
-              <p style="margin: 8px 0 0 0; font-size: 13px; color: ${secondaryText}; font-weight: 500;">
+              <p style="margin: 8px 0 4px 0; font-size: 13px; color: ${secondaryText}; font-weight: 500;">
                 From <strong style="color: ${primaryText};">${senderName}</strong>
+              </p>
+              ` : ""}
+              <h2 class="mobile-title" style="margin: 12px 0 6px 0; font-size: ${Math.min(28, titleSize || 24)}px; font-weight: ${fontWeight || "700"}; font-family: ${fontStack}; color: ${primaryText}; line-height: 1.3; text-align: center;">
+                ${cleanTitle}
+              </h2>
+              ${subtitle ? `
+              <p style="margin: 0 0 8px 0; font-size: 14px; font-weight: 500; color: ${secondaryText}; text-align: center;">
+                ${subtitle}
               </p>
               ` : ""}
             </td>
           </tr>
 
-          ${cardImageSrc ? `
-          <!-- ─── 1. HERO VISUAL CARD SNAPSHOT (TOP / CENTER) ─── -->
+          <!-- ─── 1. FULL INVITATION TEMPLATE CARD / BANNER CARD (SAFE) ─── -->
+          ${imageUrl && typeof imageUrl === "string" && (imageUrl.startsWith("http") || imageUrl.startsWith("cid:")) ? `
           <tr>
-            <td class="hero-image-padding" align="center" style="padding: 12px 20px 20px 20px;">
+            <td align="center" style="padding: 12px 20px 16px 20px;">
               <!--[if mso]>
               <table align="center" border="0" cellspacing="0" cellpadding="0" width="520">
               <tr>
               <td align="center">
               <![endif]-->
-              <a href="${previewLink || "#"}" target="_blank" style="display: block; text-decoration: none;">
-                <img 
-                  src="${cardImageSrc}" 
-                  alt="${safeTitle}" 
-                  width="520" 
-                  style="max-width: 100%; width: 100%; height: auto; border-radius: 12px; display: block; margin: 0 auto; border: 0; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);" 
-                />
-              </a>
+              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 16px 0; max-width: 520px;">
+                <tr>
+                  <td align="center">
+                    ${previewLink ? `<a href="${previewLink}" target="_blank" style="display: block; text-decoration: none;">` : ""}
+                      <img 
+                        src="${imageUrl}" 
+                        alt="${cleanAltText}" 
+                        width="100%" 
+                        style="max-width: 520px; width: 100%; height: auto; display: block; border-radius: 12px; border: 1px solid #eaeaea; outline: none; margin: 0 auto; box-shadow: 0 4px 12px rgba(0,0,0,0.08);" 
+                      />
+                    ${previewLink ? `</a>` : ""}
+                  </td>
+                </tr>
+              </table>
               <!--[if mso]>
               </td>
               </tr>
@@ -281,26 +395,39 @@ const generateInvitationHtml = ({
               <![endif]-->
             </td>
           </tr>
-          ` : `
-          <!-- ─── FALLBACK THEMED CARD CONTAINER (WHEN NO SNAPSHOT) ─── -->
+          ${mainText ? `
           <tr>
-            <td style="padding: 12px 24px;">
-              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: ${backgroundColor}; border-radius: 12px; padding: 28px 20px; text-align: ${textAlignment}; border: 1px solid ${metaBoxBorder};">
+            <td style="padding: 0 24px 12px 24px; text-align: center;">
+              <p style="margin: 0; font-size: 14px; color: ${secondaryText}; line-height: 1.6;">
+                ${mainText}
+              </p>
+            </td>
+          </tr>
+          ` : ""}
+          ` : `
+          <!-- ─── FALLBACK THEMED CARD BANNER (WHEN NO IMAGE IS PROVIDED) ─── -->
+          <tr>
+            <td style="padding: 12px 24px 16px 24px;">
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: ${backgroundColor}; border-radius: 12px; padding: 24px 20px; text-align: ${textAlignment}; border: 1px solid ${metaBoxBorder}; box-shadow: 0 4px 12px rgba(0,0,0,0.04);">
                 <tr>
                   <td align="${textAlignment}">
-                    <h1 class="mobile-title" style="margin: 0 0 10px 0; font-size: ${Math.min(36, titleSize || 28)}px; font-weight: ${fontWeight || "700"}; font-family: ${fontStack}; color: ${textColor}; line-height: 1.25;">
-                      ${safeTitle}
-                    </h1>
-                    ${subtitle ? `
-                    <p style="margin: 0 0 14px 0; font-size: 16px; font-weight: 500; color: ${textColor}; opacity: 0.85;">
-                      ${subtitle}
+                    <h3 style="margin: 0 0 8px 0; font-size: 18px; font-weight: 700; color: ${textColor}; font-family: ${fontStack};">
+                      ${cleanTitle}
+                    </h3>
+                    ${date ? `
+                    <p style="margin: 0 0 8px 0; font-size: 13px; font-weight: 600; color: ${accent};">
+                      📅 ${date}${time ? ` at ${time}` : ""}
                     </p>
                     ` : ""}
                     ${mainText ? `
-                    <p style="margin: 0 0 16px 0; font-size: 14px; color: ${textColor}; opacity: 0.75; line-height: 1.6;">
+                    <p style="margin: 0; font-size: 14px; color: ${textColor}; opacity: 0.9; line-height: 1.6;">
                       ${mainText}
                     </p>
-                    ` : ""}
+                    ` : `
+                    <p style="margin: 0; font-size: 14px; color: ${secondaryText}; line-height: 1.6;">
+                      You are cordially invited to join us for this special celebration!
+                    </p>
+                    `}
                   </td>
                 </tr>
               </table>
@@ -308,10 +435,10 @@ const generateInvitationHtml = ({
           </tr>
           `}
 
-          <!-- ─── 2. CALL TO ACTION BUTTON (DIRECTLY BELOW SNAPSHOT) ─── -->
+          <!-- ─── 2. CALL TO ACTION BUTTON ─── -->
           ${previewLink ? `
           <tr>
-            <td align="center" style="padding: 12px 24px 24px 24px;">
+            <td align="center" style="padding: 8px 24px 20px 24px;">
               <table border="0" cellspacing="0" cellpadding="0" align="center" style="margin: 0 auto;">
                 <tr>
                   <td align="center" style="border-radius: ${btnRadius}px; background-color: ${btnColor};">
@@ -322,7 +449,7 @@ const generateInvitationHtml = ({
                     </v:roundrect>
                     <![endif]-->
                     <!--[if !mso]><!-- -->
-                    <a class="cta-button" href="${previewLink}" target="_blank" style="background-color: ${btnColor}; color: #ffffff; font-weight: 700; font-size: 15px; border-radius: ${btnRadius}px; padding: 15px 38px; text-decoration: none; display: inline-block; border: none; letter-spacing: 0.3px; box-shadow: 0 4px 16px ${btnColor}40; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+                    <a class="cta-button" href="${previewLink}" target="_blank" style="background-color: ${btnColor}; color: #ffffff; font-weight: 700; font-size: 15px; border-radius: ${btnRadius}px; padding: 14px 36px; text-decoration: none; display: inline-block; border: none; letter-spacing: 0.3px; box-shadow: 0 4px 16px ${btnColor}40; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
                       ${safeButtonText}
                     </a>
                     <!--<![endif]-->
@@ -339,28 +466,28 @@ const generateInvitationHtml = ({
           <!-- ─── 3. EVENT DETAILS SUMMARY BOX ─── -->
           ${(date || time || venue) ? `
           <tr>
-            <td style="padding: 0 24px 24px 24px;">
-              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: ${metaBoxBg}; border-radius: 12px; padding: 18px 20px; border: 1px solid ${metaBoxBorder};">
+            <td style="padding: 0 24px 20px 24px;">
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: ${metaBoxBg}; border-radius: 12px; padding: 16px 20px; border: 1px solid ${metaBoxBorder};">
                 ${date ? `
                 <tr>
-                  <td width="28" style="vertical-align: middle; padding: 6px 0; font-size: 16px;">📅</td>
-                  <td style="font-size: 14px; color: ${primaryText}; padding: 6px 0; vertical-align: middle;">
+                  <td width="28" style="vertical-align: middle; padding: 5px 0; font-size: 16px;">📅</td>
+                  <td style="font-size: 14px; color: ${primaryText}; padding: 5px 0; vertical-align: middle;">
                     <strong style="color: ${accent}; font-weight: 600;">Date:</strong> <span style="font-weight: 500;">${date}</span>
                   </td>
                 </tr>
                 ` : ""}
                 ${time ? `
                 <tr>
-                  <td width="28" style="vertical-align: middle; padding: 6px 0; font-size: 16px;">⏰</td>
-                  <td style="font-size: 14px; color: ${primaryText}; padding: 6px 0; vertical-align: middle;">
+                  <td width="28" style="vertical-align: middle; padding: 5px 0; font-size: 16px;">⏰</td>
+                  <td style="font-size: 14px; color: ${primaryText}; padding: 5px 0; vertical-align: middle;">
                     <strong style="color: ${accent}; font-weight: 600;">Time:</strong> <span style="font-weight: 500;">${time}</span>
                   </td>
                 </tr>
                 ` : ""}
                 ${venue ? `
                 <tr>
-                  <td width="28" style="vertical-align: middle; padding: 6px 0; font-size: 16px;">📍</td>
-                  <td style="font-size: 14px; color: ${primaryText}; padding: 6px 0; vertical-align: middle;">
+                  <td width="28" style="vertical-align: middle; padding: 5px 0; font-size: 16px;">📍</td>
+                  <td style="font-size: 14px; color: ${primaryText}; padding: 5px 0; vertical-align: middle;">
                     <strong style="color: ${accent}; font-weight: 600;">Location:</strong> <span style="font-weight: 500;">${venue}</span>
                   </td>
                 </tr>
@@ -382,9 +509,9 @@ const generateInvitationHtml = ({
       </td>
     </tr>
   </table>
-  ${trackingPixelUrl ? `
+  ${trackingPixelUrl && /^https?:\/\//i.test(trackingPixelUrl) ? `
   <!-- Invisible 1x1 Open Rate Tracking Pixel -->
-  <img src="${trackingPixelUrl}" width="1" height="1" alt="" style="display:none !important; width:1px !important; height:1px !important; max-height:0px !important; max-width:0px !important; opacity:0 !important; overflow:hidden !important; mso-hide:all !important;" />
+  <img src="${trackingPixelUrl}" width="1" height="1" alt="" style="display:none !important; width:0px !important; height:0px !important; max-height:0px !important; max-width:0px !important; opacity:0 !important; overflow:hidden !important; line-height:0 !important; font-size:0 !important; mso-hide:all !important;" />
   ` : ""}
 </body>
 </html>
@@ -464,7 +591,7 @@ const sendInvitationEmails = async ({
     try {
       const savedRes = await saveBase64Image(cardImageBase64, null, "invitation_snapshot");
       if (savedRes && savedRes.url) {
-        resolvedCardImageSrc = savedRes.url;
+        resolvedCardImageSrc = resolvePublicImageUrl(savedRes.url, trackBase);
         const candidatePath = path.join(UPLOADS_DIR, savedRes.filename);
         if (fs.existsSync(candidatePath)) {
           localSnapshotFilePath = candidatePath;
@@ -475,15 +602,37 @@ const sendInvitationEmails = async ({
     }
   }
 
-  // 3. Fallback to event/invitation image if not already resolved
+  // 3. Fallback to event/invitation image across all possible fields if not already resolved
   if (!resolvedCardImageSrc) {
-    const rawImage = event?.snapshotUrl || event?.coverImage || invitation?.imageUrl;
-    if (rawImage) {
+    const rawImage = (
+      invitation?.imageUrl ||
+      invitation?.cardImage ||
+      invitation?.coverImage ||
+      invitation?.templateUrl ||
+      invitation?.snapshotUrl ||
+      invitation?.bannerUrl ||
+      invitation?.designData?.previewUrl ||
+      invitation?.designData?.imageUrl ||
+      event?.imageUrl ||
+      event?.coverImage ||
+      event?.cardImage ||
+      event?.templateUrl ||
+      event?.snapshotUrl ||
+      event?.thumbnail ||
+      event?.thumbnailUrl ||
+      event?.uploadedFileUrl ||
+      event?.bannerUrl ||
+      event?.designData?.previewUrl ||
+      event?.designData?.imageUrl ||
+      null
+    );
+
+    if (rawImage && typeof rawImage === "string" && rawImage.trim()) {
       if (rawImage.startsWith("data:")) {
         try {
           const savedRes = await saveBase64Image(rawImage, null, "event_cover");
           if (savedRes && savedRes.url) {
-            resolvedCardImageSrc = savedRes.url;
+            resolvedCardImageSrc = resolvePublicImageUrl(savedRes.url, trackBase);
             const candidatePath = path.join(UPLOADS_DIR, savedRes.filename);
             if (fs.existsSync(candidatePath)) {
               localSnapshotFilePath = candidatePath;
@@ -501,24 +650,30 @@ const sendInvitationEmails = async ({
     }
   }
 
-  const subject = `✨ Invitation: ${title}`;
+  const displayTitle = getCleanDisplayTitle(title, event?.title || "Special Event");
+  const subject = `✨ Invitation: ${displayTitle}`;
   const from = process.env.EMAIL_FROM || process.env.SMTP_FROM || `"InviteHub Events" <no-reply@invitehub.com>`;
 
-  // Configure Nodemailer inline CID attachment for instant rendering across all clients
+  // Configure Nodemailer inline attachments and HTML card image source
   const attachments = [];
-  let htmlCardImageSrc = resolvedCardImageSrc;
+  let htmlCardImageSrc = null;
 
-  if (localSnapshotFilePath && fs.existsSync(localSnapshotFilePath)) {
+  if (resolvedCardImageSrc && /^https?:\/\//i.test(resolvedCardImageSrc)) {
+    // If it's a public HTTPS/HTTP URL (e.g. S3, Cloudinary, or public server), use it directly
+    htmlCardImageSrc = resolvedCardImageSrc;
+    if (localSnapshotFilePath && fs.existsSync(localSnapshotFilePath)) {
+      attachments.push({
+        filename: "invitation-card.png",
+        path: localSnapshotFilePath,
+      });
+    }
+  } else if (localSnapshotFilePath && fs.existsSync(localSnapshotFilePath)) {
     attachments.push({
       filename: "invitation-card.png",
       path: localSnapshotFilePath,
       cid: "invitation-card-preview",
     });
-    // Use CID so email clients (Gmail, Outlook, Apple Mail) render the exact image immediately
     htmlCardImageSrc = "cid:invitation-card-preview";
-  } else if (resolvedCardImageSrc && /^https?:\/\//i.test(resolvedCardImageSrc)) {
-    // If it's a public HTTPS URL (e.g. S3, Cloudinary, or public server), use it directly
-    htmlCardImageSrc = resolvedCardImageSrc;
   }
 
   // Strict SMTP transport
