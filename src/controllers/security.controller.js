@@ -1,4 +1,5 @@
 const prisma = require("../config/prisma");
+const db = require("../config/db");
 const { createAuditLog } = require("../utils/auditLogger");
 
 /**
@@ -433,10 +434,116 @@ const getSecurityAuditLogs = async (req, res) => {
   }
 };
 
+/**
+ * Get attendance guarantee settings
+ * GET /api/security/attendance-guarantee
+ */
+const getAttendanceGuarantee = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const result = await db.query(
+      `SELECT is_enabled, guarantee_amount, review_window_days FROM attendance_guarantee_settings WHERE user_id = $1 LIMIT 1`,
+      [userId]
+    );
+
+    if (result.rows.length > 0) {
+      const row = result.rows[0];
+      return res.status(200).json({
+        success: true,
+        data: {
+          isEnabled: Boolean(row.is_enabled),
+          guaranteeAmount: parseFloat(row.guarantee_amount) || 25,
+          reviewWindowDays: parseInt(row.review_window_days, 10) || 7,
+        },
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        isEnabled: true,
+        guaranteeAmount: 25,
+        reviewWindowDays: 7,
+      },
+    });
+  } catch (error) {
+    console.error("Get Attendance Guarantee Error:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Server error retrieving attendance guarantee settings.",
+    });
+  }
+};
+
+/**
+ * Update attendance guarantee settings
+ * PUT or PATCH /api/security/attendance-guarantee
+ */
+const updateAttendanceGuarantee = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { isEnabled, guaranteeAmount, reviewWindowDays } = req.body;
+
+    const enabledVal = isEnabled !== undefined ? Boolean(isEnabled) : true;
+    const amountVal = guaranteeAmount !== undefined ? parseFloat(guaranteeAmount) || 25 : 25;
+    const windowVal = reviewWindowDays !== undefined ? parseInt(reviewWindowDays, 10) || 7 : 7;
+
+    const upsertQuery = `
+      INSERT INTO attendance_guarantee_settings (user_id, is_enabled, guarantee_amount, review_window_days, updated_at)
+      VALUES ($1, $2, $3, $4, NOW())
+      ON CONFLICT (user_id)
+      DO UPDATE SET
+        is_enabled = EXCLUDED.is_enabled,
+        guarantee_amount = EXCLUDED.guarantee_amount,
+        review_window_days = EXCLUDED.review_window_days,
+        updated_at = NOW()
+      RETURNING is_enabled, guarantee_amount, review_window_days;
+    `;
+
+    const result = await db.query(upsertQuery, [userId, enabledVal, amountVal, windowVal]);
+    const row = result.rows[0];
+
+    // Attempt to log audit log if user has events
+    const userEvents = await prisma.event.findMany({
+      where: { createdBy: userId },
+      select: { id: true },
+      take: 1,
+    });
+
+    if (userEvents.length > 0) {
+      await createAuditLog({
+        userId,
+        action: "ATTENDANCE_GUARANTEE_UPDATED",
+        eventId: userEvents[0].id,
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        isEnabled: Boolean(row.is_enabled),
+        guaranteeAmount: parseFloat(row.guarantee_amount) || 25,
+        reviewWindowDays: parseInt(row.review_window_days, 10) || 7,
+      },
+      message: "Attendance guarantee settings updated successfully.",
+    });
+  } catch (error) {
+    console.error("Update Attendance Guarantee Error:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Server error updating attendance guarantee settings.",
+    });
+  }
+};
+
 module.exports = {
   getSecurityDashboard,
   getSecuritySummary,
   getSecurityAlerts,
   getSecurityAuditLogs,
   deleteAuditLog,
+  getAttendanceGuarantee,
+  updateAttendanceGuarantee,
 };
+

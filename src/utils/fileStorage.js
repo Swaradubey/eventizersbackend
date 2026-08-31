@@ -47,7 +47,7 @@ const getPublicBaseUrl = (req) => {
 const getFileExtension = (mimetype = "", originalname = "") => {
   if (originalname && originalname.includes(".")) {
     const ext = originalname.split(".").pop().toLowerCase();
-    if (["png", "jpg", "jpeg", "webp", "gif", "svg"].includes(ext)) {
+    if (["png", "jpg", "jpeg", "webp", "gif", "svg", "heic", "heif", "avif", "pdf"].includes(ext)) {
       return `.${ext}`;
     }
   }
@@ -61,6 +61,14 @@ const getFileExtension = (mimetype = "", originalname = "") => {
       return ".gif";
     case "image/svg+xml":
       return ".svg";
+    case "image/heic":
+      return ".heic";
+    case "image/heif":
+      return ".heif";
+    case "image/avif":
+      return ".avif";
+    case "application/pdf":
+      return ".pdf";
     case "image/png":
     default:
       return ".png";

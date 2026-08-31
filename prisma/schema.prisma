@@ -36,6 +36,7 @@ model User {
   adminSecuritySettings     AdminSecuritySettings?
   adminPreferences          AdminPreferences?
   adminTeamMembers          AdminTeamMember[]
+  attendanceGuaranteeSettings AttendanceGuaranteeSetting?
 
   @@map("users")
 }
@@ -455,3 +456,17 @@ model Template {
 
   @@map("templates")
 }
+
+model AttendanceGuaranteeSetting {
+  id               String   @id @default(uuid())
+  userId           Int      @unique @map("user_id")
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  isEnabled        Boolean  @default(true) @map("is_enabled")
+  guaranteeAmount  Decimal  @default(25.00) @map("guarantee_amount") @db.Decimal(10, 2)
+  reviewWindowDays Int      @default(7) @map("review_window_days")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("attendance_guarantee_settings")
+}
+

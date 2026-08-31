@@ -17,4 +17,9 @@ router.get("/audit-logs", securityController.getSecurityAuditLogs);
 // Delete an audit log entry
 router.delete("/audit-logs/:id", securityController.deleteAuditLog);
 
+// Attendance Guarantee Settings
+router.get("/attendance-guarantee", securityController.getAttendanceGuarantee);
+router.put("/attendance-guarantee", securityController.updateAttendanceGuarantee);
+router.patch("/attendance-guarantee", securityController.updateAttendanceGuarantee);
+
 module.exports = router;

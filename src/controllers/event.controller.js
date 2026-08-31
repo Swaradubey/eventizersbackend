@@ -260,13 +260,33 @@ const { saveUploadedFile, saveBase64Image } = require("../utils/fileStorage");
  */
 const createEvent = async (req, res) => {
   try {
-    if (req.file) {
-      const uploadRes = await saveUploadedFile(req.file, req, "event_cover");
+    const uploadedFile = (req.files && req.files.length > 0) ? req.files[0] : req.file;
+    if (uploadedFile) {
+      const uploadRes = await saveUploadedFile(uploadedFile, req, "event_cover");
       req.body.coverImage = uploadRes.url;
-    } else if (req.body.coverImage && req.body.coverImage.startsWith("data:")) {
-      const base64Res = await saveBase64Image(req.body.coverImage, req, "event_cover");
-      if (base64Res) {
-        req.body.coverImage = base64Res.url;
+    } else {
+      const rawImage =
+        req.body.coverImage ||
+        req.body.imageUrl ||
+        req.body.thumbnail ||
+        req.body.thumbnailUrl ||
+        req.body.uploadedFileUrl ||
+        req.body.previewUrl ||
+        (req.body.designData && typeof req.body.designData === "object" ? req.body.designData.previewUrl : null);
+
+      if (rawImage && typeof rawImage === "string") {
+        const trimmedImg = rawImage.trim();
+        if (trimmedImg.startsWith("blob:")) {
+          // Discard temporary local blob URLs
+          req.body.coverImage = null;
+        } else if (trimmedImg.startsWith("data:") || trimmedImg.length > 500) {
+          const base64Res = await saveBase64Image(trimmedImg, req, "event_cover");
+          if (base64Res && base64Res.url) {
+            req.body.coverImage = base64Res.url;
+          }
+        } else if (trimmedImg) {
+          req.body.coverImage = trimmedImg;
+        }
       }
     }
 
@@ -287,7 +307,18 @@ const createEvent = async (req, res) => {
       selectedTemplateId: effectiveTemplateId
     }, userId);
 
-    // Automatically create invitation if templateId is provided
+    // Synchronize resolved image URLs onto the response event object
+    const resolvedCover = newEvent.coverImage || req.body.coverImage || null;
+    const eventWithImages = {
+      ...newEvent,
+      coverImage: resolvedCover,
+      imageUrl: resolvedCover,
+      thumbnail: resolvedCover,
+      thumbnailUrl: resolvedCover,
+      uploadedFileUrl: resolvedCover,
+    };
+
+    // Automatically create invitation if templateId is provided or if uploaded cover image exists
     if (effectiveTemplateId) {
       const template = await prisma.template.findUnique({ where: { id: effectiveTemplateId } });
       if (template) {
@@ -314,13 +345,40 @@ const createEvent = async (req, res) => {
             fontWeight: style.fontWeight || "700",
             fontFamily: style.fontFamily || "Playfair Display",
             textAlignment: style.textAlignment || "center",
-            imageUrl: style.imageUrl || null,
+            imageUrl: resolvedCover || style.imageUrl || null,
             buttonText: "RSVP Now",
             buttonColor: style.buttonColor || style.accentColor || "#5B5FEF",
             buttonRadius: style.buttonRadius || 12,
             status: "draft"
           }
         });
+      }
+    } else if (resolvedCover) {
+      // Create initial invitation with custom uploaded image
+      try {
+        await prisma.invitation.create({
+          data: {
+            eventId: newEvent.id,
+            title: newEvent.title,
+            subtitle: newEvent.venue || "TBD",
+            mainText: newEvent.description || "Join us for an unforgettable experience filled with joy and celebration. Please RSVP using the button below to secure your spot.",
+            message: newEvent.description || "",
+            accentColor: "#5B5FEF",
+            backgroundColor: "#FAF8F5",
+            textColor: "#2D1B3D",
+            titleSize: 48,
+            fontWeight: "700",
+            fontFamily: "Playfair Display",
+            textAlignment: "center",
+            imageUrl: resolvedCover,
+            buttonText: "RSVP Now",
+            buttonColor: "#5B5FEF",
+            buttonRadius: 12,
+            status: "draft"
+          }
+        });
+      } catch (invErr) {
+        console.warn("Could not auto-create uploaded invitation:", invErr.message);
       }
     }
 
@@ -335,7 +393,7 @@ const createEvent = async (req, res) => {
     return res.status(201).json({
       success: true,
       message: "Event created successfully",
-      event: newEvent
+      event: eventWithImages
     });
   } catch (error) {
     console.error("Create Event Error:", error);
@@ -349,13 +407,32 @@ const createEvent = async (req, res) => {
  */
 const updateEvent = async (req, res) => {
   try {
-    if (req.file) {
-      const uploadRes = await saveUploadedFile(req.file, req, "event_cover");
+    const uploadedFile = (req.files && req.files.length > 0) ? req.files[0] : req.file;
+    if (uploadedFile) {
+      const uploadRes = await saveUploadedFile(uploadedFile, req, "event_cover");
       req.body.coverImage = uploadRes.url;
-    } else if (req.body.coverImage && req.body.coverImage.startsWith("data:")) {
-      const base64Res = await saveBase64Image(req.body.coverImage, req, "event_cover");
-      if (base64Res) {
-        req.body.coverImage = base64Res.url;
+    } else {
+      const rawImage =
+        req.body.coverImage ||
+        req.body.imageUrl ||
+        req.body.thumbnail ||
+        req.body.thumbnailUrl ||
+        req.body.uploadedFileUrl ||
+        req.body.previewUrl ||
+        (req.body.designData && typeof req.body.designData === "object" ? req.body.designData.previewUrl : null);
+
+      if (rawImage && typeof rawImage === "string") {
+        const trimmedImg = rawImage.trim();
+        if (trimmedImg.startsWith("blob:")) {
+          delete req.body.coverImage;
+        } else if (trimmedImg.startsWith("data:") || trimmedImg.length > 500) {
+          const base64Res = await saveBase64Image(trimmedImg, req, "event_cover");
+          if (base64Res && base64Res.url) {
+            req.body.coverImage = base64Res.url;
+          }
+        } else if (trimmedImg) {
+          req.body.coverImage = trimmedImg;
+        }
       }
     }
 
@@ -374,6 +451,16 @@ const updateEvent = async (req, res) => {
     if (!updatedEvent) {
       return res.status(404).json({ error: "Event not found or unauthorized access." });
     }
+
+    const resolvedCover = updatedEvent.coverImage || req.body.coverImage || null;
+    const eventWithImages = {
+      ...updatedEvent,
+      coverImage: resolvedCover,
+      imageUrl: resolvedCover,
+      thumbnail: resolvedCover,
+      thumbnailUrl: resolvedCover,
+      uploadedFileUrl: resolvedCover,
+    };
 
     // Log event update
     const { createAuditLog } = require("../utils/auditLogger");

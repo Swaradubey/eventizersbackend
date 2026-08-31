@@ -20,7 +20,11 @@ const findEventsByUserId = async (userId) => {
       e.country, 
       TO_CHAR(e.event_date, 'YYYY-MM-DD') AS "eventDate", 
       e.event_time AS "eventTime", 
-      e.cover_image AS "coverImage", 
+      COALESCE(e.cover_image, inv.image_url) AS "coverImage", 
+      COALESCE(inv.image_url, e.cover_image) AS "imageUrl", 
+      COALESCE(e.cover_image, inv.image_url) AS "thumbnail", 
+      COALESCE(e.cover_image, inv.image_url) AS "thumbnailUrl", 
+      COALESCE(e.cover_image, inv.image_url) AS "uploadedFileUrl", 
       e.selected_template_id AS "selectedTemplateId",
       e.status, 
       e.created_by AS "createdBy", 
@@ -31,6 +35,7 @@ const findEventsByUserId = async (userId) => {
       COALESCE(stats.declined_count, 0)::int AS "declinedCount",
       COALESCE(stats.rsvp_rate, 0)::int AS "rsvpRate"
      FROM events e
+     LEFT JOIN invitations inv ON e.id = inv.event_id
      LEFT JOIN (
        SELECT 
          event_id,
@@ -79,7 +84,11 @@ const findEventByIdAndUserId = async (id, userId) => {
       e.country, 
       TO_CHAR(e.event_date, 'YYYY-MM-DD') AS "eventDate", 
       e.event_time AS "eventTime", 
-      e.cover_image AS "coverImage", 
+      COALESCE(e.cover_image, inv.image_url) AS "coverImage", 
+      COALESCE(inv.image_url, e.cover_image) AS "imageUrl", 
+      COALESCE(e.cover_image, inv.image_url) AS "thumbnail", 
+      COALESCE(e.cover_image, inv.image_url) AS "thumbnailUrl", 
+      COALESCE(e.cover_image, inv.image_url) AS "uploadedFileUrl", 
       e.selected_template_id AS "selectedTemplateId",
       e.status, 
       e.created_by AS "createdBy", 
@@ -90,6 +99,7 @@ const findEventByIdAndUserId = async (id, userId) => {
       COALESCE(stats.declined_count, 0)::int AS "declinedCount",
       COALESCE(stats.rsvp_rate, 0)::int AS "rsvpRate"
      FROM events e
+     LEFT JOIN invitations inv ON e.id = inv.event_id
      LEFT JOIN (
        SELECT 
          event_id,
@@ -344,13 +354,18 @@ const findEventById = async (id, userId) => {
       e.country, 
       TO_CHAR(e.event_date, 'YYYY-MM-DD') AS "eventDate", 
       e.event_time AS "eventTime", 
-      e.cover_image AS "coverImage", 
+      COALESCE(e.cover_image, inv.image_url) AS "coverImage", 
+      COALESCE(inv.image_url, e.cover_image) AS "imageUrl", 
+      COALESCE(e.cover_image, inv.image_url) AS "thumbnail", 
+      COALESCE(e.cover_image, inv.image_url) AS "thumbnailUrl", 
+      COALESCE(e.cover_image, inv.image_url) AS "uploadedFileUrl", 
       e.selected_template_id AS "selectedTemplateId",
       e.status, 
       e.created_by AS "createdBy", 
       e.created_at AS "createdAt", 
       e.updated_at AS "updatedAt"
      FROM events e
+     LEFT JOIN invitations inv ON e.id = inv.event_id
      WHERE e.id = $1`,
     [id]
   );

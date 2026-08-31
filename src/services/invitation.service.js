@@ -146,6 +146,17 @@ const createInvitation = async (data, userId) => {
     },
   });
 
+  if (imageUrl) {
+    try {
+      await prisma.event.update({
+        where: { id: eventId },
+        data: { coverImage: imageUrl },
+      });
+    } catch (evErr) {
+      console.warn("Could not sync event coverImage:", evErr.message);
+    }
+  }
+
   return invitation;
 };
 
@@ -198,6 +209,17 @@ const updateInvitation = async (id, data, userId) => {
         status,
       },
     });
+
+    if (imageUrl && invitation.eventId) {
+      try {
+        await prisma.event.update({
+          where: { id: invitation.eventId },
+          data: { coverImage: imageUrl },
+        });
+      } catch (evErr) {
+        console.warn("Could not sync event coverImage:", evErr.message);
+      }
+    }
 
     return invitation;
   } catch (error) {
