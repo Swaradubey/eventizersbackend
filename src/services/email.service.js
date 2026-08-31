@@ -383,8 +383,7 @@ const generateInvitationHtml = ({
                       <img 
                         src="${imageUrl}" 
                         alt="${cleanAltText}" 
-                        width="100%" 
-                        style="display: block; width: 100%; max-width: 600px; height: auto; border-radius: 16px 16px 0 0; object-fit: cover; margin: 0 auto; outline: none; border: 0;" 
+                        style="max-width: 100%; height: auto; display: block; margin: 0 auto; border-radius: 12px; outline: none; border: 0;" 
                       />
                     ${previewLink ? `</a>` : ""}
                   </td>
@@ -698,6 +697,8 @@ const sendInvitationEmails = async ({
   let testMessageUrl = null;
   let sentCount = 0;
   let lastMessageId = null;
+
+  console.log(`[EmailService] Preparing email dispatch for: "${displayTitle}", resolved image: ${htmlCardImageSrc || "(fallback)"}, attachments: ${attachments.length}, recipients: ${normalizedRecipients.length}`);
 
   // Dispatch individual emails with personalized tracking pixels and click tracking
   for (const recipient of normalizedRecipients) {

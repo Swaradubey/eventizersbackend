@@ -493,6 +493,8 @@ const sendInvitation = async (req, res) => {
     let resolvedSnapshotUrl = null;
     let resolvedBase64 = null;
 
+    console.log(`[InvitationController] Dispatching invitation ID: ${id}, imageUrl: ${invitation.imageUrl || "(none)"}, snapshot payload size: ${rawSnapshot ? `${(rawSnapshot.length / 1024).toFixed(1)} KB` : "0 KB"}`);
+
     if (rawSnapshot && typeof rawSnapshot === "string") {
       const trimmed = rawSnapshot.trim();
       if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("/uploads/")) {
@@ -619,6 +621,8 @@ const sendInvitationToGuests = async (req, res) => {
     const rawSnapshot = snapshot || cardImageBase64 || snapshotUrl || cardSnapshotUrl || null;
     let resolvedSnapshotUrl = null;
     let resolvedBase64 = null;
+
+    console.log(`[InvitationController] Dispatching to guests for invitation ID: ${invitationId}, imageUrl: ${invitation.imageUrl || "(none)"}, snapshot payload size: ${rawSnapshot ? `${(rawSnapshot.length / 1024).toFixed(1)} KB` : "0 KB"}`);
 
     if (rawSnapshot && typeof rawSnapshot === "string") {
       const trimmed = rawSnapshot.trim();
