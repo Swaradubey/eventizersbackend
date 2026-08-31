@@ -472,7 +472,7 @@ const sendInvitation = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id;
-    const { recipients, guestEmails, cardSnapshotUrl, snapshotUrl, cardImageBase64 } = req.body || {};
+    const { recipients, guestEmails, cardSnapshotUrl, snapshotUrl, cardImageBase64, snapshot } = req.body || {};
 
     const invitation = await invitationService.findInvitationById(id, userId);
     if (!invitation) {
@@ -488,12 +488,26 @@ const sendInvitation = async (req, res) => {
       }
     }
 
-    // Resolve snapshot image URL (convert Base64 if needed) for email dispatch only
-    let resolvedSnapshotUrl = cardSnapshotUrl || snapshotUrl || null;
-    if (cardImageBase64) {
-      const uploadRes = await saveBase64Image(cardImageBase64, req, "invitation_snapshot");
-      if (uploadRes) {
-        resolvedSnapshotUrl = uploadRes.url;
+    // Resolve snapshot image URL (convert Base64 if needed) for email dispatch
+    const rawSnapshot = snapshot || cardImageBase64 || snapshotUrl || cardSnapshotUrl || null;
+    let resolvedSnapshotUrl = null;
+    let resolvedBase64 = null;
+
+    if (rawSnapshot && typeof rawSnapshot === "string") {
+      const trimmed = rawSnapshot.trim();
+      if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("/uploads/")) {
+        resolvedSnapshotUrl = trimmed;
+      } else if (trimmed.startsWith("data:") || trimmed.length > 300) {
+        resolvedBase64 = trimmed;
+        try {
+          const uploadRes = await saveBase64Image(trimmed, req, "invitation_snapshot");
+          if (uploadRes && uploadRes.url) {
+            resolvedSnapshotUrl = uploadRes.url;
+            console.log("[InvitationController] Saved snapshot Base64 to static URL:", uploadRes.url);
+          }
+        } catch (uploadErr) {
+          console.warn("[InvitationController] Could not save Base64 snapshot to file storage:", uploadErr.message);
+        }
       }
     }
 
@@ -552,7 +566,7 @@ const sendInvitation = async (req, res) => {
       senderName: req.user.name || req.user.email,
       frontendUrl,
       snapshotUrl: resolvedSnapshotUrl,
-      cardImageBase64,
+      cardImageBase64: resolvedBase64 || cardImageBase64,
       trackingBaseUrl,
     });
 
@@ -581,7 +595,7 @@ const sendInvitation = async (req, res) => {
 const sendInvitationToGuests = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { invitationId, guestIds, recipients, cardSnapshotUrl, snapshotUrl, cardImageBase64 } = req.body || {};
+    const { invitationId, guestIds, recipients, cardSnapshotUrl, snapshotUrl, cardImageBase64, snapshot } = req.body || {};
 
     if (!invitationId) {
       return res.status(400).json({ error: "invitationId is required." });
@@ -601,12 +615,26 @@ const sendInvitationToGuests = async (req, res) => {
       }
     }
 
-    // Resolve snapshot image URL (convert Base64 if needed) for email dispatch only
-    let resolvedSnapshotUrl = cardSnapshotUrl || snapshotUrl || null;
-    if (cardImageBase64) {
-      const uploadRes = await saveBase64Image(cardImageBase64, req, "invitation_snapshot");
-      if (uploadRes) {
-        resolvedSnapshotUrl = uploadRes.url;
+    // Resolve snapshot image URL (convert Base64 if needed) for email dispatch
+    const rawSnapshot = snapshot || cardImageBase64 || snapshotUrl || cardSnapshotUrl || null;
+    let resolvedSnapshotUrl = null;
+    let resolvedBase64 = null;
+
+    if (rawSnapshot && typeof rawSnapshot === "string") {
+      const trimmed = rawSnapshot.trim();
+      if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("/uploads/")) {
+        resolvedSnapshotUrl = trimmed;
+      } else if (trimmed.startsWith("data:") || trimmed.length > 300) {
+        resolvedBase64 = trimmed;
+        try {
+          const uploadRes = await saveBase64Image(trimmed, req, "invitation_snapshot");
+          if (uploadRes && uploadRes.url) {
+            resolvedSnapshotUrl = uploadRes.url;
+            console.log("[InvitationController] Saved snapshot Base64 to static URL:", uploadRes.url);
+          }
+        } catch (uploadErr) {
+          console.warn("[InvitationController] Could not save Base64 snapshot to file storage:", uploadErr.message);
+        }
       }
     }
 
@@ -655,7 +683,7 @@ const sendInvitationToGuests = async (req, res) => {
       senderName: req.user.name || req.user.email,
       frontendUrl,
       snapshotUrl: resolvedSnapshotUrl,
-      cardImageBase64,
+      cardImageBase64: resolvedBase64 || cardImageBase64,
       trackingBaseUrl,
     });
 

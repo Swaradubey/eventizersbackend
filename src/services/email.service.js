@@ -275,7 +275,7 @@ const generateInvitationHtml = ({
     fontStack = "'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
   }
 
-  // Strict validation: Guard to ensure image src is valid for email clients (must be HTTPS/HTTP or CID, not blob, empty, or local relative path)
+  // Strict validation: Guard to ensure image src is valid for email clients (must be HTTPS/HTTP, CID, or inline data URL)
   const isValidImageUrl = Boolean(
     cardImageSrc &&
     typeof cardImageSrc === "string" &&
@@ -285,7 +285,9 @@ const generateInvitationHtml = ({
     !cardImageSrc.startsWith("/") &&
     !cardImageSrc.startsWith("blob:") &&
     !cardImageSrc.startsWith("file:") &&
-    (/^https?:\/\//i.test(cardImageSrc.trim()) || cardImageSrc.trim().startsWith("cid:"))
+    (/^https?:\/\//i.test(cardImageSrc.trim()) ||
+     cardImageSrc.trim().startsWith("cid:") ||
+     cardImageSrc.trim().startsWith("data:image/"))
   );
   const imageUrl = isValidImageUrl ? cardImageSrc.trim() : null;
 
@@ -365,8 +367,8 @@ const generateInvitationHtml = ({
             </td>
           </tr>
 
-          <!-- ─── 1. FULL INVITATION TEMPLATE CARD / BANNER CARD (SAFE) ─── -->
-          ${imageUrl && typeof imageUrl === "string" && (imageUrl.startsWith("http") || imageUrl.startsWith("cid:")) ? `
+          <!-- ─── 1. FULL INVITATION SNAPSHOT CARD / BANNER CARD (SAFE) ─── -->
+          ${imageUrl ? `
           <tr>
             <td align="center" style="padding: 8px 16px 16px 16px;">
               <!--[if mso]>
@@ -658,22 +660,20 @@ const sendInvitationEmails = async ({
   const attachments = [];
   let htmlCardImageSrc = null;
 
-  if (resolvedCardImageSrc && /^https?:\/\//i.test(resolvedCardImageSrc)) {
-    // If it's a public HTTPS/HTTP URL (e.g. S3, Cloudinary, or public server), use it directly
-    htmlCardImageSrc = resolvedCardImageSrc;
-    if (localSnapshotFilePath && fs.existsSync(localSnapshotFilePath)) {
-      attachments.push({
-        filename: "invitation-card.png",
-        path: localSnapshotFilePath,
-      });
-    }
-  } else if (localSnapshotFilePath && fs.existsSync(localSnapshotFilePath)) {
+  if (localSnapshotFilePath && fs.existsSync(localSnapshotFilePath)) {
     attachments.push({
-      filename: "invitation-card.png",
+      filename: "invitation-snapshot.png",
       path: localSnapshotFilePath,
-      cid: "invitation-card-preview",
+      cid: "invitation-snapshot",
     });
-    htmlCardImageSrc = "cid:invitation-card-preview";
+    // If it's a public HTTPS/HTTP URL, use it directly, or fallback to cid:invitation-snapshot
+    if (resolvedCardImageSrc && /^https?:\/\//i.test(resolvedCardImageSrc)) {
+      htmlCardImageSrc = resolvedCardImageSrc;
+    } else {
+      htmlCardImageSrc = "cid:invitation-snapshot";
+    }
+  } else if (resolvedCardImageSrc && (/^https?:\/\//i.test(resolvedCardImageSrc) || resolvedCardImageSrc.startsWith("data:image/"))) {
+    htmlCardImageSrc = resolvedCardImageSrc;
   }
 
   // Strict SMTP transport
