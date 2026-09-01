@@ -561,8 +561,9 @@ const sendInvitation = async (req, res) => {
       "http://localhost:3000"
     );
 
-    // Send emails via Nodemailer service with personalized tracking pixel and clean HTTPS card image
-    // NOTE: Never pass raw Base64 — only pass the resolved public storage URL
+    // Send emails via Nodemailer service with personalized tracking pixel and CID inline card image
+    // Pass both the resolved URL and the raw snapshot data so the email service can
+    // create CID inline attachments directly from Base64 when public URLs are unavailable
     const sendResult = await emailService.sendInvitationEmails({
       recipients: resolvedGuests.length > 0 ? resolvedGuests : targetEmails,
       invitation,
@@ -570,6 +571,9 @@ const sendInvitation = async (req, res) => {
       senderName: req.user.name || req.user.email,
       frontendUrl,
       snapshotUrl: resolvedSnapshotUrl,
+      cardSnapshotUrl: cardSnapshotUrl || snapshotUrl,
+      cardImageBase64: (rawSnapshot && rawSnapshot.startsWith && (rawSnapshot.startsWith("data:") || rawSnapshot.length > 300)) ? rawSnapshot : cardImageBase64,
+      snapshot: rawSnapshot,
       trackingBaseUrl,
     });
 
@@ -681,7 +685,8 @@ const sendInvitationToGuests = async (req, res) => {
       "http://localhost:3000"
     );
 
-    // NOTE: Never pass raw Base64 — only pass the resolved public storage URL
+    // Pass both resolved URL and raw snapshot data so email service can create
+    // CID inline attachments directly from Base64 when public URLs are unavailable
     const sendResult = await emailService.sendInvitationEmails({
       recipients: resolvedGuests.length > 0 ? resolvedGuests : targetEmails,
       invitation,
@@ -689,6 +694,9 @@ const sendInvitationToGuests = async (req, res) => {
       senderName: req.user.name || req.user.email,
       frontendUrl,
       snapshotUrl: resolvedSnapshotUrl,
+      cardSnapshotUrl: cardSnapshotUrl || snapshotUrl,
+      cardImageBase64: (rawSnapshot && rawSnapshot.startsWith && (rawSnapshot.startsWith("data:") || rawSnapshot.length > 300)) ? rawSnapshot : cardImageBase64,
+      snapshot: rawSnapshot,
       trackingBaseUrl,
     });
 

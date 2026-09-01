@@ -139,93 +139,45 @@ const resolvePublicImageUrl = (
 
   // 1. Reject raw Base64 data URIs — Gmail, Outlook, Yahoo strip/block inline Base64 images
   if (trimmed.startsWith("data:")) {
-    console.warn("[EmailService] ⚠️ Rejected raw Base64 data URI for email image — must upload to public storage or attach as CID.");
     return null;
   }
 
   // 2. Reject temporary client-side blob URLs or local file protocol URIs
   if (trimmed.startsWith("blob:") || trimmed.startsWith("file:")) {
-    console.warn("[EmailService] ⚠️ Rejected blob/file URL for email template.");
     return null;
   }
 
-  // Determine canonical public base URLs
-  const publicBackend = (
-    (isValidPublicUrl(process.env.PUBLIC_STORAGE_URL) && process.env.PUBLIC_STORAGE_URL) ||
-    (isValidPublicUrl(process.env.PUBLIC_CDN_URL) && process.env.PUBLIC_CDN_URL) ||
-    (isValidPublicUrl(process.env.PUBLIC_BACKEND_URL) && process.env.PUBLIC_BACKEND_URL) ||
-    (isValidPublicUrl(process.env.BACKEND_URL) && process.env.BACKEND_URL) ||
-    (isValidPublicUrl(backendBaseUrl) && backendBaseUrl) ||
-    null
-  );
+  // 3. If image URL contains localhost or dev ports (5000, 3000), external email clients cannot reach it
+  if (
+    trimmed.includes("localhost") ||
+    trimmed.includes("127.0.0.1") ||
+    trimmed.includes(":5000") ||
+    trimmed.includes(":3000")
+  ) {
+    return null;
+  }
 
-  const publicFrontend = (
-    (isValidPublicUrl(process.env.PUBLIC_APP_URL) && process.env.PUBLIC_APP_URL) ||
-    (isValidPublicUrl(process.env.NEXT_PUBLIC_APP_URL) && process.env.NEXT_PUBLIC_APP_URL) ||
-    (isValidPublicUrl(process.env.FRONTEND_URL) && process.env.FRONTEND_URL) ||
-    (isValidPublicUrl(frontendBaseUrl) && frontendBaseUrl) ||
-    null
-  );
+  // 4. If URL points to /uploads/ on vercel without CDN, check if it's local only
+  if (trimmed.includes("vercel.app/uploads/") || trimmed.includes("eventizersbackend.vercel.app")) {
+    // Vercel serverless has ephemeral storage; uploads made locally or on serverless are not persistent public URLs
+    return null;
+  }
 
-  // 3. Full HTTPS/HTTP URL (e.g. Cloudinary, AWS S3, Supabase, Firebase, CDN)
+  // 5. Full HTTPS/HTTP URL (e.g. Cloudinary, AWS S3, Supabase, Firebase, CDN, Unsplash)
   if (/^https?:\/\//i.test(trimmed)) {
     try {
       const parsed = new URL(trimmed);
-      const isLocalhost = parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1";
-      if (isLocalhost) {
-        // If image URL is on localhost, attempt rewrite to public backend/frontend origin if available
-        if (trimmed.includes("/assets/") && publicFrontend) {
-          const publicParsed = new URL(publicFrontend);
-          parsed.protocol = publicParsed.protocol;
-          parsed.host = publicParsed.host;
-          return parsed.toString();
-        }
-        if (publicBackend) {
-          const publicParsed = new URL(publicBackend);
-          parsed.protocol = publicParsed.protocol;
-          parsed.host = publicParsed.host;
-          return parsed.toString();
-        }
-        // No public URL configured — return null so CID inline attachment is used instead
-        console.log(`[EmailService] Localhost image URL detected: ${trimmed} — will rely on CID inline attachment.`);
+      if (
+        parsed.hostname === "localhost" ||
+        parsed.hostname === "127.0.0.1" ||
+        parsed.port === "5000" ||
+        parsed.port === "3000"
+      ) {
         return null;
       }
-    } catch (_) {}
-    return trimmed;
-  }
-
-  // 4. Frontend static assets: /assets/... or assets/...
-  if (trimmed.startsWith("/assets/") || trimmed.startsWith("assets/")) {
-    const cleanPath = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
-    if (publicFrontend) {
-      return `${publicFrontend.replace(/\/+$/, "")}${cleanPath}`;
-    }
-    if (publicBackend) {
-      return `${publicBackend.replace(/\/+$/, "")}${cleanPath}`;
-    }
-    return null;
-  }
-
-  // 5. Backend uploads: /uploads/... or uploads/...
-  if (trimmed.startsWith("/uploads/") || trimmed.startsWith("uploads/")) {
-    const cleanPath = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
-    if (publicBackend) {
-      return `${publicBackend.replace(/\/+$/, "")}${cleanPath}`;
-    }
-    if (publicFrontend) {
-      return `${publicFrontend.replace(/\/+$/, "")}${cleanPath}`;
-    }
-    return null;
-  }
-
-  // 6. Raw filename (e.g. "template_123.png", "invitation_snapshot_456.png")
-  if (/\.(png|jpe?g|webp|gif|svg|avif|heic)$/i.test(trimmed)) {
-    const cleanFilename = trimmed.replace(/^\/+/, "");
-    if (publicBackend) {
-      return `${publicBackend.replace(/\/+$/, "")}/uploads/${cleanFilename}`;
-    }
-    if (publicFrontend) {
-      return `${publicFrontend.replace(/\/+$/, "")}/uploads/${cleanFilename}`;
+      return trimmed;
+    } catch (_) {
+      return null;
     }
   }
 
@@ -560,6 +512,7 @@ const sendInvitationEmails = async ({
   snapshotUrl,
   cardSnapshotUrl,
   cardImageBase64,
+  snapshot,
   trackingBaseUrl,
 }) => {
   if (!recipients || recipients.length === 0) {
@@ -604,26 +557,74 @@ const sendInvitationEmails = async ({
   const invitationTargetId = invitation?.id || invitation?.eventId || event?.id;
   const previewLink = `${baseUrl}/invitation/${invitationTargetId}`;
 
-  // Image source resolution & attachment setup
+  // ─── Image source resolution & CID inline attachment setup ───
+  // Strategy: ALWAYS prefer CID inline attachment for maximum email client
+  // compatibility. CID works in Gmail, Outlook, Yahoo, Apple Mail regardless
+  // of whether backend is on localhost or a public domain.
   let resolvedCardImageSrc = null;
   let localSnapshotFilePath = null;
+  let rawBase64ForCid = null; // Raw Base64 string for direct CID attachment
+
+  // Collect all raw snapshot sources (prioritised)
+  const rawSnapshotInput = snapshot || cardImageBase64 || snapshotUrl || cardSnapshotUrl || null;
 
   // 1. Direct snapshot URL provided
   const directSnapshotUrl = snapshotUrl || cardSnapshotUrl;
-  if (directSnapshotUrl) {
-    resolvedCardImageSrc = resolvePublicImageUrl(directSnapshotUrl, trackBase, baseUrl);
-    const discoveredPath = findLocalFilePath(directSnapshotUrl);
-    if (discoveredPath) {
-      localSnapshotFilePath = discoveredPath;
+  if (directSnapshotUrl && typeof directSnapshotUrl === "string" && directSnapshotUrl.trim()) {
+    const trimmedUrl = directSnapshotUrl.trim();
+    if (trimmedUrl.startsWith("data:") || (!trimmedUrl.startsWith("http") && !trimmedUrl.startsWith("/") && trimmedUrl.length > 300)) {
+      // It's actually Base64 data passed as snapshotUrl — save to disk for CID attachment
+      rawBase64ForCid = trimmedUrl;
+      try {
+        const savedRes = await saveBase64Image(trimmedUrl, null, "invitation_snapshot");
+        if (savedRes && savedRes.url) {
+          resolvedCardImageSrc = resolvePublicImageUrl(savedRes.url, trackBase, baseUrl);
+          if (savedRes.filePath && fs.existsSync(savedRes.filePath)) {
+            localSnapshotFilePath = savedRes.filePath;
+          }
+        }
+      } catch (err) {
+        console.warn("[EmailService] Failed to save Base64 snapshot from snapshotUrl:", err.message);
+      }
+    } else {
+      resolvedCardImageSrc = resolvePublicImageUrl(trimmedUrl, trackBase, baseUrl);
+      const discoveredPath = findLocalFilePath(trimmedUrl);
+      if (discoveredPath) {
+        localSnapshotFilePath = discoveredPath;
+      }
     }
   }
 
-  // 2. Base64 snapshot provided: save as file to get persistent local path and public URL
-  if (cardImageBase64 && typeof cardImageBase64 === "string" && cardImageBase64.trim()) {
+  // 2. Raw snapshot / Base64 provided directly
+  if (!localSnapshotFilePath && rawSnapshotInput && typeof rawSnapshotInput === "string" && rawSnapshotInput.trim()) {
+    const trimmedRaw = rawSnapshotInput.trim();
+    if (trimmedRaw.startsWith("data:") || (!trimmedRaw.startsWith("http") && !trimmedRaw.startsWith("/") && trimmedRaw.length > 300)) {
+      rawBase64ForCid = trimmedRaw;
+      try {
+        const savedRes = await saveBase64Image(trimmedRaw, null, "invitation_snapshot");
+        if (savedRes && savedRes.url) {
+          if (!resolvedCardImageSrc) {
+            resolvedCardImageSrc = resolvePublicImageUrl(savedRes.url, trackBase, baseUrl);
+          }
+          if (savedRes.filePath && fs.existsSync(savedRes.filePath)) {
+            localSnapshotFilePath = savedRes.filePath;
+          }
+        }
+      } catch (err) {
+        console.warn("[EmailService] Failed to save raw Base64 snapshot:", err.message);
+      }
+    }
+  }
+
+  // 3. Explicit cardImageBase64 field (may not have been caught above)
+  if (!localSnapshotFilePath && cardImageBase64 && typeof cardImageBase64 === "string" && cardImageBase64.trim()) {
+    rawBase64ForCid = cardImageBase64.trim();
     try {
       const savedRes = await saveBase64Image(cardImageBase64, null, "invitation_snapshot");
       if (savedRes && savedRes.url) {
-        resolvedCardImageSrc = resolvePublicImageUrl(savedRes.url, trackBase, baseUrl);
+        if (!resolvedCardImageSrc) {
+          resolvedCardImageSrc = resolvePublicImageUrl(savedRes.url, trackBase, baseUrl);
+        }
         if (savedRes.filePath && fs.existsSync(savedRes.filePath)) {
           localSnapshotFilePath = savedRes.filePath;
         }
@@ -633,7 +634,7 @@ const sendInvitationEmails = async ({
     }
   }
 
-  // 3. Fallback to event/invitation image across all possible fields if not already resolved
+  // 4. Fallback to event/invitation image across all possible fields if not already resolved
   if (!resolvedCardImageSrc && !localSnapshotFilePath) {
     const rawImage = (
       invitation?.imageUrl ||
@@ -660,6 +661,7 @@ const sendInvitationEmails = async ({
 
     if (rawImage && typeof rawImage === "string" && rawImage.trim()) {
       if (rawImage.startsWith("data:")) {
+        rawBase64ForCid = rawImage;
         try {
           const savedRes = await saveBase64Image(rawImage, null, "event_cover");
           if (savedRes && savedRes.url) {
@@ -683,12 +685,15 @@ const sendInvitationEmails = async ({
   const subject = `✨ Invitation: ${displayTitle}`;
   const from = process.env.EMAIL_FROM || process.env.SMTP_FROM || `"InviteHub Events" <no-reply@invitehub.com>`;
 
-  // Configure Nodemailer inline attachments and HTML card image source
+  // ─── Configure Nodemailer CID inline attachment ───
+  // ALWAYS use CID inline attachment when we have image data. CID works universally
+  // across all email clients. Public HTTPS URL is used as a secondary fallback only.
   const attachments = [];
   let htmlCardImageSrc = null;
+  const CID_IDENTIFIER = `invitation-card-${Date.now()}@invitehub.io`;
 
+  // Strategy A: Local file on disk → attach from file path (most reliable)
   if (localSnapshotFilePath && fs.existsSync(localSnapshotFilePath)) {
-    const cidIdentifier = `invitation-card-${Date.now()}@invitehub.com`;
     const ext = path.extname(localSnapshotFilePath).toLowerCase().replace(".", "");
     const mimeMap = {
       png: "image/png",
@@ -700,26 +705,58 @@ const sendInvitationEmails = async ({
     };
     const mimeType = mimeMap[ext] || "image/png";
 
-    attachments.push({
-      filename: `invitation-card.${ext || "png"}`,
-      path: localSnapshotFilePath,
-      cid: cidIdentifier,
-      contentType: mimeType,
-      contentDisposition: "inline",
-      headers: {
-        "Content-ID": `<${cidIdentifier}>`,
-        "X-Attachment-Id": cidIdentifier,
-      },
-    });
-
-    // If resolvedCardImageSrc is a verified public HTTPS URL (not localhost), use it, otherwise use cid: identifier
-    if (resolvedCardImageSrc && /^https?:\/\//i.test(resolvedCardImageSrc) && !resolvedCardImageSrc.includes("localhost") && !resolvedCardImageSrc.includes("127.0.0.1")) {
-      htmlCardImageSrc = resolvedCardImageSrc;
-    } else {
-      htmlCardImageSrc = `cid:${cidIdentifier}`;
+    try {
+      const stats = fs.statSync(localSnapshotFilePath);
+      if (stats.size > 100) {
+        attachments.push({
+          filename: `invitation-card.${ext || "png"}`,
+          path: localSnapshotFilePath,
+          cid: CID_IDENTIFIER,
+          contentType: mimeType,
+          contentDisposition: "inline",
+        });
+        htmlCardImageSrc = `cid:${CID_IDENTIFIER}`;
+        console.log(`[EmailService] CID attachment created from local file (${(stats.size / 1024).toFixed(1)} KB): ${localSnapshotFilePath}`);
+      }
+    } catch (e) {
+      console.warn("[EmailService] Error checking local file for CID:", e.message);
     }
-  } else if (resolvedCardImageSrc && /^https?:\/\//i.test(resolvedCardImageSrc) && !resolvedCardImageSrc.includes("localhost") && !resolvedCardImageSrc.includes("127.0.0.1")) {
+
+  // Strategy B: Raw Base64 data available → attach directly as Base64 buffer
+  } else if (rawBase64ForCid) {
+    const cleanBase64 = rawBase64ForCid.replace(/^data:image\/\w+;base64,/, "");
+    if (cleanBase64 && cleanBase64.length > 100) {
+      let mimeType = "image/png";
+      const mimeMatch = rawBase64ForCid.match(/^data:(image\/[a-zA-Z0-9+-]+);base64,/);
+      if (mimeMatch && mimeMatch[1]) {
+        mimeType = mimeMatch[1];
+      }
+      const extMap = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/gif": "gif" };
+      const ext = extMap[mimeType] || "png";
+
+      attachments.push({
+        filename: `invitation-card.${ext}`,
+        content: cleanBase64,
+        encoding: "base64",
+        cid: CID_IDENTIFIER,
+        contentType: mimeType,
+        contentDisposition: "inline",
+      });
+
+      htmlCardImageSrc = `cid:${CID_IDENTIFIER}`;
+      console.log(`[EmailService] CID attachment created from raw Base64 (${(cleanBase64.length / 1024).toFixed(1)} KB)`);
+    }
+  }
+
+  // Strategy C: No local file or Base64 — fall back to verified public HTTPS URL only
+  if (!htmlCardImageSrc && resolvedCardImageSrc && /^https?:\/\//i.test(resolvedCardImageSrc) && !resolvedCardImageSrc.includes("localhost") && !resolvedCardImageSrc.includes("127.0.0.1") && !resolvedCardImageSrc.includes(":5000") && !resolvedCardImageSrc.includes(":3000")) {
     htmlCardImageSrc = resolvedCardImageSrc;
+    console.log(`[EmailService] Using verified public HTTPS URL for email image: ${htmlCardImageSrc}`);
+  }
+
+  // Safety check: if htmlCardImageSrc is CID but attachments is empty, set to null
+  if (htmlCardImageSrc && htmlCardImageSrc.startsWith("cid:") && attachments.length === 0) {
+    htmlCardImageSrc = null;
   }
 
   // SMTP transport
