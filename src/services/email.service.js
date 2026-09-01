@@ -1,9 +1,21 @@
 const nodemailer = require("nodemailer");
+const path = require("path");
+const fs = require("fs");
+const {
+  saveBase64Image,
+  findLocalFilePath,
+  isValidPublicUrl,
+  getPublicBaseUrl,
+  UPLOADS_DIR,
+} = require("../utils/fileStorage");
 
+/**
+ * Configure Nodemailer transport (Gmail SMTP, Custom SMTP, or Ethereal test account in dev)
+ */
 const getTransporter = async () => {
   if (process.env.SMTP_USER && process.env.SMTP_PASS) {
     return nodemailer.createTransport({
-      host: process.env.SMTP_HOST || 'smtp.gmail.com',
+      host: process.env.SMTP_HOST || "smtp.gmail.com",
       port: parseInt(process.env.SMTP_PORT || "587", 10),
       secure: process.env.SMTP_SECURE === "true",
       auth: {
@@ -43,7 +55,6 @@ const getTransporter = async () => {
  */
 const sendViaResend = async ({ recipients, subject, html, from }) => {
   const apiKey = process.env.RESEND_API_KEY;
-  // Use custom EMAIL_FROM / SMTP_FROM if defined, else fallback to Resend default onboarding sender
   let fromAddress = from;
   if (!process.env.EMAIL_FROM && !process.env.SMTP_FROM) {
     fromAddress = "InviteHub Events <onboarding@resend.dev>";
@@ -82,11 +93,6 @@ const sendViaResend = async ({ recipients, subject, html, from }) => {
   }
 };
 
-
-const path = require("path");
-const fs = require("fs");
-const { saveBase64Image, UPLOADS_DIR } = require("../utils/fileStorage");
-
 /**
  * Determine if a hex color is dark
  * @param {string} hex
@@ -111,41 +117,17 @@ const isDarkColor = (hex) => {
 };
 
 /**
- * Helper to check if a string is a valid public web URL (HTTP/HTTPS) and not a placeholder or localhost.
- * @param {string} url
- * @returns {boolean}
- */
-const isValidPublicUrl = (url) => {
-  if (!url || typeof url !== "string") return false;
-  const trimmed = url.trim();
-  if (!trimmed || !/^https?:\/\//i.test(trimmed)) return false;
-  if (
-    trimmed.includes("your-backend.vercel.app") ||
-    trimmed.includes("example.com") ||
-    trimmed.includes("your-app") ||
-    trimmed.includes("placeholder")
-  ) {
-    return false;
-  }
-  // Reject localhost / 127.0.0.1 — unreachable from external email clients
-  try {
-    const parsed = new URL(trimmed);
-    if (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1") {
-      return false;
-    }
-  } catch (_) {
-    return false;
-  }
-  return true;
-};
-
-/**
  * Safely parse and process a cover image or snapshot URL into an absolute public HTTPS/HTTP URL
  * @param {string} coverImage - The cover image string from event or invitation
- * @param {string} baseUrl - Backend or app base URL
+ * @param {string} backendBaseUrl - Backend or API base URL
+ * @param {string} frontendBaseUrl - Frontend application base URL
  * @returns {string|null}
  */
-const resolvePublicImageUrl = (coverImage, baseUrl = "http://localhost:5000") => {
+const resolvePublicImageUrl = (
+  coverImage,
+  backendBaseUrl = "http://localhost:5000",
+  frontendBaseUrl = "http://localhost:3000"
+) => {
   if (!coverImage || typeof coverImage !== "string") {
     return null;
   }
@@ -157,76 +139,94 @@ const resolvePublicImageUrl = (coverImage, baseUrl = "http://localhost:5000") =>
 
   // 1. Reject raw Base64 data URIs — Gmail, Outlook, Yahoo strip/block inline Base64 images
   if (trimmed.startsWith("data:")) {
-    console.warn("[EmailService] ⚠️  Rejected raw Base64 data URI for email image — must upload to public storage first.");
+    console.warn("[EmailService] ⚠️ Rejected raw Base64 data URI for email image — must upload to public storage or attach as CID.");
     return null;
   }
 
-  // 2. Strip out / ignore client-side blob URLs or local file paths
+  // 2. Reject temporary client-side blob URLs or local file protocol URIs
   if (trimmed.startsWith("blob:") || trimmed.startsWith("file:")) {
+    console.warn("[EmailService] ⚠️ Rejected blob/file URL for email template.");
     return null;
   }
 
-  // Determine canonical public base URL (prefer backend / storage / CDN where images are hosted)
-  const publicBaseUrl = (
+  // Determine canonical public base URLs
+  const publicBackend = (
     (isValidPublicUrl(process.env.PUBLIC_STORAGE_URL) && process.env.PUBLIC_STORAGE_URL) ||
     (isValidPublicUrl(process.env.PUBLIC_CDN_URL) && process.env.PUBLIC_CDN_URL) ||
     (isValidPublicUrl(process.env.PUBLIC_BACKEND_URL) && process.env.PUBLIC_BACKEND_URL) ||
     (isValidPublicUrl(process.env.BACKEND_URL) && process.env.BACKEND_URL) ||
-    (isValidPublicUrl(process.env.PUBLIC_URL) && process.env.PUBLIC_URL) ||
+    (isValidPublicUrl(backendBaseUrl) && backendBaseUrl) ||
+    null
+  );
+
+  const publicFrontend = (
     (isValidPublicUrl(process.env.PUBLIC_APP_URL) && process.env.PUBLIC_APP_URL) ||
     (isValidPublicUrl(process.env.NEXT_PUBLIC_APP_URL) && process.env.NEXT_PUBLIC_APP_URL) ||
     (isValidPublicUrl(process.env.FRONTEND_URL) && process.env.FRONTEND_URL) ||
-    (isValidPublicUrl(baseUrl) && baseUrl) ||
+    (isValidPublicUrl(frontendBaseUrl) && frontendBaseUrl) ||
     null
   );
 
   // 3. Full HTTPS/HTTP URL (e.g. Cloudinary, AWS S3, Supabase, Firebase, CDN)
   if (/^https?:\/\//i.test(trimmed)) {
-    // If it points to a local backend on localhost/127.0.0.1 and a public production URL is configured, normalize origin
     try {
       const parsed = new URL(trimmed);
-      if (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1") {
-        if (publicBaseUrl) {
-          const publicParsed = new URL(publicBaseUrl);
+      const isLocalhost = parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1";
+      if (isLocalhost) {
+        // If image URL is on localhost, attempt rewrite to public backend/frontend origin if available
+        if (trimmed.includes("/assets/") && publicFrontend) {
+          const publicParsed = new URL(publicFrontend);
           parsed.protocol = publicParsed.protocol;
-          parsed.hostname = publicParsed.hostname;
-          parsed.port = publicParsed.port;
+          parsed.host = publicParsed.host;
           return parsed.toString();
         }
-        // No public URL configured — localhost image will NOT render in email clients
-        console.warn(`[EmailService] ⚠️  Localhost image URL detected: ${trimmed} — this will NOT render in email clients. Returning null for graceful fallback.`);
+        if (publicBackend) {
+          const publicParsed = new URL(publicBackend);
+          parsed.protocol = publicParsed.protocol;
+          parsed.host = publicParsed.host;
+          return parsed.toString();
+        }
+        // No public URL configured — return null so CID inline attachment is used instead
+        console.log(`[EmailService] Localhost image URL detected: ${trimmed} — will rely on CID inline attachment.`);
         return null;
       }
-    } catch (e) {}
+    } catch (_) {}
     return trimmed;
   }
 
-  // If no valid public base URL is available, we can't resolve relative paths
-  if (!publicBaseUrl) {
-    console.warn(`[EmailService] ⚠️  Cannot resolve relative image path "${trimmed}" — no public base URL configured.`);
+  // 4. Frontend static assets: /assets/... or assets/...
+  if (trimmed.startsWith("/assets/") || trimmed.startsWith("assets/")) {
+    const cleanPath = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+    if (publicFrontend) {
+      return `${publicFrontend.replace(/\/+$/, "")}${cleanPath}`;
+    }
+    if (publicBackend) {
+      return `${publicBackend.replace(/\/+$/, "")}${cleanPath}`;
+    }
     return null;
   }
 
-  const cleanBase = publicBaseUrl.replace(/\/+$/, "");
-
-  // 4. Relative uploads or assets path starting with /
-  if (trimmed.startsWith("/")) {
-    return `${cleanBase}${trimmed}`;
+  // 5. Backend uploads: /uploads/... or uploads/...
+  if (trimmed.startsWith("/uploads/") || trimmed.startsWith("uploads/")) {
+    const cleanPath = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+    if (publicBackend) {
+      return `${publicBackend.replace(/\/+$/, "")}${cleanPath}`;
+    }
+    if (publicFrontend) {
+      return `${publicFrontend.replace(/\/+$/, "")}${cleanPath}`;
+    }
+    return null;
   }
 
-  // 5. Relative paths like uploads/..., assets/..., templates/..., images/...
-  if (
-    trimmed.startsWith("uploads/") ||
-    trimmed.startsWith("assets/") ||
-    trimmed.startsWith("templates/") ||
-    trimmed.startsWith("images/")
-  ) {
-    return `${cleanBase}/${trimmed}`;
-  }
-
-  // 6. Raw filename (e.g. "image_12345.png", "Screenshot 2026...png")
+  // 6. Raw filename (e.g. "template_123.png", "invitation_snapshot_456.png")
   if (/\.(png|jpe?g|webp|gif|svg|avif|heic)$/i.test(trimmed)) {
-    return `${cleanBase}/uploads/${trimmed.replace(/^\/+/, "")}`;
+    const cleanFilename = trimmed.replace(/^\/+/, "");
+    if (publicBackend) {
+      return `${publicBackend.replace(/\/+$/, "")}/uploads/${cleanFilename}`;
+    }
+    if (publicFrontend) {
+      return `${publicFrontend.replace(/\/+$/, "")}/uploads/${cleanFilename}`;
+    }
   }
 
   return null;
@@ -245,9 +245,10 @@ const getCleanDisplayTitle = (titleCandidate, fallback = "Special Event Invitati
 
   // Check if string looks like an uploaded raw filename (e.g. "Screenshot 2026...", "IMG_001.png", "upload_123.jpg")
   const isFilename =
-    /^(Screenshot|IMG_|image_|upload_|\d+_).*\.(png|jpe?g|webp|gif|svg|avif|heic)$/i.test(trimmed) ||
+    /^(Screenshot|IMG_|image_|upload_|template_|snapshot_|\d+_).*\.(png|jpe?g|webp|gif|svg|avif|heic)$/i.test(trimmed) ||
     /\.(png|jpe?g|webp|gif|svg|avif|heic)$/i.test(trimmed) ||
-    trimmed.startsWith("blob:");
+    trimmed.startsWith("blob:") ||
+    trimmed.startsWith("data:");
 
   if (isFilename) {
     return fallback;
@@ -291,7 +292,7 @@ const generateInvitationHtml = ({
   const btnColor = buttonColor || accent || "#2563eb";
   const btnRadius = Math.max(0, Math.min(30, parseInt(buttonRadius, 10) || 10));
   const safeButtonText = buttonText || "View Invitation & RSVP";
-  
+
   // Clean event title and alt text
   const cleanTitle = getCleanDisplayTitle(title, "Special Event Invitation");
   const cleanAltText = cleanTitle || "Event Invitation Card";
@@ -305,8 +306,7 @@ const generateInvitationHtml = ({
   }
 
   // Strict validation: Guard to ensure image src is valid for email clients
-  // ONLY allow HTTPS/HTTP URLs and CID references — reject raw Base64 data URIs
-  // (Gmail, Outlook, Yahoo strip/block inline Base64 images)
+  // ONLY allow valid HTTPS/HTTP URLs and CID references — reject raw Base64 data URIs and blob URLs
   const isValidImageUrl = Boolean(
     cardImageSrc &&
     typeof cardImageSrc === "string" &&
@@ -317,8 +317,7 @@ const generateInvitationHtml = ({
     !cardImageSrc.startsWith("blob:") &&
     !cardImageSrc.startsWith("file:") &&
     !cardImageSrc.trim().startsWith("data:") &&
-    (/^https?:\/\//i.test(cardImageSrc.trim()) ||
-     cardImageSrc.trim().startsWith("cid:"))
+    (/^https?:\/\//i.test(cardImageSrc.trim()) || cardImageSrc.trim().startsWith("cid:"))
   );
   const imageUrl = isValidImageUrl ? cardImageSrc.trim() : null;
 
@@ -360,9 +359,6 @@ const generateInvitationHtml = ({
       .content-padding {
         padding: 20px 16px !important;
       }
-      .hero-image-padding {
-        padding: 8px 12px 16px 12px !important;
-      }
       .mobile-title {
         font-size: 22px !important;
       }
@@ -376,7 +372,7 @@ const generateInvitationHtml = ({
         <!-- Main Card Container -->
         <table class="email-container" align="center" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; width: 100%; background-color: ${containerBg}; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08); border: 1px solid ${metaBoxBorder};">
           
-          <!-- ─── TOP BADGE & CLEAN EVENT TITLE HEADER (NO INLINE ICON) ─── -->
+          <!-- ─── TOP BADGE & CLEAN EVENT TITLE HEADER ─── -->
           <tr>
             <td style="padding: 28px 24px 10px 24px; text-align: center;">
               <span style="display: inline-block; background-color: ${accent}15; color: ${accent}; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; padding: 6px 16px; border-radius: 30px; border: 1px solid ${accent}30;">
@@ -398,24 +394,25 @@ const generateInvitationHtml = ({
             </td>
           </tr>
 
-          <!-- ─── 1. FULL INVITATION SNAPSHOT CARD / BANNER CARD (SAFE) ─── -->
+          <!-- ─── 1. FULL INVITATION SNAPSHOT CARD / BANNER CARD ─── -->
           ${imageUrl ? `
           <tr>
-            <td align="center" style="padding: 8px 16px 16px 16px;">
+            <td align="center" style="padding: 12px 16px 20px 16px;">
               <!--[if mso]>
               <table align="center" border="0" cellspacing="0" cellpadding="0" width="560">
               <tr>
-              <td align="center">
+              <td align="center" valign="top" width="560">
               <![endif]-->
               <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 0 auto; max-width: 560px;">
                 <tr>
-                  <td align="center">
-                    ${previewLink ? `<a href="${previewLink}" target="_blank" style="display: block; text-decoration: none;">` : ""}
+                  <td align="center" style="border-radius: 12px; overflow: hidden; background-color: ${cardIsDark ? "#1e293b" : "#f1f5f9"};">
+                    ${previewLink ? `<a href="${previewLink}" target="_blank" style="display: block; text-decoration: none; border: 0; outline: none;">` : ""}
                       <img 
                         src="${imageUrl}" 
                         alt="${cleanAltText}" 
                         width="560" 
-                        style="width: 100%; max-width: 560px; height: auto; display: block; margin: 0 auto; border-radius: 12px; border: 0; outline: none; text-decoration: none;" 
+                        border="0"
+                        style="display: block; width: 100%; max-width: 560px; height: auto; margin: 0 auto; border-radius: 12px; border: 0; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic; font-family: ${fontStack}; font-size: 15px; font-weight: 600; color: ${primaryText}; line-height: 1.4; text-align: center;" 
                       />
                     ${previewLink ? `</a>` : ""}
                   </td>
@@ -551,6 +548,9 @@ const generateInvitationHtml = ({
   `;
 };
 
+/**
+ * Send invitation emails with personalized tracking and robust image handling
+ */
 const sendInvitationEmails = async ({
   recipients,
   invitation,
@@ -604,30 +604,28 @@ const sendInvitationEmails = async ({
   const invitationTargetId = invitation?.id || invitation?.eventId || event?.id;
   const previewLink = `${baseUrl}/invitation/${invitationTargetId}`;
 
-  // Resolve card snapshot image & attachments
+  // Image source resolution & attachment setup
   let resolvedCardImageSrc = null;
   let localSnapshotFilePath = null;
 
   // 1. Direct snapshot URL provided
   const directSnapshotUrl = snapshotUrl || cardSnapshotUrl;
   if (directSnapshotUrl) {
-    resolvedCardImageSrc = resolvePublicImageUrl(directSnapshotUrl, trackBase);
-    const filename = path.basename(directSnapshotUrl);
-    const candidatePath = path.join(UPLOADS_DIR, filename);
-    if (fs.existsSync(candidatePath)) {
-      localSnapshotFilePath = candidatePath;
+    resolvedCardImageSrc = resolvePublicImageUrl(directSnapshotUrl, trackBase, baseUrl);
+    const discoveredPath = findLocalFilePath(directSnapshotUrl);
+    if (discoveredPath) {
+      localSnapshotFilePath = discoveredPath;
     }
   }
 
-  // 2. Base64 string provided: save as file to get local path and public URL
-  if (!resolvedCardImageSrc && cardImageBase64 && typeof cardImageBase64 === "string") {
+  // 2. Base64 snapshot provided: save as file to get persistent local path and public URL
+  if (cardImageBase64 && typeof cardImageBase64 === "string" && cardImageBase64.trim()) {
     try {
       const savedRes = await saveBase64Image(cardImageBase64, null, "invitation_snapshot");
       if (savedRes && savedRes.url) {
-        resolvedCardImageSrc = resolvePublicImageUrl(savedRes.url, trackBase);
-        const candidatePath = path.join(UPLOADS_DIR, savedRes.filename);
-        if (fs.existsSync(candidatePath)) {
-          localSnapshotFilePath = candidatePath;
+        resolvedCardImageSrc = resolvePublicImageUrl(savedRes.url, trackBase, baseUrl);
+        if (savedRes.filePath && fs.existsSync(savedRes.filePath)) {
+          localSnapshotFilePath = savedRes.filePath;
         }
       }
     } catch (err) {
@@ -636,7 +634,7 @@ const sendInvitationEmails = async ({
   }
 
   // 3. Fallback to event/invitation image across all possible fields if not already resolved
-  if (!resolvedCardImageSrc) {
+  if (!resolvedCardImageSrc && !localSnapshotFilePath) {
     const rawImage = (
       invitation?.imageUrl ||
       invitation?.cardImage ||
@@ -665,19 +663,17 @@ const sendInvitationEmails = async ({
         try {
           const savedRes = await saveBase64Image(rawImage, null, "event_cover");
           if (savedRes && savedRes.url) {
-            resolvedCardImageSrc = resolvePublicImageUrl(savedRes.url, trackBase);
-            const candidatePath = path.join(UPLOADS_DIR, savedRes.filename);
-            if (fs.existsSync(candidatePath)) {
-              localSnapshotFilePath = candidatePath;
+            resolvedCardImageSrc = resolvePublicImageUrl(savedRes.url, trackBase, baseUrl);
+            if (savedRes.filePath && fs.existsSync(savedRes.filePath)) {
+              localSnapshotFilePath = savedRes.filePath;
             }
           }
         } catch (e) {}
       } else {
-        resolvedCardImageSrc = resolvePublicImageUrl(rawImage, trackBase);
-        const filename = path.basename(rawImage);
-        const candidatePath = path.join(UPLOADS_DIR, filename);
-        if (fs.existsSync(candidatePath)) {
-          localSnapshotFilePath = candidatePath;
+        resolvedCardImageSrc = resolvePublicImageUrl(rawImage, trackBase, baseUrl);
+        const discoveredPath = findLocalFilePath(rawImage);
+        if (discoveredPath) {
+          localSnapshotFilePath = discoveredPath;
         }
       }
     }
@@ -692,23 +688,41 @@ const sendInvitationEmails = async ({
   let htmlCardImageSrc = null;
 
   if (localSnapshotFilePath && fs.existsSync(localSnapshotFilePath)) {
+    const cidIdentifier = `invitation-card-${Date.now()}@invitehub.com`;
+    const ext = path.extname(localSnapshotFilePath).toLowerCase().replace(".", "");
+    const mimeMap = {
+      png: "image/png",
+      jpg: "image/jpeg",
+      jpeg: "image/jpeg",
+      webp: "image/webp",
+      gif: "image/gif",
+      svg: "image/svg+xml",
+    };
+    const mimeType = mimeMap[ext] || "image/png";
+
     attachments.push({
-      filename: "invitation-snapshot.png",
+      filename: `invitation-card.${ext || "png"}`,
       path: localSnapshotFilePath,
-      cid: "invitation-snapshot",
+      cid: cidIdentifier,
+      contentType: mimeType,
+      contentDisposition: "inline",
+      headers: {
+        "Content-ID": `<${cidIdentifier}>`,
+        "X-Attachment-Id": cidIdentifier,
+      },
     });
-    // If it's a public HTTPS/HTTP URL, use it directly, or fallback to cid:invitation-snapshot
-    if (resolvedCardImageSrc && /^https?:\/\//i.test(resolvedCardImageSrc)) {
+
+    // If resolvedCardImageSrc is a verified public HTTPS URL (not localhost), use it, otherwise use cid: identifier
+    if (resolvedCardImageSrc && /^https?:\/\//i.test(resolvedCardImageSrc) && !resolvedCardImageSrc.includes("localhost") && !resolvedCardImageSrc.includes("127.0.0.1")) {
       htmlCardImageSrc = resolvedCardImageSrc;
     } else {
-      htmlCardImageSrc = "cid:invitation-snapshot";
+      htmlCardImageSrc = `cid:${cidIdentifier}`;
     }
-  } else if (resolvedCardImageSrc && /^https?:\/\//i.test(resolvedCardImageSrc)) {
-    // Only use public HTTPS/HTTP URLs — never raw Base64 data URIs
+  } else if (resolvedCardImageSrc && /^https?:\/\//i.test(resolvedCardImageSrc) && !resolvedCardImageSrc.includes("localhost") && !resolvedCardImageSrc.includes("127.0.0.1")) {
     htmlCardImageSrc = resolvedCardImageSrc;
   }
 
-  // Strict SMTP transport
+  // SMTP transport
   const transporter = await getTransporter();
 
   // Normalize recipient list to object format: [{ email, guestId, name }]
@@ -731,7 +745,7 @@ const sendInvitationEmails = async ({
   let sentCount = 0;
   let lastMessageId = null;
 
-  console.log(`[EmailService] Preparing email dispatch for: "${displayTitle}", resolved image: ${htmlCardImageSrc || "(fallback)"}, attachments: ${attachments.length}, recipients: ${normalizedRecipients.length}`);
+  console.log(`[EmailService] Preparing email dispatch for: "${displayTitle}", imageSrc: ${htmlCardImageSrc || "(fallback)"}, attachments: ${attachments.length}, recipients: ${normalizedRecipients.length}`);
 
   // Dispatch individual emails with personalized tracking pixels and click tracking
   for (const recipient of normalizedRecipients) {
@@ -790,7 +804,7 @@ const sendInvitationEmails = async ({
     }
   }
 
-  console.log(`[EmailService] Dispatched ${sentCount} personalized invitation email(s) with exact card design snapshot and tracking. Last MessageId: ${lastMessageId}`);
+  console.log(`[EmailService] Dispatched ${sentCount} personalized invitation email(s). Last MessageId: ${lastMessageId}`);
 
   return {
     success: true,
@@ -805,6 +819,7 @@ module.exports = {
   sendInvitationEmails,
   generateInvitationHtml,
   resolvePublicImageUrl,
+  getCleanDisplayTitle,
   isDarkColor,
+  sendViaResend,
 };
-

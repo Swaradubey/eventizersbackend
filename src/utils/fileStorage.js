@@ -8,6 +8,15 @@ const UPLOADS_DIR = isServerless
   ? path.join(os.tmpdir(), "invitehub-uploads")
   : path.join(__dirname, "../../uploads");
 
+// Possible paths for frontend static assets (/public/assets)
+const PUBLIC_ASSET_DIRS = [
+  path.join(__dirname, "../../../public"),
+  path.join(__dirname, "../../../invitehub/public"),
+  path.join(__dirname, "../../public"),
+  path.join(process.cwd(), "public"),
+  path.join(process.cwd(), "invitehub/public"),
+];
+
 // Ensure uploads directory exists
 if (!fs.existsSync(UPLOADS_DIR)) {
   try {
@@ -160,12 +169,67 @@ const getFileExtension = (mimetype = "", originalname = "") => {
 };
 
 /**
+ * Check if an image path or URL corresponds to a local file on disk
+ * (either in the backend uploads folder or frontend public assets folder).
+ * Returns the absolute local file path if found, or null otherwise.
+ * @param {string} imagePathOrUrl
+ * @returns {string|null}
+ */
+const findLocalFilePath = (imagePathOrUrl) => {
+  if (!imagePathOrUrl || typeof imagePathOrUrl !== "string") {
+    return null;
+  }
+
+  const trimmed = imagePathOrUrl.trim();
+  if (!trimmed || trimmed.startsWith("data:") || trimmed.startsWith("blob:")) {
+    return null;
+  }
+
+  // 1. Check if it references an uploaded file in UPLOADS_DIR
+  const isUploadPath =
+    trimmed.includes("/uploads/") ||
+    trimmed.startsWith("uploads/") ||
+    /^(template_|upload_|event_cover_|invitation_|snapshot_).*\.(png|jpe?g|webp|gif|svg|avif|heic)$/i.test(trimmed);
+
+  if (isUploadPath) {
+    const filename = path.basename(trimmed.split("?")[0].split("#")[0]);
+    const candidatePath = path.join(UPLOADS_DIR, filename);
+    if (fs.existsSync(candidatePath)) {
+      return candidatePath;
+    }
+  }
+
+  // 2. Check if it references a static template asset (e.g. /assets/templates/birthday.jpg)
+  if (trimmed.includes("/assets/") || trimmed.startsWith("assets/")) {
+    const relativeAssetPath = trimmed
+      .replace(/^https?:\/\/[^/]+/i, "")
+      .replace(/^\/+/, ""); // e.g. "assets/templates/birthday.jpg"
+    
+    for (const publicDir of PUBLIC_ASSET_DIRS) {
+      const candidatePath = path.join(publicDir, relativeAssetPath);
+      if (fs.existsSync(candidatePath)) {
+        return candidatePath;
+      }
+    }
+  }
+
+  // 3. Fallback: check if the direct path exists on disk
+  try {
+    if (path.isAbsolute(trimmed) && fs.existsSync(trimmed)) {
+      return trimmed;
+    }
+  } catch (_) {}
+
+  return null;
+};
+
+/**
  * Save an uploaded file buffer to public static storage.
  * If a cloud storage provider is configured, the returned URL will be the direct public CDN URL.
  * @param {Object} file - Multer file object { buffer, mimetype, originalname }
  * @param {Object} [req] - Express request object
  * @param {string} [prefix="upload"] - Filename prefix
- * @returns {{ success: boolean, url: string, fileUrl: string, filename: string }}
+ * @returns {{ success: boolean, url: string, fileUrl: string, filename: string, filePath: string }}
  */
 const saveUploadedFile = async (file, req, prefix = "upload") => {
   if (!file || !file.buffer) {
@@ -188,17 +252,18 @@ const saveUploadedFile = async (file, req, prefix = "upload") => {
   const baseUrl = getPublicBaseUrl(req);
   const fileUrl = `${baseUrl}/uploads/${filename}`;
 
-  // Warn if the generated URL is a localhost link (won't work in email clients)
+  // Warn if the generated URL is a localhost link (won't work in external email clients without CID)
   try {
     const parsed = new URL(fileUrl);
     if (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1") {
-      console.warn(`[FileStorage] ⚠️  Generated localhost image URL: ${fileUrl} — this will NOT render in email clients.`);
+      console.warn(`[FileStorage] ⚠️  Generated localhost image URL: ${fileUrl} — will use CID inline attachment for email compatibility.`);
     }
   } catch (_) {}
 
   return {
     success: true,
     filename,
+    filePath,
     url: fileUrl,
     fileUrl,
   };
@@ -209,7 +274,7 @@ const saveUploadedFile = async (file, req, prefix = "upload") => {
  * @param {string} base64String - Data URI or raw base64
  * @param {Object} [req] - Express request object
  * @param {string} [prefix="snapshot"] - Filename prefix
- * @returns {Promise<{ success: boolean, url: string, fileUrl: string, filename: string } | null>}
+ * @returns {Promise<{ success: boolean, url: string, fileUrl: string, filename: string, filePath: string } | null>}
  */
 const saveBase64Image = async (base64String, req, prefix = "snapshot") => {
   if (!base64String || typeof base64String !== "string") {
@@ -221,9 +286,11 @@ const saveBase64Image = async (base64String, req, prefix = "snapshot") => {
 
   // If it's already a full HTTP/HTTPS URL, return as is
   if (/^https?:\/\//i.test(trimmed)) {
+    const localPath = findLocalFilePath(trimmed);
     return {
       success: true,
       filename: path.basename(trimmed),
+      filePath: localPath || "",
       url: trimmed,
       fileUrl: trimmed,
     };
@@ -253,5 +320,8 @@ module.exports = {
   saveUploadedFile,
   saveBase64Image,
   getPublicBaseUrl,
+  isValidPublicUrl,
+  findLocalFilePath,
   UPLOADS_DIR,
+  PUBLIC_ASSET_DIRS,
 };
