@@ -111,7 +111,7 @@ const isDarkColor = (hex) => {
 };
 
 /**
- * Helper to check if a string is a valid public web URL (HTTP/HTTPS) and not a placeholder
+ * Helper to check if a string is a valid public web URL (HTTP/HTTPS) and not a placeholder or localhost.
  * @param {string} url
  * @returns {boolean}
  */
@@ -119,7 +119,23 @@ const isValidPublicUrl = (url) => {
   if (!url || typeof url !== "string") return false;
   const trimmed = url.trim();
   if (!trimmed || !/^https?:\/\//i.test(trimmed)) return false;
-  if (trimmed.includes("your-backend.vercel.app") || trimmed.includes("example.com")) return false;
+  if (
+    trimmed.includes("your-backend.vercel.app") ||
+    trimmed.includes("example.com") ||
+    trimmed.includes("your-app") ||
+    trimmed.includes("placeholder")
+  ) {
+    return false;
+  }
+  // Reject localhost / 127.0.0.1 — unreachable from external email clients
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1") {
+      return false;
+    }
+  } catch (_) {
+    return false;
+  }
   return true;
 };
 
@@ -139,65 +155,78 @@ const resolvePublicImageUrl = (coverImage, baseUrl = "http://localhost:5000") =>
     return null;
   }
 
-  // 1. Strip out / ignore client-side blob URLs or local file paths
+  // 1. Reject raw Base64 data URIs — Gmail, Outlook, Yahoo strip/block inline Base64 images
+  if (trimmed.startsWith("data:")) {
+    console.warn("[EmailService] ⚠️  Rejected raw Base64 data URI for email image — must upload to public storage first.");
+    return null;
+  }
+
+  // 2. Strip out / ignore client-side blob URLs or local file paths
   if (trimmed.startsWith("blob:") || trimmed.startsWith("file:")) {
     return null;
   }
 
-  // Determine canonical public base URL
+  // Determine canonical public base URL (prefer backend / storage / CDN where images are hosted)
   const publicBaseUrl = (
-    (isValidPublicUrl(process.env.NEXT_PUBLIC_APP_URL) && process.env.NEXT_PUBLIC_APP_URL) ||
-    (isValidPublicUrl(process.env.PUBLIC_APP_URL) && process.env.PUBLIC_APP_URL) ||
+    (isValidPublicUrl(process.env.PUBLIC_STORAGE_URL) && process.env.PUBLIC_STORAGE_URL) ||
+    (isValidPublicUrl(process.env.PUBLIC_CDN_URL) && process.env.PUBLIC_CDN_URL) ||
     (isValidPublicUrl(process.env.PUBLIC_BACKEND_URL) && process.env.PUBLIC_BACKEND_URL) ||
     (isValidPublicUrl(process.env.BACKEND_URL) && process.env.BACKEND_URL) ||
+    (isValidPublicUrl(process.env.PUBLIC_URL) && process.env.PUBLIC_URL) ||
+    (isValidPublicUrl(process.env.PUBLIC_APP_URL) && process.env.PUBLIC_APP_URL) ||
+    (isValidPublicUrl(process.env.NEXT_PUBLIC_APP_URL) && process.env.NEXT_PUBLIC_APP_URL) ||
     (isValidPublicUrl(process.env.FRONTEND_URL) && process.env.FRONTEND_URL) ||
     (isValidPublicUrl(baseUrl) && baseUrl) ||
-    "http://localhost:5000"
-  ).replace(/\/+$/, "");
+    null
+  );
 
-  // 2. Full HTTPS/HTTP URL (e.g. Cloudinary, AWS S3, Supabase, Firebase, CDN)
+  // 3. Full HTTPS/HTTP URL (e.g. Cloudinary, AWS S3, Supabase, Firebase, CDN)
   if (/^https?:\/\//i.test(trimmed)) {
     // If it points to a local backend on localhost/127.0.0.1 and a public production URL is configured, normalize origin
-    const publicOrigin = (
-      (isValidPublicUrl(process.env.NEXT_PUBLIC_APP_URL) && process.env.NEXT_PUBLIC_APP_URL) ||
-      (isValidPublicUrl(process.env.PUBLIC_APP_URL) && process.env.PUBLIC_APP_URL) ||
-      (isValidPublicUrl(process.env.PUBLIC_BACKEND_URL) && process.env.PUBLIC_BACKEND_URL) ||
-      (isValidPublicUrl(process.env.BACKEND_URL) && process.env.BACKEND_URL) ||
-      null
-    );
-
-    if (publicOrigin) {
-      try {
-        const parsed = new URL(trimmed);
-        if (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1") {
-          const publicParsed = new URL(publicOrigin);
+    try {
+      const parsed = new URL(trimmed);
+      if (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1") {
+        if (publicBaseUrl) {
+          const publicParsed = new URL(publicBaseUrl);
           parsed.protocol = publicParsed.protocol;
-          parsed.host = publicParsed.host;
+          parsed.hostname = publicParsed.hostname;
+          parsed.port = publicParsed.port;
           return parsed.toString();
         }
-      } catch (e) {}
-    }
+        // No public URL configured — localhost image will NOT render in email clients
+        console.warn(`[EmailService] ⚠️  Localhost image URL detected: ${trimmed} — this will NOT render in email clients. Returning null for graceful fallback.`);
+        return null;
+      }
+    } catch (e) {}
     return trimmed;
   }
 
-  // 3. Relative uploads or assets path starting with /
-  if (trimmed.startsWith("/")) {
-    return `${publicBaseUrl}${trimmed}`;
+  // If no valid public base URL is available, we can't resolve relative paths
+  if (!publicBaseUrl) {
+    console.warn(`[EmailService] ⚠️  Cannot resolve relative image path "${trimmed}" — no public base URL configured.`);
+    return null;
   }
 
-  // 4. Relative paths like uploads/..., assets/..., templates/..., images/...
+  const cleanBase = publicBaseUrl.replace(/\/+$/, "");
+
+  // 4. Relative uploads or assets path starting with /
+  if (trimmed.startsWith("/")) {
+    return `${cleanBase}${trimmed}`;
+  }
+
+  // 5. Relative paths like uploads/..., assets/..., templates/..., images/...
   if (
     trimmed.startsWith("uploads/") ||
     trimmed.startsWith("assets/") ||
     trimmed.startsWith("templates/") ||
     trimmed.startsWith("images/")
   ) {
-    return `${publicBaseUrl}/${trimmed}`;
+    return `${cleanBase}/${trimmed}`;
   }
 
-  // 5. Raw filename (e.g. "image_12345.png", "Screenshot 2026...png")
+  // 6. Raw filename (e.g. "image_12345.png", "Screenshot 2026...png")
   if (/\.(png|jpe?g|webp|gif|svg|avif|heic)$/i.test(trimmed)) {
-    return `${publicBaseUrl}/uploads/${trimmed.replace(/^\/+/, "")}`;
+    return `${cleanBase}/uploads/${trimmed.replace(/^\/+/, "")}`;
   }
 
   return null;
@@ -275,7 +304,9 @@ const generateInvitationHtml = ({
     fontStack = "'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
   }
 
-  // Strict validation: Guard to ensure image src is valid for email clients (must be HTTPS/HTTP, CID, or inline data URL)
+  // Strict validation: Guard to ensure image src is valid for email clients
+  // ONLY allow HTTPS/HTTP URLs and CID references — reject raw Base64 data URIs
+  // (Gmail, Outlook, Yahoo strip/block inline Base64 images)
   const isValidImageUrl = Boolean(
     cardImageSrc &&
     typeof cardImageSrc === "string" &&
@@ -285,9 +316,9 @@ const generateInvitationHtml = ({
     !cardImageSrc.startsWith("/") &&
     !cardImageSrc.startsWith("blob:") &&
     !cardImageSrc.startsWith("file:") &&
+    !cardImageSrc.trim().startsWith("data:") &&
     (/^https?:\/\//i.test(cardImageSrc.trim()) ||
-     cardImageSrc.trim().startsWith("cid:") ||
-     cardImageSrc.trim().startsWith("data:image/"))
+     cardImageSrc.trim().startsWith("cid:"))
   );
   const imageUrl = isValidImageUrl ? cardImageSrc.trim() : null;
 
@@ -343,7 +374,7 @@ const generateInvitationHtml = ({
     <tr>
       <td align="center">
         <!-- Main Card Container -->
-        <table class="email-container" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 580px; background-color: ${containerBg}; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08); border: 1px solid ${metaBoxBorder};">
+        <table class="email-container" align="center" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; width: 100%; background-color: ${containerBg}; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08); border: 1px solid ${metaBoxBorder};">
           
           <!-- ─── TOP BADGE & CLEAN EVENT TITLE HEADER (NO INLINE ICON) ─── -->
           <tr>
@@ -383,7 +414,8 @@ const generateInvitationHtml = ({
                       <img 
                         src="${imageUrl}" 
                         alt="${cleanAltText}" 
-                        style="max-width: 100%; height: auto; display: block; margin: 0 auto; border-radius: 12px; outline: none; border: 0;" 
+                        width="560" 
+                        style="width: 100%; max-width: 560px; height: auto; display: block; margin: 0 auto; border-radius: 12px; border: 0; outline: none; text-decoration: none;" 
                       />
                     ${previewLink ? `</a>` : ""}
                   </td>
@@ -671,7 +703,8 @@ const sendInvitationEmails = async ({
     } else {
       htmlCardImageSrc = "cid:invitation-snapshot";
     }
-  } else if (resolvedCardImageSrc && (/^https?:\/\//i.test(resolvedCardImageSrc) || resolvedCardImageSrc.startsWith("data:image/"))) {
+  } else if (resolvedCardImageSrc && /^https?:\/\//i.test(resolvedCardImageSrc)) {
+    // Only use public HTTPS/HTTP URLs — never raw Base64 data URIs
     htmlCardImageSrc = resolvedCardImageSrc;
   }
 

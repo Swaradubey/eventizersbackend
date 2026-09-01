@@ -146,6 +146,7 @@ const generateEventWithAI = async (req, res) => {
       ${guestListName || guestListId ? `Target Guest List: ${guestListName || guestListId}` : ''}
 
       Generate a creative, detailed event structure including both event parameters and invitation design options.
+      Do not generate sample or placeholder guests. Keep guest lists empty.
       Return the response STRICTLY as a JSON object with NO markdown formatting, NO \`\`\`json block, just raw JSON matching this schema:
       {
         "title": "string (the catchy event title)",
@@ -164,7 +165,8 @@ const generateEventWithAI = async (req, res) => {
         "titleSize": "number (an integer between 28 and 64)",
         "buttonText": "string (button text, e.g. 'RSVP Now')",
         "buttonColor": "string (Hex color code, e.g. #FF5733)",
-        "buttonRadius": "number (an integer between 0 and 24)"
+        "buttonRadius": "number (an integer between 0 and 24)",
+        "guests": []
       }
     `;
 
@@ -266,57 +268,13 @@ const generateEventWithAI = async (req, res) => {
     });
     console.log(`Invitation design saved successfully with ID: ${newInvitation.id}`);
 
-    // Automatically seed mock guests if a guest list was selected
-    const selectedList = guestListName || guestListId;
-    if (selectedList && selectedList !== '') {
-      let mockGuests = [];
-      if (selectedList.includes('Family')) {
-        mockGuests = [
-          { name: 'John Doe', email: 'john.doe@example.com' },
-          { name: 'Jane Doe', email: 'jane.doe@example.com' },
-          { name: 'Uncle Bob', email: 'bob.uncle@example.com' },
-        ];
-      } else if (selectedList.includes('Friends')) {
-        mockGuests = [
-          { name: 'Alice Smith', email: 'alice.smith@example.com' },
-          { name: 'Charlie Brown', email: 'charlie.brown@example.com' },
-          { name: 'David Miller', email: 'david.miller@example.com' },
-        ];
-      } else if (selectedList.includes('Colleagues') || selectedList.includes('Work')) {
-        mockGuests = [
-          { name: 'Manager Mark', email: 'mark.manager@example.com' },
-          { name: 'Colleague Kate', email: 'kate.colleague@example.com' },
-        ];
-      } else if (selectedList.includes('Neighbors')) {
-        mockGuests = [
-          { name: 'Neighbor Ned', email: 'ned.neighbor@example.com' },
-          { name: 'Nancy Nextdoor', email: 'nancy.nextdoor@example.com' },
-        ];
-      } else if (selectedList.includes('VIP')) {
-        mockGuests = [
-          { name: 'CEO Clara', email: 'clara.ceo@example.com' },
-          { name: 'President Paul', email: 'paul.president@example.com' },
-        ];
-      }
-
-      if (mockGuests.length > 0) {
-        await prisma.guest.createMany({
-          data: mockGuests.map((g) => ({
-            eventId: newEvent.id,
-            name: g.name,
-            email: g.email,
-            status: 'invited',
-          })),
-        });
-        console.log(`Seeded ${mockGuests.length} mock guests for the event.`);
-      }
-    }
-
     return res.status(201).json({
       success: true,
       message: 'Event generated successfully by AI',
-      event: newEvent,
+      event: { ...newEvent, totalGuests: 0, guests: [] },
       invitation: newInvitation,
+      guests: [],
+      guestList: [],
     });
   } catch (error) {
     console.error('AI Generation Error / Gemini failure:', error);
@@ -373,6 +331,7 @@ const generateStructuredEventWithAI = async (req, res) => {
       ${guestListName ? `Target Guest List: ${guestListName}` : ''}
 
       Generate a creative, detailed event plan.
+      Do not generate sample or placeholder guests. Keep guest lists empty.
       Return the response STRICTLY as a JSON object with NO markdown formatting, NO \`\`\`json block, just raw JSON matching this schema:
       {
         "title": "string (creative, catchy event title)",
@@ -383,7 +342,8 @@ const generateStructuredEventWithAI = async (req, res) => {
         "food": ["string (3-5 food and beverage ideas)"],
         "activities": ["string (3-5 event activities/games)"],
         "checklist": ["string (3-5 todo list tasks for setting up the event)"],
-        "estimatedBudget": "string (an estimated budget or range, e.g., '$500 - $1,000')"
+        "estimatedBudget": "string (an estimated budget or range, e.g., '$500 - $1,000')",
+        "guests": []
       }
     `;
 
@@ -504,61 +464,16 @@ ${aiData.checklist?.map((item) => `• ${item}`).join('\n') || 'None'}`;
       console.warn("Could not auto-create invitation:", invErr.message);
     }
 
-    // Seed mock guests if guest list was selected
-    const selectedList = guestListName || req.body.guestListId;
-    if (selectedList && selectedList !== '') {
-      let mockGuests = [];
-      if (selectedList.includes('Family')) {
-        mockGuests = [
-          { name: 'John Doe', email: 'john.doe@example.com' },
-          { name: 'Jane Doe', email: 'jane.doe@example.com' },
-          { name: 'Uncle Bob', email: 'bob.uncle@example.com' },
-        ];
-      } else if (selectedList.includes('Friends')) {
-        mockGuests = [
-          { name: 'Alice Smith', email: 'alice.smith@example.com' },
-          { name: 'Charlie Brown', email: 'charlie.brown@example.com' },
-          { name: 'David Miller', email: 'david.miller@example.com' },
-        ];
-      } else if (selectedList.includes('Colleagues') || selectedList.includes('Work')) {
-        mockGuests = [
-          { name: 'Manager Mark', email: 'mark.manager@example.com' },
-          { name: 'Colleague Kate', email: 'kate.colleague@example.com' },
-        ];
-      } else if (selectedList.includes('Neighbors')) {
-        mockGuests = [
-          { name: 'Neighbor Ned', email: 'ned.neighbor@example.com' },
-          { name: 'Nancy Nextdoor', email: 'nancy.nextdoor@example.com' },
-        ];
-      } else if (selectedList.includes('VIP')) {
-        mockGuests = [
-          { name: 'CEO Clara', email: 'clara.ceo@example.com' },
-          { name: 'President Paul', email: 'paul.president@example.com' },
-        ];
-      }
-
-      if (mockGuests.length > 0) {
-        try {
-          await prisma.guest.createMany({
-            data: mockGuests.map((g) => ({
-              eventId: newEvent.id,
-              name: g.name,
-              email: g.email,
-              status: 'invited',
-            })),
-          });
-        } catch (guestErr) {
-          console.warn("Could not seed mock guests:", guestErr.message);
-        }
-      }
-    }
-
     return res.status(201).json({
       success: true,
       message: 'Event generated and saved to dashboard successfully',
-      event: newEvent,
+      event: { ...newEvent, totalGuests: 0, guests: [] },
       invitation: newInvitation,
+      guests: [],
+      guestList: [],
       ...aiData,
+      guests: [],
+      guestList: [],
     });
   } catch (error) {
     console.error('AI Generation Error / Gemini failure:', error);

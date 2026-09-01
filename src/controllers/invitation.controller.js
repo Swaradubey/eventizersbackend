@@ -500,7 +500,7 @@ const sendInvitation = async (req, res) => {
       if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("/uploads/")) {
         resolvedSnapshotUrl = trimmed;
       } else if (trimmed.startsWith("data:") || trimmed.length > 300) {
-        resolvedBase64 = trimmed;
+        // Always upload Base64 to file storage first — never pass raw Base64 to email template
         try {
           const uploadRes = await saveBase64Image(trimmed, req, "invitation_snapshot");
           if (uploadRes && uploadRes.url) {
@@ -509,6 +509,7 @@ const sendInvitation = async (req, res) => {
           }
         } catch (uploadErr) {
           console.warn("[InvitationController] Could not save Base64 snapshot to file storage:", uploadErr.message);
+          console.warn("[InvitationController] ⚠️  Email will use themed fallback banner instead of card image.");
         }
       }
     }
@@ -561,6 +562,7 @@ const sendInvitation = async (req, res) => {
     );
 
     // Send emails via Nodemailer service with personalized tracking pixel and clean HTTPS card image
+    // NOTE: Never pass raw Base64 — only pass the resolved public storage URL
     const sendResult = await emailService.sendInvitationEmails({
       recipients: resolvedGuests.length > 0 ? resolvedGuests : targetEmails,
       invitation,
@@ -568,7 +570,6 @@ const sendInvitation = async (req, res) => {
       senderName: req.user.name || req.user.email,
       frontendUrl,
       snapshotUrl: resolvedSnapshotUrl,
-      cardImageBase64: resolvedBase64 || cardImageBase64,
       trackingBaseUrl,
     });
 
@@ -620,7 +621,6 @@ const sendInvitationToGuests = async (req, res) => {
     // Resolve snapshot image URL (convert Base64 if needed) for email dispatch
     const rawSnapshot = snapshot || cardImageBase64 || snapshotUrl || cardSnapshotUrl || null;
     let resolvedSnapshotUrl = null;
-    let resolvedBase64 = null;
 
     console.log(`[InvitationController] Dispatching to guests for invitation ID: ${invitationId}, imageUrl: ${invitation.imageUrl || "(none)"}, snapshot payload size: ${rawSnapshot ? `${(rawSnapshot.length / 1024).toFixed(1)} KB` : "0 KB"}`);
 
@@ -629,7 +629,7 @@ const sendInvitationToGuests = async (req, res) => {
       if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("/uploads/")) {
         resolvedSnapshotUrl = trimmed;
       } else if (trimmed.startsWith("data:") || trimmed.length > 300) {
-        resolvedBase64 = trimmed;
+        // Always upload Base64 to file storage first — never pass raw Base64 to email template
         try {
           const uploadRes = await saveBase64Image(trimmed, req, "invitation_snapshot");
           if (uploadRes && uploadRes.url) {
@@ -638,6 +638,7 @@ const sendInvitationToGuests = async (req, res) => {
           }
         } catch (uploadErr) {
           console.warn("[InvitationController] Could not save Base64 snapshot to file storage:", uploadErr.message);
+          console.warn("[InvitationController] ⚠️  Email will use themed fallback banner instead of card image.");
         }
       }
     }
@@ -680,6 +681,7 @@ const sendInvitationToGuests = async (req, res) => {
       "http://localhost:3000"
     );
 
+    // NOTE: Never pass raw Base64 — only pass the resolved public storage URL
     const sendResult = await emailService.sendInvitationEmails({
       recipients: resolvedGuests.length > 0 ? resolvedGuests : targetEmails,
       invitation,
@@ -687,7 +689,6 @@ const sendInvitationToGuests = async (req, res) => {
       senderName: req.user.name || req.user.email,
       frontendUrl,
       snapshotUrl: resolvedSnapshotUrl,
-      cardImageBase64: resolvedBase64 || cardImageBase64,
       trackingBaseUrl,
     });
 

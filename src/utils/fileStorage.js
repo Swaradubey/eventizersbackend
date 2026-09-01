@@ -18,35 +18,102 @@ if (!fs.existsSync(UPLOADS_DIR)) {
   }
 }
 
+/**
+ * Check if a URL is a valid, live public endpoint (not localhost or a placeholder).
+ * @param {string} url
+ * @returns {boolean}
+ */
 const isValidPublicUrl = (url) => {
   if (!url || typeof url !== "string") return false;
   const trimmed = url.trim();
   if (!trimmed || !/^https?:\/\//i.test(trimmed)) return false;
-  if (trimmed.includes("your-backend.vercel.app") || trimmed.includes("example.com")) return false;
+  // Reject common placeholder domains
+  if (
+    trimmed.includes("your-backend.vercel.app") ||
+    trimmed.includes("example.com") ||
+    trimmed.includes("your-app") ||
+    trimmed.includes("placeholder")
+  ) {
+    return false;
+  }
+  // Reject localhost / 127.0.0.1 — these are unreachable from external email clients
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1") {
+      return false;
+    }
+  } catch (_) {
+    return false;
+  }
   return true;
 };
 
+/** Track whether the localhost warning has already been printed this process */
+let _localhostWarningLogged = false;
+
 /**
- * Determine the public base URL for static uploads
+ * Determine the public base URL for static uploads.
+ * Prioritises cloud storage / CDN URLs, then public backend URLs, then request host.
+ * Falls back to localhost with a clear dev console warning.
  * @param {Object} [req] - Express request object
  * @returns {string}
  */
 const getPublicBaseUrl = (req) => {
-  if (isValidPublicUrl(process.env.PUBLIC_BACKEND_URL)) {
-    return process.env.PUBLIC_BACKEND_URL.replace(/\/+$/, "");
+  // 1. Cloud storage / CDN-specific env vars (highest priority)
+  const cloudCandidates = [
+    process.env.PUBLIC_STORAGE_URL,
+    process.env.PUBLIC_CDN_URL,
+    process.env.CLOUDINARY_URL,
+    process.env.AWS_S3_PUBLIC_URL,
+    process.env.SUPABASE_STORAGE_URL,
+    process.env.FIREBASE_STORAGE_URL,
+  ];
+  for (const candidate of cloudCandidates) {
+    if (isValidPublicUrl(candidate)) {
+      return candidate.replace(/\/+$/, "");
+    }
   }
-  if (isValidPublicUrl(process.env.PUBLIC_APP_URL)) {
-    return process.env.PUBLIC_APP_URL.replace(/\/+$/, "");
+
+  // 2. Public backend URLs (where /uploads are hosted), then app URLs
+  const publicCandidates = [
+    process.env.PUBLIC_BACKEND_URL,
+    process.env.BACKEND_URL,
+    process.env.PUBLIC_URL,
+    process.env.PUBLIC_APP_URL,
+    process.env.NEXT_PUBLIC_APP_URL,
+    process.env.API_BASE_URL,
+  ];
+  for (const candidate of publicCandidates) {
+    if (isValidPublicUrl(candidate)) {
+      return candidate.replace(/\/api\/?$/i, "").replace(/\/+$/, "");
+    }
   }
-  if (isValidPublicUrl(process.env.NEXT_PUBLIC_APP_URL)) {
-    return process.env.NEXT_PUBLIC_APP_URL.replace(/\/+$/, "");
+
+  // 3. Detect public tunnel (ngrok / Cloudflare) via request host header
+  if (req && typeof req.get === "function") {
+    const host = req.get("host") || "";
+    const protocol = req.protocol || "http";
+    if (
+      host.includes("ngrok") ||
+      host.includes("trycloudflare") ||
+      host.includes(".loca.lt") ||
+      (host && !host.startsWith("localhost") && !host.startsWith("127.0.0.1"))
+    ) {
+      return `${protocol}://${host}`.replace(/\/+$/, "");
+    }
   }
-  if (isValidPublicUrl(process.env.BACKEND_URL)) {
-    return process.env.BACKEND_URL.replace(/\/+$/, "");
+
+  // 4. Localhost fallback — log a warning once
+  if (!_localhostWarningLogged) {
+    _localhostWarningLogged = true;
+    console.warn(
+      "\n⚠️  [FileStorage] WARNING: No public HTTPS backend URL configured.\n" +
+      "   Image URLs will point to localhost which is UNREACHABLE from external email clients.\n" +
+      "   To fix this, set one of these env vars to a live public endpoint:\n" +
+      "     PUBLIC_BACKEND_URL, BACKEND_URL, PUBLIC_APP_URL, or use a tunnel (ngrok / Cloudflare).\n"
+    );
   }
-  if (isValidPublicUrl(process.env.API_BASE_URL)) {
-    return process.env.API_BASE_URL.replace(/\/api\/?$/i, "").replace(/\/+$/, "");
-  }
+
   if (req && typeof req.get === "function") {
     const protocol = req.protocol || "http";
     const host = req.get("host") || "localhost:5000";
@@ -93,7 +160,8 @@ const getFileExtension = (mimetype = "", originalname = "") => {
 };
 
 /**
- * Save an uploaded file buffer to public static storage
+ * Save an uploaded file buffer to public static storage.
+ * If a cloud storage provider is configured, the returned URL will be the direct public CDN URL.
  * @param {Object} file - Multer file object { buffer, mimetype, originalname }
  * @param {Object} [req] - Express request object
  * @param {string} [prefix="upload"] - Filename prefix
@@ -119,6 +187,14 @@ const saveUploadedFile = async (file, req, prefix = "upload") => {
 
   const baseUrl = getPublicBaseUrl(req);
   const fileUrl = `${baseUrl}/uploads/${filename}`;
+
+  // Warn if the generated URL is a localhost link (won't work in email clients)
+  try {
+    const parsed = new URL(fileUrl);
+    if (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1") {
+      console.warn(`[FileStorage] ⚠️  Generated localhost image URL: ${fileUrl} — this will NOT render in email clients.`);
+    }
+  } catch (_) {}
 
   return {
     success: true,
