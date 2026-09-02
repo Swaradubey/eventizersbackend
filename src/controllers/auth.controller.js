@@ -348,6 +348,124 @@ const googleCallback = async (req, res) => {
   }
 };
 
+
+const googleMobileLogin = async (req, res) => {
+  try {
+    const { idToken, accessToken } = req.body;
+
+    if (!idToken && !accessToken) {
+      return res.status(400).json({
+        success: false,
+        error: "idToken or accessToken is required for Google mobile login.",
+      });
+    }
+
+    let email = null;
+    let name = null;
+
+    // 1. If idToken is provided, verify using Google's tokeninfo API
+    if (idToken) {
+      const googleVerifyRes = await fetch(
+        `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`
+      );
+
+      if (!googleVerifyRes.ok) {
+        const errText = await googleVerifyRes.text();
+        console.error("[Google Mobile Auth] ID Token verification failed:", errText);
+        return res.status(401).json({
+          success: false,
+          error: "Invalid Google ID token.",
+        });
+      }
+
+      const payload = await googleVerifyRes.json();
+      email = payload.email;
+      name = payload.name;
+    } else if (accessToken) {
+      // 2. If accessToken is provided, fetch profile from Google userinfo API
+      const profileRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (!profileRes.ok) {
+        const errText = await profileRes.text();
+        console.error("[Google Mobile Auth] Access token verification failed:", errText);
+        return res.status(401).json({
+          success: false,
+          error: "Invalid Google access token.",
+        });
+      }
+
+      const profile = await profileRes.json();
+      email = profile.email;
+      name = profile.name;
+    }
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        error: "Google account does not have an associated email.",
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // 3. Find existing user or create a new user
+    let user = await authService.findUserByEmail(normalizedEmail);
+    if (!user) {
+      const crypto = require("crypto");
+      const randomPassword = crypto.randomBytes(16).toString("hex");
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(randomPassword, salt);
+
+      user = await authService.createUser({
+        name: name || normalizedEmail.split("@")[0],
+        email: normalizedEmail,
+        password: hashedPassword,
+      });
+      console.log(`[Google Mobile Auth] Created new user: ${user.email} (ID: ${user.id})`);
+    } else {
+      console.log(`[Google Mobile Auth] Logged in existing user: ${user.email} (ID: ${user.id})`);
+    }
+
+    // 4. Generate JWT token
+    const token = jwt.sign(
+      { id: user.id, role: user.role || "USER", isGoogleLogin: true },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    // 5. Set Cookie (useful for webview/hybrid mobile apps)
+    const cookieOptions = {
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      path: "/",
+    };
+    res.cookie("token", token, cookieOptions);
+
+    const { password, ...userWithoutPassword } = user;
+
+    // 6. Return response to mobile client
+    return res.status(200).json({
+      success: true,
+      message: "Google login successful",
+      user: userWithoutPassword,
+      token,
+    });
+  } catch (err) {
+    console.error("Error in googleMobileLogin:", err);
+    return res.status(500).json({
+      success: false,
+      error: "Server error during Google mobile sign in.",
+    });
+  }
+};
+
+
 const resetPasswordDirect = async (req, res) => {
   try {
     const { email, newPassword, confirmPassword } = req.body;
@@ -417,8 +535,8 @@ const sendOtp = async (req, res) => {
     }
 
     // Generate a 6-digit OTP or use 123456 as a default testing OTP
-    const generatedOtp = "123456"; 
-    
+    const generatedOtp = "123456";
+
     // Store with 10 mins expiry
     otpStore.set(normalizedEmail, {
       otp: generatedOtp,
@@ -437,14 +555,14 @@ const sendOtp = async (req, res) => {
 const verifyOtpReset = async (req, res) => {
   try {
     const { email, otp, newPassword } = req.body;
-    
+
     if (!email || !otp || !newPassword) {
       return res.status(400).json({ error: "Email, OTP and new password are required." });
     }
 
     const normalizedEmail = email.trim().toLowerCase();
     const storedOtpData = otpStore.get(normalizedEmail);
-    
+
     if (!storedOtpData) {
       return res.status(400).json({ error: "No OTP request found for this email." });
     }
@@ -465,9 +583,9 @@ const verifyOtpReset = async (req, res) => {
 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(newPassword, salt);
-    
+
     await authService.updateUserPassword(normalizedEmail, hashedPassword);
-    
+
     // Clear OTP after success
     otpStore.delete(normalizedEmail);
 
@@ -485,6 +603,7 @@ module.exports = {
   me,
   googleLogin,
   googleCallback,
+  googleMobileLogin,
   resetPasswordDirect,
   sendOtp,
   verifyOtpReset,

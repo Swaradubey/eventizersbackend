@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { register, login, logout, me, googleLogin, googleCallback, resetPasswordDirect, sendOtp, verifyOtpReset } = require("../controllers/auth.controller");
+const { register, login, logout, me, googleLogin, googleCallback, googleMobileLogin, resetPasswordDirect, sendOtp, verifyOtpReset } = require("../controllers/auth.controller");
 const authMiddleware = require("../middleware/auth.middleware");
 
 // Public routes
@@ -16,8 +16,11 @@ router.post("/signout", logout); // Alias for signout
 router.post("/reset-password", resetPasswordDirect);         // Standard route
 router.post("/reset-password-direct", resetPasswordDirect); // Alias
 
+// Google Auth (Web & Mobile)
 router.get("/google", googleLogin);
 router.get("/google/callback", googleCallback);
+router.post("/google/mobile", googleMobileLogin);       // Mobile App Google Login
+router.post("/google-mobile", googleMobileLogin);       // Convenient alias
 
 
 // Protected routes
