@@ -9,7 +9,7 @@ const db = require("../config/db");
 const getGuests = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { search, eventId, page, limit } = req.query;
+    const { search, eventId, page, limit, group } = req.query;
 
     const parsedPage = page ? Math.max(1, parseInt(page, 10) || 1) : null;
     const parsedLimit = limit ? Math.max(1, parseInt(limit, 10) || 10) : null;
@@ -19,7 +19,8 @@ const getGuests = async (req, res) => {
       search,
       eventId,
       parsedPage,
-      parsedLimit
+      parsedLimit,
+      group
     );
 
     const paginationMetadata = parsedLimit !== null ? {
@@ -75,7 +76,7 @@ const getGuestById = async (req, res) => {
  */
 const createGuest = async (req, res) => {
   try {
-    const { eventId, name, email, phone, status } = req.body;
+    const { eventId, name, email, phone, status, groups } = req.body;
     const userId = req.user.id;
 
     // Validate event ID
@@ -128,12 +129,18 @@ const createGuest = async (req, res) => {
     // Omit or set null for blank phone numbers
     const cleanPhone = (phone && phone.trim() !== "") ? phone.trim() : null;
 
+    let cleanGroups = undefined;
+    if (Array.isArray(groups)) {
+      cleanGroups = Array.from(new Set(groups.map((g) => (typeof g === "string" ? g.trim() : "")).filter(Boolean)));
+    }
+
     const newGuest = await guestService.createGuest({
       eventId,
       name: name.trim(),
       email: email.trim().toLowerCase(),
       phone: cleanPhone,
       status: guestStatus,
+      groups: cleanGroups,
     });
 
     return res.status(201).json({
@@ -158,7 +165,7 @@ const createGuest = async (req, res) => {
 const updateGuest = async (req, res) => {
   try {
     const { id } = req.params;
-    const { eventId, name, email, phone, status } = req.body;
+    const { eventId, name, email, phone, status, groups } = req.body;
     const userId = req.user.id;
 
     // Validate UUID format of guest ID
@@ -220,12 +227,20 @@ const updateGuest = async (req, res) => {
       ? ((phone && phone.trim() !== "") ? phone.trim() : null)
       : existingGuest.phone;
 
+    let cleanGroups = undefined;
+    if (groups !== undefined) {
+      cleanGroups = Array.isArray(groups)
+        ? Array.from(new Set(groups.map((g) => (typeof g === "string" ? g.trim() : "")).filter(Boolean)))
+        : [];
+    }
+
     const updatedGuest = await guestService.updateGuest(id, {
       eventId: eventId || existingGuest.eventId,
       name: name !== undefined ? name.trim() : existingGuest.name,
       email: email !== undefined ? email.trim().toLowerCase() : existingGuest.email,
       phone: cleanPhone,
       status: status || existingGuest.status,
+      groups: cleanGroups,
     });
 
     return res.status(200).json({
@@ -320,12 +335,20 @@ const importGuestsFromCSV = async (req, res) => {
         else if (header === "email") guest.email = columns[index];
         else if (header === "phone") guest.phone = columns[index];
         else if (header === "status") guest.status = columns[index];
+        else if (header === "group" || header === "groups" || header === "tags") {
+          guest.groups = columns[index]
+            ? columns[index].split(/[;|]/).map((g) => g.trim()).filter(Boolean)
+            : [];
+        }
       });
 
       if (guest.name && guest.email) {
         const validStatuses = ["invited", "confirmed", "declined", "pending"];
         if (!guest.status || !validStatuses.includes(guest.status)) {
           guest.status = "invited";
+        }
+        if (!guest.groups || guest.groups.length === 0) {
+          guest.groups = [];
         }
         guestsToInsert.push(guest);
       }
@@ -354,6 +377,98 @@ const importGuestsFromCSV = async (req, res) => {
   }
 };
 
+/**
+ * Get all available groups for user with live counts
+ * GET /api/guests/groups
+ */
+const getGroups = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { groups, counts } = await guestService.findGroupsByUserId(userId);
+    return res.status(200).json({
+      success: true,
+      groups,
+      counts: counts || {},
+    });
+  } catch (error) {
+    console.error("Get Groups Error:", error);
+    return res.status(500).json({ error: "Server error retrieving groups." });
+  }
+};
+
+/**
+ * Create a new custom group
+ * POST /api/guests/groups
+ */
+const createGroup = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { name } = req.body;
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: "Group name is required." });
+    }
+    const group = await guestService.createGroup(userId, name.trim());
+    return res.status(201).json({
+      success: true,
+      message: "Group created successfully.",
+      group,
+    });
+  } catch (error) {
+    console.error("Create Group Error:", error);
+    return res.status(500).json({ error: "Server error creating group." });
+  }
+};
+
+/**
+ * Delete a custom group
+ * DELETE /api/guests/groups/:name
+ */
+const deleteGroup = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { name } = req.params;
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: "Group name is required." });
+    }
+    await guestService.deleteGroup(userId, decodeURIComponent(name.trim()));
+    return res.status(200).json({
+      success: true,
+      message: "Group deleted successfully.",
+    });
+  } catch (error) {
+    console.error("Delete Group Error:", error);
+    return res.status(500).json({ error: "Server error deleting group." });
+  }
+};
+
+/**
+ * Update members assigned to a group
+ * PUT /api/guests/groups/:name/members
+ */
+const updateGroupMembers = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { name } = req.params;
+    const { guestIds } = req.body;
+
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: "Group name is required." });
+    }
+
+    const decodedName = decodeURIComponent(name.trim());
+    const result = await guestService.updateGroupMembers(userId, decodedName, guestIds);
+
+    return res.status(200).json({
+      success: true,
+      message: `Group "${decodedName}" members updated successfully.`,
+      ...result,
+    });
+  } catch (error) {
+    console.error("Update Group Members Error:", error);
+    return res.status(500).json({ error: "Server error updating group members." });
+  }
+};
+
 module.exports = {
   getGuests,
   getGuestById,
@@ -361,4 +476,8 @@ module.exports = {
   updateGuest,
   deleteGuest,
   importGuestsFromCSV,
+  getGroups,
+  createGroup,
+  deleteGroup,
+  updateGroupMembers,
 };

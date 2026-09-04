@@ -419,4 +419,15 @@ ALTER TABLE invoices ADD COLUMN IF NOT EXISTS customer_name VARCHAR(255);
 ALTER TABLE invoices ADD COLUMN IF NOT EXISTS customer_email VARCHAR(255);
 ALTER TABLE invoices ADD COLUMN IF NOT EXISTS transaction_id VARCHAR(255);
 
+-- Add groups column to guests table (defaults to empty array)
+ALTER TABLE guests ADD COLUMN IF NOT EXISTS groups TEXT[] DEFAULT '{}'::TEXT[];
+ALTER TABLE guests ALTER COLUMN groups SET DEFAULT '{}'::TEXT[];
 
+-- Create guest_groups table for custom categories
+CREATE TABLE IF NOT EXISTS guest_groups (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name VARCHAR(100) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, name)
+);

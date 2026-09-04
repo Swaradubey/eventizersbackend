@@ -37,6 +37,7 @@ model User {
   adminPreferences          AdminPreferences?
   adminTeamMembers          AdminTeamMember[]
   attendanceGuaranteeSettings AttendanceGuaranteeSetting?
+  guestGroups               GuestGroup[]
 
   @@map("users")
 }
@@ -119,8 +120,20 @@ model Guest {
   clickedAt   DateTime? @map("clicked_at")
   respondedAt DateTime? @map("responded_at")
   rsvpStatus  String?   @map("rsvp_status")
+  groups      String[]  @default([])
 
   @@map("guests")
+}
+
+model GuestGroup {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    Int      @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String   @db.VarChar(100)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([userId, name])
+  @@map("guest_groups")
 }
 
 enum TicketTierStatus {
