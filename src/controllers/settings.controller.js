@@ -20,9 +20,10 @@ const getProfile = async (req, res) => {
 const updateProfile = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { fullName, email, organization, profileImage } = req.body;
+    const { fullName, name, email, phoneNumber, phone, organization, profileImage } = req.body;
+    const resolvedName = fullName || name;
 
-    if (!fullName || !email) {
+    if (!resolvedName || !email) {
       return res.status(400).json({ success: false, error: "Full Name and Email are required." });
     }
 
@@ -32,8 +33,9 @@ const updateProfile = async (req, res) => {
     }
 
     const updated = await settingsService.updateProfile(userId, {
-      fullName: fullName.trim(),
+      fullName: resolvedName.trim(),
       email: email.trim().toLowerCase(),
+      phoneNumber: phoneNumber !== undefined ? phoneNumber : phone,
       organization: organization ? organization.trim() : "",
       profileImage: profileImage ? profileImage.trim() : "",
     });

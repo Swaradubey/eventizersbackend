@@ -6,6 +6,8 @@ const isAdmin = authMiddleware.requireAdmin;
 
 const router = express.Router();
 
+const { newTemplatesDataBackend } = require('../config/newTemplatesBackend');
+
 // Get all templates
 router.get('/', async (req, res, next) => {
   try {
@@ -15,7 +17,37 @@ router.get('/', async (req, res, next) => {
     } catch (dbErr) {
       console.warn("DB query for templates failed, using fallback:", dbErr.message);
     }
-    res.json(dbTemplates);
+
+    if (dbTemplates && dbTemplates.length > 0) {
+      return res.json(dbTemplates);
+    }
+
+    // Return rich website templates categorized by event type
+    const formattedTemplates = (newTemplatesDataBackend || []).map(t => {
+      let contentObj = {};
+      try {
+        contentObj = typeof t.content === 'string' ? JSON.parse(t.content) : (t.content || {});
+      } catch (_) {}
+      return {
+        id: t.id,
+        name: t.name,
+        category: t.category,
+        isPremium: t.isPremium,
+        thumbnailUrl: contentObj.imageUrl || t.thumbnailUrl || null,
+        imageUrl: contentObj.imageUrl || null,
+        coverImage: contentObj.imageUrl || null,
+        emoji: contentObj.emoji || null,
+        gradient: contentObj.gradient || null,
+        accentColor: contentObj.accentColor || null,
+        host: contentObj.host || null,
+        venue: contentObj.venue || null,
+        description: contentObj.description || null,
+        content: t.content,
+        htmlContent: t.content,
+      };
+    });
+
+    res.json(formattedTemplates);
   } catch (err) {
     next(err);
   }
