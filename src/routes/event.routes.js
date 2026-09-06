@@ -23,6 +23,22 @@ router.post("/", upload.any(), eventController.createEvent);
 router.put("/:id", upload.any(), eventController.updateEvent);
 router.delete("/:id", eventController.deleteEvent);
 
+// RSVP Settings routes
+router.get("/:id/rsvp-settings", eventController.getRsvpSettings);
+router.put("/:id/rsvp-settings", eventController.updateRsvpSettings);
+
+// Design & Fonts Settings routes
+router.get("/:id/design", eventController.getDesignSettings);
+router.put("/:id/design", eventController.updateDesignSettings);
+router.patch("/:id/design", eventController.updateDesignSettings);
+
+// Send invitations route
+router.post("/:id/send-invitations", eventController.sendEventInvitations);
+
+// Event Reminders routes
+router.get("/:id/reminders", eventController.getEventReminders);
+router.put("/:id/reminders", eventController.updateEventReminders);
+
 // Fetch invitation by event ID
 const invitationController = require("../controllers/invitation.controller");
 router.get("/:eventId/invitation", invitationController.getInvitationByEvent);

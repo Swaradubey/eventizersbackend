@@ -1,4 +1,7 @@
 const eventService = require("../services/event.service");
+const emailService = require("../services/email.service");
+const guestService = require("../services/guest.service");
+const db = require("../config/db");
 const prisma = require("../config/prisma");
 
 /**
@@ -295,8 +298,8 @@ const createEvent = async (req, res) => {
 
     // Validate required fields
     if (!title || !eventDate || !eventTime || !venue) {
-      return res.status(400).json({ 
-        error: "Missing required fields. Please provide title, date, time, and venue." 
+      return res.status(400).json({
+        error: "Missing required fields. Please provide title, date, time, and venue."
       });
     }
 
@@ -442,8 +445,8 @@ const updateEvent = async (req, res) => {
 
     // Validate required fields
     if (!title || !eventDate || !eventTime || !venue) {
-      return res.status(400).json({ 
-        error: "Missing required fields. Please provide title, date, time, and venue." 
+      return res.status(400).json({
+        error: "Missing required fields. Please provide title, date, time, and venue."
       });
     }
 
@@ -462,6 +465,27 @@ const updateEvent = async (req, res) => {
       uploadedFileUrl: resolvedCover,
     };
 
+    // Handle rsvpSettings if included in payload
+    if (req.body.rsvpSettings) {
+      try {
+        let rsvpData = req.body.rsvpSettings;
+        if (typeof rsvpData === "string") {
+          rsvpData = JSON.parse(rsvpData);
+        }
+        if (typeof rsvpData === "object" && rsvpData !== null) {
+          eventWithImages.rsvpSettings = await eventService.upsertRsvpSettings(id, rsvpData);
+        }
+      } catch (rsvpErr) {
+        console.warn("Failed to parse/update rsvpSettings during event update:", rsvpErr.message);
+      }
+    } else {
+      try {
+        eventWithImages.rsvpSettings = await eventService.findRsvpSettingsByEventId(id);
+      } catch (e) {
+        // ignore
+      }
+    }
+
     // Log event update
     const { createAuditLog } = require("../utils/auditLogger");
     await createAuditLog({
@@ -473,7 +497,7 @@ const updateEvent = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Event updated successfully.",
-      event: updatedEvent
+      event: eventWithImages
     });
   } catch (error) {
     console.error("Update Event Error:", error);
@@ -505,10 +529,379 @@ const deleteEvent = async (req, res) => {
   }
 };
 
+/**
+ * Get RSVP settings for an event
+ * GET /api/events/:id/rsvp-settings
+ */
+const getRsvpSettings = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    // Verify ownership
+    const event = await eventService.findEventByIdAndUserId(id, userId);
+    if (!event) {
+      return res.status(404).json({ success: false, error: "Event not found or unauthorized access." });
+    }
+
+    const rsvpSettings = await eventService.findRsvpSettingsByEventId(id);
+    return res.status(200).json({
+      success: true,
+      rsvpSettings
+    });
+  } catch (error) {
+    console.error("Get RSVP Settings Error:", error);
+    return res.status(500).json({ success: false, error: "Server error retrieving RSVP settings." });
+  }
+};
+
+/**
+ * Update RSVP settings for an event
+ * PUT /api/events/:id/rsvp-settings
+ */
+const updateRsvpSettings = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    // Verify ownership
+    const event = await eventService.findEventByIdAndUserId(id, userId);
+    if (!event) {
+      return res.status(404).json({ success: false, error: "Event not found or unauthorized access." });
+    }
+
+    const updatedSettings = await eventService.upsertRsvpSettings(id, req.body);
+
+    return res.status(200).json({
+      success: true,
+      message: "RSVP settings updated successfully.",
+      rsvpSettings: updatedSettings
+    });
+  } catch (error) {
+    console.error("Update RSVP Settings Error:", error);
+    return res.status(500).json({ success: false, error: "Server error updating RSVP settings." });
+  }
+};
+
+/**
+ * Get Design settings for an event
+ * GET /api/events/:id/design
+ */
+const getDesignSettings = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    // Verify ownership
+    const event = await eventService.findEventByIdAndUserId(id, userId);
+    if (!event) {
+      return res.status(404).json({ success: false, error: "Event not found or unauthorized access." });
+    }
+
+    const designSettings = await eventService.findDesignSettingsByEventId(id);
+    return res.status(200).json({
+      success: true,
+      design: designSettings,
+      designSettings,
+    });
+  } catch (error) {
+    console.error("Get Design Settings Error:", error);
+    return res.status(500).json({ success: false, error: "Server error retrieving design settings." });
+  }
+};
+
+/**
+ * Update Design settings for an event
+ * PUT /api/events/:id/design
+ */
+const updateDesignSettings = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    // Verify ownership
+    const event = await eventService.findEventByIdAndUserId(id, userId);
+    if (!event) {
+      return res.status(404).json({ success: false, error: "Event not found or unauthorized access." });
+    }
+
+    const updatedSettings = await eventService.upsertDesignSettings(id, req.body);
+
+    return res.status(200).json({
+      success: true,
+      message: "Design settings updated successfully.",
+      design: updatedSettings,
+      designSettings: updatedSettings,
+    });
+  } catch (error) {
+    console.error("Update Design Settings Error:", error);
+    return res.status(500).json({ success: false, error: "Server error updating design settings." });
+  }
+};
+
+
+const sendEventInvitations = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+    const {
+      deliveryMethod = "email",
+      options = {},
+      testEmail,
+      recipients: customRecipients,
+      guestEmails,
+      cardSnapshotUrl,
+      snapshotUrl,
+      cardImageBase64,
+      snapshot,
+    } = req.body || {};
+
+    // Parse options whether sent at top-level or nested inside options object
+    const reqOptions = typeof options === "object" && options !== null ? options : {};
+    const parsedOptions = {
+      personalizedGreeting: req.body?.personalizedGreeting !== undefined ? req.body.personalizedGreeting !== false : reqOptions.personalizedGreeting !== false,
+      calendarLink: req.body?.calendarLink !== undefined ? req.body.calendarLink !== false : reqOptions.calendarLink !== false,
+      mapLink: req.body?.mapLink !== undefined ? req.body.mapLink !== false : reqOptions.mapLink !== false,
+      qrCode: req.body?.qrCode !== undefined ? req.body.qrCode !== false : reqOptions.qrCode !== false,
+    };
+
+    // Verify ownership
+    const event = await eventService.findEventByIdAndUserId(id, userId);
+    if (!event) {
+      return res.status(404).json({ success: false, error: "Event not found or unauthorized access." });
+    }
+
+    // If delivery method is SMS or WhatsApp without testEmail or for UI demo
+    if (deliveryMethod === "sms" || deliveryMethod === "whatsapp") {
+      return res.status(200).json({
+        success: true,
+        message: `${deliveryMethod.toUpperCase()} invitation dispatch simulated successfully! (UI Preview)`,
+        recipientCount: 0,
+      });
+    }
+
+    // Resolve Frontend & Backend URLs
+    const protocol = req.protocol || "http";
+    const host = req.get("host");
+    const isPlaceholder = (url) => !url || url.includes("your-backend.vercel.app") || url.includes("example.com");
+    const trackingBaseUrl = (
+      (!isPlaceholder(process.env.PUBLIC_BACKEND_URL) && process.env.PUBLIC_BACKEND_URL) ||
+      (!isPlaceholder(process.env.BACKEND_URL) && process.env.BACKEND_URL) ||
+      (host ? `${protocol}://${host}` : "http://localhost:5000")
+    );
+    const frontendUrl = (
+      (!isPlaceholder(process.env.PUBLIC_APP_URL) && process.env.PUBLIC_APP_URL) ||
+      (!isPlaceholder(process.env.NEXT_PUBLIC_APP_URL) && process.env.NEXT_PUBLIC_APP_URL) ||
+      (!isPlaceholder(process.env.FRONTEND_URL) && process.env.FRONTEND_URL) ||
+      "http://localhost:3000"
+    );
+
+    // Fetch associated invitation if available
+    let invitation = null;
+    try {
+      const invRes = await db.query(
+        `SELECT * FROM invitations WHERE event_id = $1 LIMIT 1`,
+        [id]
+      );
+      if (invRes.rows && invRes.rows[0]) {
+        invitation = invRes.rows[0];
+      }
+    } catch (e) {
+      console.warn("[EventController] No invitation record found, using event details:", e.message);
+    }
+
+    let recipients = [];
+    let isTest = false;
+
+    if (testEmail && typeof testEmail === "string" && testEmail.trim()) {
+      isTest = true;
+      recipients = [
+        {
+          name: req.user.name || "Test Guest",
+          email: testEmail.trim(),
+        }
+      ];
+    } else if (customRecipients || guestEmails) {
+      // Direct recipient emails provided by mobile app or client payload
+      const rawList = []
+        .concat(customRecipients || [])
+        .concat(guestEmails || []);
+
+      const parsedEmails = rawList
+        .flatMap((item) => {
+          if (typeof item === "string") return item.split(/[\s,;\n]+/);
+          if (item && typeof item === "object" && item.email) return [item.email];
+          return [];
+        })
+        .map((e) => e.trim().toLowerCase())
+        .filter((e) => e && e.includes("@"));
+
+      if (parsedEmails.length > 0) {
+        recipients = parsedEmails.map((email) => ({
+          name: "",
+          email,
+        }));
+      }
+    }
+
+    if (!isTest && recipients.length === 0) {
+      // Fetch all guests for this event from database
+      const guestResult = await guestService.findGuestsByUserId(userId, "", id);
+      const allGuests = guestResult?.guests || [];
+      recipients = allGuests
+        .filter((g) => g.email && g.email.includes("@"))
+        .map((g) => ({
+          guestId: g.id,
+          name: g.name,
+          email: g.email.trim(),
+        }));
+
+      if (recipients.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: "No guests with a valid email address were found for this event. Please add guests in the guest list before sending invitations.",
+        });
+      }
+    }
+
+    // Send invitations via emailService (Nodemailer)
+    const sendResult = await emailService.sendInvitationEmails({
+      recipients,
+      invitation,
+      event,
+      senderName: req.user.name || req.user.email,
+      frontendUrl,
+      trackingBaseUrl,
+      snapshotUrl,
+      cardSnapshotUrl,
+      cardImageBase64,
+      snapshot,
+      options: parsedOptions,
+    });
+
+    // If real send (not test), update guests status to 'invited'
+    if (!isTest && recipients.length > 0) {
+      try {
+        const guestIds = recipients.map((r) => r.guestId).filter(Boolean);
+        if (guestIds.length > 0) {
+          await db.query(
+            `UPDATE guests SET status = 'invited', updated_at = NOW() WHERE event_id = $1 AND id = ANY($2::uuid[])`,
+            [id, guestIds]
+          );
+        }
+        // Update event status to published if it was draft
+        await db.query(
+          `UPDATE events SET status = 'published', updated_at = NOW() WHERE id = $1 AND status = 'draft'`,
+          [id]
+        );
+      } catch (dbErr) {
+        console.warn("[EventController] Error updating guest/event status:", dbErr.message);
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: isTest
+        ? `Test invitation successfully sent to ${testEmail}!`
+        : `Invitations successfully sent to ${sendResult.recipientCount} recipient(s)!`,
+      recipientCount: sendResult.recipientCount,
+      previewUrl: sendResult.previewUrl || null,
+    });
+  } catch (error) {
+    console.error("[EventController] Send Invitations Error:", error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || "Failed to dispatch email invitations.",
+    });
+  }
+};
+
+/**
+ * Get event reminders
+ * GET /api/events/:id/reminders
+ */
+const getEventReminders = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    // Verify ownership
+    const event = await eventService.findEventByIdAndUserId(id, userId);
+    if (!event) {
+      return res.status(404).json({ success: false, error: "Event not found or unauthorized access." });
+    }
+
+    let reminders = await eventService.findRemindersByEventId(id);
+
+    // If no reminders exist yet, return default reminder templates
+    if (!reminders || reminders.length === 0) {
+      reminders = eventService.DEFAULT_EVENT_REMINDERS.map((r) => ({
+        ...r,
+        eventId: id,
+      }));
+    }
+
+    return res.status(200).json({
+      success: true,
+      reminders,
+    });
+  } catch (error) {
+    console.error("Get Event Reminders Error:", error);
+    return res.status(500).json({ success: false, error: "Server error retrieving event reminders." });
+  }
+};
+
+/**
+ * Update/overwrite event reminders
+ * PUT /api/events/:id/reminders
+ */
+const updateEventReminders = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+    const reminders = Array.isArray(req.body) ? req.body : (req.body.reminders || []);
+
+    // Verify ownership
+    const event = await eventService.findEventByIdAndUserId(id, userId);
+    if (!event) {
+      return res.status(404).json({ success: false, error: "Event not found or unauthorized access." });
+    }
+
+    // Validation
+    for (const item of reminders) {
+      if (typeof item.daysBefore !== "undefined" && isNaN(Number(item.daysBefore))) {
+        return res.status(400).json({ success: false, error: "Invalid daysBefore value in reminders." });
+      }
+      if (item.sendVia && !["Email", "SMS", "WhatsApp"].includes(item.sendVia)) {
+        return res.status(400).json({ success: false, error: "sendVia must be 'Email', 'SMS', or 'WhatsApp'." });
+      }
+    }
+
+    const updatedReminders = await eventService.updateRemindersForEvent(id, reminders);
+
+    return res.status(200).json({
+      success: true,
+      message: "Reminders updated successfully.",
+      reminders: updatedReminders,
+    });
+  } catch (error) {
+    console.error("Update Event Reminders Error:", error);
+    return res.status(500).json({ success: false, error: "Server error updating event reminders." });
+  }
+};
+
 module.exports = {
   getEvents,
   getEventById,
   createEvent,
   updateEvent,
-  deleteEvent
+  deleteEvent,
+  getRsvpSettings,
+  updateRsvpSettings,
+  getDesignSettings,
+  updateDesignSettings,
+  sendEventInvitations,
+  getEventReminders,
+  updateEventReminders,
 };
+

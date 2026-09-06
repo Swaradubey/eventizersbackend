@@ -1,6 +1,7 @@
 const nodemailer = require("nodemailer");
 const path = require("path");
 const fs = require("fs");
+const QRCode = require("qrcode");
 const {
   saveBase64Image,
   findLocalFilePath,
@@ -222,6 +223,10 @@ const generateInvitationHtml = ({
   previewLink,
   senderName,
   trackingPixelUrl,
+  greetingText,
+  calendarLinkUrl,
+  mapLinkUrl,
+  qrCodeUrl,
   backgroundColor = "#FAF8F5",
   textColor = "#1A1118",
   accentColor = "#5B5FEF",
@@ -341,6 +346,11 @@ const generateInvitationHtml = ({
               ${subtitle ? `
               <p style="margin: 0 0 8px 0; font-size: 14px; font-weight: 500; color: ${secondaryText}; text-align: center;">
                 ${subtitle}
+              </p>
+              ` : ""}
+              ${greetingText ? `
+              <p style="margin: 8px 0 0 0; font-size: 15px; font-weight: 600; color: ${accent}; text-align: center;">
+                ${greetingText}
               </p>
               ` : ""}
             </td>
@@ -474,6 +484,63 @@ const generateInvitationHtml = ({
                   </td>
                 </tr>
                 ` : ""}
+                ${(mapLinkUrl || calendarLinkUrl) ? `
+                <tr>
+                  <td colspan="2" style="padding: 12px 0 4px 0; border-top: 1px dashed ${metaBoxBorder};">
+                    <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                      <tr>
+                        ${calendarLinkUrl ? `
+                        <td style="padding: 4px 8px 4px 0;">
+                          <a href="${calendarLinkUrl}" target="_blank" style="display: inline-block; font-size: 12px; font-weight: 600; color: ${accent}; text-decoration: none; padding: 6px 12px; border-radius: 6px; background-color: ${accent}15; border: 1px solid ${accent}30;">
+                            📅 Add to Calendar
+                          </a>
+                        </td>
+                        ` : ""}
+                        ${mapLinkUrl ? `
+                        <td style="padding: 4px 0 4px 0;">
+                          <a href="${mapLinkUrl}" target="_blank" style="display: inline-block; font-size: 12px; font-weight: 600; color: ${accent}; text-decoration: none; padding: 6px 12px; border-radius: 6px; background-color: ${accent}15; border: 1px solid ${accent}30;">
+                            📍 Venue Directions
+                          </a>
+                        </td>
+                        ` : ""}
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                ` : ""}
+              </table>
+            </td>
+          </tr>
+          ` : ""}
+
+          <!-- ─── QR CODE BLOCK (IF ENABLED) ─── -->
+          ${qrCodeUrl ? `
+          <tr>
+            <td align="center" style="padding: 0 24px 24px 24px;">
+              <table border="0" cellpadding="0" cellspacing="0" style="background-color: #f8fafc; border-radius: 12px; padding: 20px 24px; border: 1px solid #e2e8f0; text-align: center; margin: 0 auto; width: 100%; max-width: 280px;">
+                <tr>
+                  <td align="center">
+                    <p style="margin: 0 0 12px 0; font-size: 15px; font-weight: 700; color: #1e293b; text-align: center; font-family: ${fontStack};">
+                      Scan to RSVP
+                    </p>
+                    <table border="0" cellpadding="0" cellspacing="0" align="center" style="margin: 0 auto; background-color: #ffffff; padding: 6px; border-radius: 10px; border: 1px solid #e2e8f0;">
+                      <tr>
+                        <td align="center">
+                          ${previewLink ? `
+                          <a href="${previewLink}" target="_blank" style="display: block; text-decoration: none; border: 0; outline: none; cursor: pointer;">
+                            <img src="${qrCodeUrl}" width="160" height="160" alt="QR Code" style="width: 160px; height: 160px; display: block; margin: 0 auto; border-radius: 4px; border: 0;" />
+                          </a>
+                          ` : `
+                          <img src="${qrCodeUrl}" width="160" height="160" alt="QR Code" style="width: 160px; height: 160px; display: block; margin: 0 auto; border-radius: 4px; border: 0;" />
+                          `}
+                        </td>
+                      </tr>
+                    </table>
+                    <p style="margin: 12px 0 0 0; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 1px; text-align: center; font-family: ${fontStack};">
+                      SCAN QR TO RSVP
+                    </p>
+                  </td>
+                </tr>
               </table>
             </td>
           </tr>
@@ -514,6 +581,7 @@ const sendInvitationEmails = async ({
   cardImageBase64,
   snapshot,
   trackingBaseUrl,
+  options = {},
 }) => {
   if (!recipients || recipients.length === 0) {
     throw new Error("No recipient email addresses provided.");
@@ -794,6 +862,43 @@ const sendInvitationEmails = async ({
       ? `${trackBase}/api/track/click?guestId=${encodeURIComponent(recipient.guestId)}&eventId=${encodeURIComponent(event?.id || invitation?.eventId || "")}&target=${encodeURIComponent(previewLink)}`
       : previewLink;
 
+    // Feature options computation
+    const greetingText = (options?.personalizedGreeting !== false && recipient.name)
+      ? `Dear ${recipient.name},`
+      : (options?.personalizedGreeting ? "Dear Valued Guest," : null);
+
+    let calendarLinkUrl = null;
+    if (options?.calendarLink !== false && (title || eventDate)) {
+      const calTitle = encodeURIComponent(title || "Event Invitation");
+      const calDetails = encodeURIComponent(mainText || trackedPreviewLink);
+      const calLocation = encodeURIComponent(eventVenue || event?.address || "");
+      calendarLinkUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${calTitle}&details=${calDetails}&location=${calLocation}`;
+    }
+
+    let mapLinkUrl = null;
+    if (options?.mapLink !== false && (eventVenue || event?.address)) {
+      const query = encodeURIComponent(`${eventVenue || ""} ${event?.address || ""}`.trim());
+      mapLinkUrl = `https://www.google.com/maps/search/?api=1&query=${query}`;
+    }
+
+    let qrCodeUrl = null;
+    if (options?.qrCode !== false && (trackedPreviewLink || previewLink)) {
+      const rsvpUrl = trackedPreviewLink || previewLink;
+      try {
+        qrCodeUrl = await QRCode.toDataURL(rsvpUrl, {
+          width: 160,
+          margin: 1,
+          errorCorrectionLevel: "M",
+          color: {
+            dark: "#000000",
+            light: "#ffffff",
+          },
+        });
+      } catch (qrErr) {
+        console.warn("[EmailService] Failed to generate Base64 QR code Data URL:", qrErr.message);
+      }
+    }
+
     const htmlContent = generateInvitationHtml({
       title,
       subtitle,
@@ -805,6 +910,10 @@ const sendInvitationEmails = async ({
       previewLink: trackedPreviewLink,
       senderName,
       trackingPixelUrl,
+      greetingText,
+      calendarLinkUrl,
+      mapLinkUrl,
+      qrCodeUrl,
       backgroundColor,
       textColor,
       accentColor,
