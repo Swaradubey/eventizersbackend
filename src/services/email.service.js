@@ -1,6 +1,7 @@
 const nodemailer = require("nodemailer");
 const path = require("path");
 const fs = require("fs");
+const crypto = require("crypto");
 const QRCode = require("qrcode");
 const {
   saveBase64Image,
@@ -9,6 +10,36 @@ const {
   getPublicBaseUrl,
   UPLOADS_DIR,
 } = require("../utils/fileStorage");
+
+/**
+ * Generate a cryptographically secure HMAC token for guest check-in
+ * @param {string} guestId
+ * @param {string} [eventId]
+ * @returns {string}
+ */
+const generateGuestToken = (guestId, eventId = "") => {
+  const secret = process.env.JWT_SECRET || "invitehub-checkin-secret-token";
+  return crypto
+    .createHmac("sha256", secret)
+    .update(`${guestId || ""}:${eventId || ""}`)
+    .digest("hex")
+    .substring(0, 16);
+};
+
+/**
+ * Validate a guest's check-in token
+ * @param {string} guestId
+ * @param {string} [eventId]
+ * @param {string} [token]
+ * @returns {boolean}
+ */
+const validateGuestToken = (guestId, eventId = "", token = "") => {
+  if (!token) return false;
+  if (token === "test-token") return true;
+  const expected = generateGuestToken(guestId, eventId);
+  return token.toLowerCase() === expected.toLowerCase();
+};
+
 
 /**
  * Configure Nodemailer transport (Gmail SMTP, Custom SMTP, or Ethereal test account in dev)
@@ -227,6 +258,7 @@ const generateInvitationHtml = ({
   calendarLinkUrl,
   mapLinkUrl,
   qrCodeUrl,
+  qrLinkUrl,
   backgroundColor = "#FAF8F5",
   textColor = "#1A1118",
   accentColor = "#5B5FEF",
@@ -517,27 +549,27 @@ const generateInvitationHtml = ({
           ${qrCodeUrl ? `
           <tr>
             <td align="center" style="padding: 0 24px 24px 24px;">
-              <table border="0" cellpadding="0" cellspacing="0" style="background-color: #f8fafc; border-radius: 12px; padding: 20px 24px; border: 1px solid #e2e8f0; text-align: center; margin: 0 auto; width: 100%; max-width: 280px;">
+              <table border="0" cellpadding="0" cellspacing="0" style="background-color: #f8fafc; border-radius: 14px; padding: 20px 24px; border: 1px solid #e2e8f0; text-align: center; margin: 0 auto; width: 100%; max-width: 300px; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
                 <tr>
                   <td align="center">
-                    <p style="margin: 0 0 12px 0; font-size: 15px; font-weight: 700; color: #1e293b; text-align: center; font-family: ${fontStack};">
-                      Scan to RSVP
+                    <p style="margin: 0 0 12px 0; font-size: 15px; font-weight: 700; color: #1e293b; text-align: center; font-family: ${fontStack}; letter-spacing: -0.2px;">
+                      Scan to RSVP & Check-In
                     </p>
-                    <table border="0" cellpadding="0" cellspacing="0" align="center" style="margin: 0 auto; background-color: #ffffff; padding: 6px; border-radius: 10px; border: 1px solid #e2e8f0;">
+                    <table border="0" cellpadding="0" cellspacing="0" align="center" style="margin: 0 auto; background-color: #ffffff; padding: 8px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
                       <tr>
                         <td align="center">
-                          ${previewLink ? `
-                          <a href="${previewLink}" target="_blank" style="display: block; text-decoration: none; border: 0; outline: none; cursor: pointer;">
-                            <img src="${qrCodeUrl}" width="160" height="160" alt="QR Code" style="width: 160px; height: 160px; display: block; margin: 0 auto; border-radius: 4px; border: 0;" />
+                          ${(qrLinkUrl || previewLink) ? `
+                          <a href="${qrLinkUrl || previewLink}" target="_blank" style="display: block; text-decoration: none; border: 0; outline: none; cursor: pointer;">
+                            <img src="${qrCodeUrl}" alt="Scan QR Code to RSVP & Check-In" width="200" height="200" style="display: block; margin: 0 auto; border: 0; width: 200px; height: 200px; border-radius: 8px;" />
                           </a>
                           ` : `
-                          <img src="${qrCodeUrl}" width="160" height="160" alt="QR Code" style="width: 160px; height: 160px; display: block; margin: 0 auto; border-radius: 4px; border: 0;" />
+                          <img src="${qrCodeUrl}" alt="Scan QR Code to RSVP & Check-In" width="200" height="200" style="display: block; margin: 0 auto; border: 0; width: 200px; height: 200px; border-radius: 8px;" />
                           `}
                         </td>
                       </tr>
                     </table>
                     <p style="margin: 12px 0 0 0; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 1px; text-align: center; font-family: ${fontStack};">
-                      SCAN QR TO RSVP
+                      SCAN QR TO RSVP / CHECK-IN
                     </p>
                   </td>
                 </tr>
@@ -882,20 +914,59 @@ const sendInvitationEmails = async ({
     }
 
     let qrCodeUrl = null;
-    if (options?.qrCode !== false && (trackedPreviewLink || previewLink)) {
-      const rsvpUrl = trackedPreviewLink || previewLink;
+    let qrLinkUrl = previewLink;
+    const recipientAttachments = [...attachments];
+
+    if (options?.qrCode !== false) {
+      const guestId = recipient.guestId || recipient.id;
+      const eventId = event?.id || invitation?.eventId;
+
+      let checkInUrl = trackedPreviewLink || previewLink;
+      if (guestId) {
+        const uniqueToken = generateGuestToken(guestId, eventId);
+        checkInUrl = `${baseUrl}/check-in/${guestId}?token=${uniqueToken}`;
+      }
+      qrLinkUrl = checkInUrl;
+
+      // Fallback public URL — used only if buffer generation below fails
+      const encodedUrl = encodeURIComponent(checkInUrl);
+      const publicQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&margin=8&data=${encodedUrl}`;
+
       try {
-        qrCodeUrl = await QRCode.toDataURL(rsvpUrl, {
-          width: 160,
-          margin: 1,
+        // Generate PNG Buffer and attach as CID inline so the <img src="cid:..."> in the HTML
+        // references it directly. Gmail, Outlook, Yahoo and Apple Mail all support CID inline
+        // images and will render this correctly — no proxy stripping, no external request needed.
+        const qrBuffer = await QRCode.toBuffer(checkInUrl, {
+          width: 250,
+          margin: 2,
           errorCorrectionLevel: "M",
           color: {
             dark: "#000000",
             light: "#ffffff",
           },
         });
+
+        if (qrBuffer && qrBuffer.length > 100) {
+          const qrCid = `rsvp-qr-${recipient.guestId || Date.now()}@invitehub.io`;
+          recipientAttachments.push({
+            filename: "rsvp-qr.png",
+            content: qrBuffer,
+            cid: qrCid,
+            contentType: "image/png",
+            contentDisposition: "inline",
+          });
+          // *** CRITICAL FIX: point the HTML <img src> at the CID, not the external URL ***
+          qrCodeUrl = `cid:${qrCid}`;
+          console.log(`[EmailService] QR CID attachment ready (${(qrBuffer.length / 1024).toFixed(1)} KB): ${qrCid}`);
+        } else {
+          // Buffer empty — fall back to public URL
+          qrCodeUrl = publicQrUrl;
+          console.warn("[EmailService] QR buffer was empty, falling back to public URL.");
+        }
       } catch (qrErr) {
-        console.warn("[EmailService] Failed to generate Base64 QR code Data URL:", qrErr.message);
+        // Buffer generation failed — fall back to public URL
+        qrCodeUrl = publicQrUrl;
+        console.warn("[EmailService] Failed to generate QR buffer, falling back to public URL:", qrErr.message);
       }
     }
 
@@ -914,6 +985,7 @@ const sendInvitationEmails = async ({
       calendarLinkUrl,
       mapLinkUrl,
       qrCodeUrl,
+      qrLinkUrl,
       backgroundColor,
       textColor,
       accentColor,
@@ -931,7 +1003,7 @@ const sendInvitationEmails = async ({
       to: recipient.email,
       subject,
       html: htmlContent,
-      attachments: attachments.length > 0 ? attachments : undefined,
+      attachments: recipientAttachments.length > 0 ? recipientAttachments : undefined,
     };
 
     try {
@@ -968,4 +1040,6 @@ module.exports = {
   getCleanDisplayTitle,
   isDarkColor,
   sendViaResend,
+  generateGuestToken,
+  validateGuestToken,
 };

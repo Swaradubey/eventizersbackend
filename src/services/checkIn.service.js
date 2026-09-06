@@ -267,39 +267,114 @@ const checkInGuestScan = async (eventId, qrCode, latitude, longitude, userId) =>
   let guest = null;
   let ticketId = null;
 
-  // 1. Try resolving qrCode as Guest ID (UUID)
-  if (isValidUuid(qrCode)) {
+  // ── Normalise raw QR payload ─────────────────────────────────────────────────
+  // Handles three payload formats:
+  //  a) Full URL  : https://domain.com/check-in/{uuid}?token=xyz
+  //  b) JSON str  : {"guestId":"...","ticketId":"...",...}
+  //  c) Raw string: plain UUID / ticket ID
+  console.log("[CheckIn] Scanned Raw QR Data:", qrCode);
+
+  let cleanCode = (qrCode || "").trim();
+
+  // (b) JSON payload
+  try {
+    const parsed = JSON.parse(cleanCode);
+    cleanCode = parsed.guestId || parsed.ticketId || parsed.id || parsed.code || cleanCode;
+    cleanCode = String(cleanCode).trim();
+  } catch (_) {
+    // Not JSON — continue
+  }
+
+  // (a) Full URL — extract from path or query params
+  if (cleanCode.startsWith("http://") || cleanCode.startsWith("https://") || cleanCode.startsWith("/")) {
+    try {
+      // Attempt full URL parse first
+      const parsedUrl = new URL(
+        cleanCode.startsWith("/") ? `https://placeholder.com${cleanCode}` : cleanCode
+      );
+
+      // Check query params: ?code=, ?token=, ?ticketId=, ?guestId=
+      const qParam =
+        parsedUrl.searchParams.get("guestId") ||
+        parsedUrl.searchParams.get("ticketId") ||
+        parsedUrl.searchParams.get("code") ||
+        parsedUrl.searchParams.get("token");
+
+      // Check path: /check-in/{uuid}, /tickets/{uuid}, /verify/{uuid}
+      const pathMatch = parsedUrl.pathname.match(
+        /\/(?:check-in|tickets|verify|checkin)\/([0-9a-fA-F\-]{36})/i
+      );
+
+      if (pathMatch) {
+        cleanCode = pathMatch[1];
+      } else if (qParam && isValidUuid(qParam)) {
+        cleanCode = qParam;
+      } else if (qParam) {
+        cleanCode = qParam;
+      }
+    } catch (_) {
+      // Fallback: simple regex extraction from path
+      const pathMatch = cleanCode.match(/\/(?:check-in|tickets|verify|checkin)\/([0-9a-fA-F\-]{36})/i);
+      if (pathMatch) {
+        cleanCode = pathMatch[1];
+      }
+    }
+  }
+
+  console.log("[CheckIn] Resolved cleanCode:", cleanCode, "| eventId:", eventId);
+
+  // 1. Try resolving cleanCode as Guest ID (UUID)
+  if (isValidUuid(cleanCode)) {
     guest = await prisma.guest.findFirst({
       where: {
-        id: qrCode,
+        id: cleanCode,
         eventId,
       },
     });
+
+    // If guest exists but belongs to a different event, give a clear error
+    if (!guest && isValidUuid(cleanCode)) {
+      const guestInOtherEvent = await prisma.guest.findUnique({
+        where: { id: cleanCode },
+      });
+      if (guestInOtherEvent) {
+        const error = new Error("This ticket belongs to a different event. Please ensure you have the correct event selected.");
+        error.status = 400;
+        throw error;
+      }
+    }
   }
 
-  // 2. Try resolving as TicketOrder ID
+  // 2. Try resolving cleanCode as TicketOrder ID
   if (!guest) {
     const order = await prisma.ticketOrder.findFirst({
       where: {
-        id: qrCode,
+        id: cleanCode,
         eventId,
       },
     });
 
-    if (order) {
-      if (order.status !== "PAID") {
-        const error = new Error(`Ticket order is ${order.status.toLowerCase()}. Only paid tickets are valid.`);
+    // Also try with the raw qrCode in case cleanCode transformation changed it
+    const orderFallback = !order && cleanCode !== qrCode
+      ? await prisma.ticketOrder.findFirst({ where: { id: qrCode, eventId } })
+      : null;
+
+    const resolvedOrder = order || orderFallback;
+
+    if (resolvedOrder) {
+      if (resolvedOrder.status !== "PAID") {
+        const error = new Error(`Ticket order is ${resolvedOrder.status.toLowerCase()}. Only paid tickets are valid.`);
         error.status = 400;
         throw error;
       }
 
-      ticketId = order.id;
+      ticketId = resolvedOrder.id;
 
       // Find or dynamically create guest for this order email
       guest = await prisma.guest.findFirst({
         where: {
           eventId,
-          email: order.customerEmail,
+          email: resolvedOrder.customerEmail,
         },
       });
 
@@ -307,20 +382,28 @@ const checkInGuestScan = async (eventId, qrCode, latitude, longitude, userId) =>
         guest = await prisma.guest.create({
           data: {
             eventId,
-            name: order.customerName,
-            email: order.customerEmail,
+            name: resolvedOrder.customerName,
+            email: resolvedOrder.customerEmail,
             status: "confirmed",
           },
         });
       }
+    } else {
+      // Check if this ticketOrder ID exists but for a different event
+      const orderOtherEvent = await prisma.ticketOrder.findFirst({ where: { id: cleanCode } });
+      if (orderOtherEvent) {
+        const error = new Error("This ticket belongs to a different event. Please ensure you have the correct event selected.");
+        error.status = 400;
+        throw error;
+      }
     }
   }
 
-  // 3. Try resolving as TicketOrderItem ID
+  // 3. Try resolving cleanCode as TicketOrderItem ID
   if (!guest) {
     const orderItem = await prisma.ticketOrderItem.findFirst({
       where: {
-        id: qrCode,
+        id: cleanCode,
         order: {
           eventId,
         },
@@ -330,20 +413,30 @@ const checkInGuestScan = async (eventId, qrCode, latitude, longitude, userId) =>
       },
     });
 
-    if (orderItem) {
-      if (orderItem.order.status !== "PAID") {
-        const error = new Error(`Ticket order is ${orderItem.order.status.toLowerCase()}. Only paid tickets are valid.`);
+    // Also try with the raw qrCode as fallback
+    const orderItemFallback = !orderItem && cleanCode !== qrCode
+      ? await prisma.ticketOrderItem.findFirst({
+          where: { id: qrCode, order: { eventId } },
+          include: { order: true },
+        })
+      : null;
+
+    const resolvedItem = orderItem || orderItemFallback;
+
+    if (resolvedItem) {
+      if (resolvedItem.order.status !== "PAID") {
+        const error = new Error(`Ticket order is ${resolvedItem.order.status.toLowerCase()}. Only paid tickets are valid.`);
         error.status = 400;
         throw error;
       }
 
-      ticketId = orderItem.id;
+      ticketId = resolvedItem.id;
 
       // Find or dynamically create guest for this order email
       guest = await prisma.guest.findFirst({
         where: {
           eventId,
-          email: orderItem.order.customerEmail,
+          email: resolvedItem.order.customerEmail,
         },
       });
 
@@ -351,11 +444,19 @@ const checkInGuestScan = async (eventId, qrCode, latitude, longitude, userId) =>
         guest = await prisma.guest.create({
           data: {
             eventId,
-            name: orderItem.order.customerName,
-            email: orderItem.order.customerEmail,
+            name: resolvedItem.order.customerName,
+            email: resolvedItem.order.customerEmail,
             status: "confirmed",
           },
         });
+      }
+    } else {
+      // Check if this item exists for a different event
+      const itemOtherEvent = await prisma.ticketOrderItem.findFirst({ where: { id: cleanCode } });
+      if (itemOtherEvent) {
+        const error = new Error("This ticket belongs to a different event. Please ensure you have the correct event selected.");
+        error.status = 400;
+        throw error;
       }
     }
   }
@@ -374,7 +475,7 @@ const checkInGuestScan = async (eventId, qrCode, latitude, longitude, userId) =>
       eventId
     });
 
-    const error = new Error("Invalid ticket or QR code.");
+    const error = new Error("Invalid ticket or QR code. The scanned code could not be matched to any guest for this event.");
     error.status = 404;
     throw error;
   }
@@ -497,10 +598,117 @@ const undoCheckIn = async (checkInId, userId) => {
   return true;
 };
 
+/**
+ * Public Guest QR Check-In verification and status update
+ * @param {string} guestId
+ * @param {string} [token]
+ * @returns {Promise<Object>}
+ */
+const verifyAndCheckInGuest = async (guestId, token = "") => {
+  // 1. Fetch guest with associated event and existing checkIns
+  const guest = await prisma.guest.findUnique({
+    where: { id: guestId },
+    include: {
+      event: {
+        select: {
+          id: true,
+          title: true,
+          eventDate: true,
+          eventTime: true,
+          venue: true,
+          address: true,
+        },
+      },
+      checkIns: {
+        orderBy: {
+          checkedInAt: "desc",
+        },
+      },
+    },
+  });
+
+  if (!guest) {
+    const error = new Error("Guest invitation not found. Please verify your check-in pass.");
+    error.status = 404;
+    throw error;
+  }
+
+  // 2. Validate cryptographic token if provided
+  const { validateGuestToken } = require("./email.service");
+  if (token && typeof token === "string" && token.trim()) {
+    const isValid = validateGuestToken(guest.id, guest.eventId, token.trim());
+    if (!isValid) {
+      const error = new Error("Invalid or expired check-in security token.");
+      error.status = 403;
+      throw error;
+    }
+  }
+
+  // 3. Check if guest is already checked in
+  const existingCheckIn = (guest.checkIns && guest.checkIns.length > 0) ? guest.checkIns[0] : null;
+
+  if (existingCheckIn || guest.status === "checked_in") {
+    const checkInTime = existingCheckIn?.checkedInAt || guest.updatedAt || new Date();
+    const timeFormatted = new Date(checkInTime).toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+    const dateFormatted = new Date(checkInTime).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+
+    return {
+      name: guest.name,
+      email: guest.email,
+      isCheckedIn: true,
+      alreadyCheckedIn: true,
+      checkedInAt: checkInTime,
+      eventTitle: guest.event?.title || "Special Event",
+      eventDate: guest.event?.eventDate,
+      eventVenue: guest.event?.venue || guest.event?.address,
+      message: `${guest.name} was already checked in at ${timeFormatted} on ${dateFormatted}`,
+    };
+  }
+
+  // 4. Mark attendance / check-in status
+  const newCheckIn = await prisma.checkIn.create({
+    data: {
+      eventId: guest.eventId,
+      guestId: guest.id,
+      method: "QR",
+      checkedInAt: new Date(),
+    },
+  });
+
+  await prisma.guest.update({
+    where: { id: guest.id },
+    data: {
+      status: "checked_in",
+      updatedAt: new Date(),
+    },
+  });
+
+  return {
+    name: guest.name,
+    email: guest.email,
+    isCheckedIn: true,
+    alreadyCheckedIn: false,
+    checkedInAt: newCheckIn.checkedInAt,
+    eventTitle: guest.event?.title || "Special Event",
+    eventDate: guest.event?.eventDate,
+    eventVenue: guest.event?.venue || guest.event?.address,
+    message: "Successfully Checked In",
+  };
+};
+
 module.exports = {
   getCheckInSummary,
   getGuestsWithCheckInState,
   checkInGuestManual,
   checkInGuestScan,
   undoCheckIn,
+  verifyAndCheckInGuest,
 };

@@ -715,10 +715,33 @@ const sendEventInvitations = async (req, res) => {
 
     if (testEmail && typeof testEmail === "string" && testEmail.trim()) {
       isTest = true;
+      const cleanTestEmail = testEmail.trim().toLowerCase();
+      let testGuest = null;
+      try {
+        const guestQuery = await db.query(
+          `SELECT id, name, email FROM guests WHERE event_id = $1 AND LOWER(email) = $2 LIMIT 1`,
+          [id, cleanTestEmail]
+        );
+        if (guestQuery.rows && guestQuery.rows.length > 0) {
+          testGuest = guestQuery.rows[0];
+        } else {
+          const insertQuery = await db.query(
+            `INSERT INTO guests (id, event_id, name, email, status, created_at, updated_at)
+             VALUES (gen_random_uuid(), $1, $2, $3, 'invited', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+             RETURNING id, name, email`,
+            [id, req.user.name || "Test Guest", cleanTestEmail]
+          );
+          testGuest = insertQuery.rows[0];
+        }
+      } catch (err) {
+        console.warn("[EventController] Could not find or create test guest in DB:", err.message);
+      }
+
       recipients = [
         {
-          name: req.user.name || "Test Guest",
-          email: testEmail.trim(),
+          guestId: testGuest?.id || null,
+          name: req.user.name || testGuest?.name || "Test Guest",
+          email: cleanTestEmail,
         }
       ];
     } else if (customRecipients || guestEmails) {
@@ -737,10 +760,38 @@ const sendEventInvitations = async (req, res) => {
         .filter((e) => e && e.includes("@"));
 
       if (parsedEmails.length > 0) {
-        recipients = parsedEmails.map((email) => ({
-          name: "",
-          email,
-        }));
+        const resolvedList = [];
+        for (const em of parsedEmails) {
+          try {
+            const fRes = await db.query(
+              `SELECT id, name, email FROM guests WHERE event_id = $1 AND LOWER(email) = $2 LIMIT 1`,
+              [id, em]
+            );
+            if (fRes.rows.length > 0) {
+              resolvedList.push({
+                guestId: fRes.rows[0].id,
+                name: fRes.rows[0].name || "",
+                email: em,
+              });
+            } else {
+              const defName = em.split("@")[0] || "Guest";
+              const insRes = await db.query(
+                `INSERT INTO guests (id, event_id, name, email, status, created_at, updated_at)
+                 VALUES (gen_random_uuid(), $1, $2, $3, 'invited', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                 RETURNING id, name, email`,
+                [id, defName, em]
+              );
+              resolvedList.push({
+                guestId: insRes.rows[0]?.id || null,
+                name: defName,
+                email: em,
+              });
+            }
+          } catch (e) {
+            resolvedList.push({ guestId: null, name: "", email: em });
+          }
+        }
+        recipients = resolvedList;
       }
     }
 
