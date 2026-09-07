@@ -431,3 +431,29 @@ CREATE TABLE IF NOT EXISTS guest_groups (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(user_id, name)
 );
+
+-- Create design_settings table if not exists
+CREATE TABLE IF NOT EXISTS design_settings (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    event_id UUID UNIQUE NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+    typography JSONB NOT NULL DEFAULT '{"titleFont": "Playfair Display", "bodyFont": "Questrial"}'::jsonb,
+    color_scheme JSONB NOT NULL DEFAULT '{"preset": "Stripe Blurple", "primaryColor": "#635BFF", "secondaryColor": "#00D4FF", "textColor": "#1F2937"}'::jsonb,
+    background JSONB NOT NULL DEFAULT '{"type": "gradient", "gradientDirection": "to-r", "color": "#ffffff"}'::jsonb,
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create event_reminders table if not exists
+CREATE TABLE IF NOT EXISTS event_reminders (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+    enabled BOOLEAN NOT NULL DEFAULT true,
+    days_before INTEGER NOT NULL DEFAULT 3,
+    send_via VARCHAR(50) NOT NULL DEFAULT 'Email',
+    message TEXT NOT NULL,
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_event_reminders_event_id ON event_reminders(event_id);
+
+

@@ -88,6 +88,28 @@ app.get("/api/health", (req, res) => {
   res.status(200).json({ status: "healthy", message: "Backend is running" });
 });
 
+// Public QR Code Generator Endpoint (serves raw PNG)
+app.get("/api/qr", async (req, res) => {
+  try {
+    const text = req.query.text || req.query.data;
+    if (!text) {
+      return res.status(400).json({ error: "Query parameter 'data' or 'text' is required" });
+    }
+    const QRCode = require("qrcode");
+    const buffer = await QRCode.toBuffer(String(text), {
+      width: parseInt(req.query.size || "250", 10),
+      margin: 2,
+      errorCorrectionLevel: "M",
+    });
+    res.setHeader("Content-Type", "image/png");
+    res.setHeader("Cache-Control", "public, max-age=86400, s-maxage=86400");
+    return res.send(buffer);
+  } catch (err) {
+    console.error("[App] QR generation error:", err.message);
+    return res.status(500).json({ error: "Failed to generate QR code" });
+  }
+});
+
 
 // Auth Routes
 app.use("/api/auth", authRoutes);
@@ -129,6 +151,7 @@ app.use("/api/billing", billingRoutes);
 // Check-In Routes
 const checkInRoutes = require("./routes/checkIn.routes");
 app.use("/api/check-ins", checkInRoutes);
+app.use("/api/check-in", checkInRoutes);
 
 // Registries Routes
 const registryRoutes = require("./routes/registry.routes");

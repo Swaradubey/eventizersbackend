@@ -124,7 +124,22 @@ const findEventByIdAndUserId = async (id, userId) => {
      WHERE e.id = $1 AND e.created_by = $2`,
     [id, userId]
   );
-  return result.rows[0] || null;
+  const event = result.rows[0] || null;
+  if (event) {
+    try {
+      event.rsvpSettings = await findRsvpSettingsByEventId(id);
+    } catch (e) {
+      console.warn("Could not load rsvp_settings:", e.message);
+      event.rsvpSettings = { ...DEFAULT_RSVP_SETTINGS };
+    }
+    try {
+      event.designSettings = await findDesignSettingsByEventId(id);
+    } catch (e) {
+      console.warn("Could not load design_settings:", e.message);
+      event.designSettings = { ...DEFAULT_DESIGN_SETTINGS };
+    }
+  }
+  return event;
 };
 
 /**
@@ -366,10 +381,439 @@ const findEventById = async (id, userId) => {
       e.updated_at AS "updatedAt"
      FROM events e
      LEFT JOIN invitations inv ON e.id = inv.event_id
-     WHERE e.id = $1`,
+      WHERE e.id = $1`,
     [id]
   );
-  return result.rows[0] || null;
+  const event = result.rows[0] || null;
+  if (event) {
+    try {
+      event.rsvpSettings = await findRsvpSettingsByEventId(id);
+    } catch (e) {
+      console.warn("Could not load rsvp_settings:", e.message);
+      event.rsvpSettings = { ...DEFAULT_RSVP_SETTINGS };
+    }
+  }
+  return event;
+};
+
+const DEFAULT_RSVP_SETTINGS = {
+  rsvpDeadline: null,
+  allowPlusOnes: true,
+  maxPlusOnes: 1,
+  allowMaybeResponse: false,
+  requirePhoneNumber: false,
+  collectDietaryRestrictions: false,
+  collectMealPreference: false,
+  collectSongRequests: false,
+  customQuestions: []
+};
+
+/**
+ * Retrieve RSVP settings for an event
+ * @param {string} eventId - UUID
+ * @returns {Promise<Object>}
+ */
+const findRsvpSettingsByEventId = async (eventId) => {
+  const result = await db.query(
+    `SELECT 
+      id,
+      event_id AS "eventId",
+      rsvp_deadline AS "rsvpDeadline",
+      allow_plus_ones AS "allowPlusOnes",
+      max_plus_ones AS "maxPlusOnes",
+      allow_maybe_response AS "allowMaybeResponse",
+      require_phone_number AS "requirePhoneNumber",
+      collect_dietary_restrictions AS "collectDietaryRestrictions",
+      collect_meal_preference AS "collectMealPreference",
+      collect_song_requests AS "collectSongRequests",
+      custom_questions AS "customQuestions",
+      created_at AS "createdAt",
+      updated_at AS "updatedAt"
+     FROM rsvp_settings
+     WHERE event_id = $1`,
+    [eventId]
+  );
+
+  if (!result.rows[0]) {
+    return { ...DEFAULT_RSVP_SETTINGS };
+  }
+
+  const row = result.rows[0];
+  return {
+    rsvpDeadline: row.rsvpDeadline || null,
+    allowPlusOnes: row.allowPlusOnes !== false,
+    maxPlusOnes: row.maxPlusOnes != null ? Number(row.maxPlusOnes) : 1,
+    allowMaybeResponse: Boolean(row.allowMaybeResponse),
+    requirePhoneNumber: Boolean(row.requirePhoneNumber),
+    collectDietaryRestrictions: Boolean(row.collectDietaryRestrictions),
+    collectMealPreference: Boolean(row.collectMealPreference),
+    collectSongRequests: Boolean(row.collectSongRequests),
+    customQuestions: Array.isArray(row.customQuestions) ? row.customQuestions : [],
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+};
+
+/**
+ * Insert or update RSVP settings for an event
+ * @param {string} eventId - UUID
+ * @param {Object} data
+ * @returns {Promise<Object>}
+ */
+const upsertRsvpSettings = async (eventId, data = {}) => {
+  const current = await findRsvpSettingsByEventId(eventId);
+  const rsvpDeadline = data.rsvpDeadline !== undefined ? data.rsvpDeadline : current.rsvpDeadline;
+  const allowPlusOnes = data.allowPlusOnes !== undefined ? Boolean(data.allowPlusOnes) : current.allowPlusOnes;
+  const maxPlusOnes = data.maxPlusOnes !== undefined ? Math.max(1, Number(data.maxPlusOnes) || 1) : current.maxPlusOnes;
+  const allowMaybeResponse = data.allowMaybeResponse !== undefined ? Boolean(data.allowMaybeResponse) : current.allowMaybeResponse;
+  const requirePhoneNumber = data.requirePhoneNumber !== undefined ? Boolean(data.requirePhoneNumber) : current.requirePhoneNumber;
+  const collectDietaryRestrictions = data.collectDietaryRestrictions !== undefined ? Boolean(data.collectDietaryRestrictions) : current.collectDietaryRestrictions;
+  const collectMealPreference = data.collectMealPreference !== undefined ? Boolean(data.collectMealPreference) : current.collectMealPreference;
+  const collectSongRequests = data.collectSongRequests !== undefined ? Boolean(data.collectSongRequests) : current.collectSongRequests;
+  const customQuestions = Array.isArray(data.customQuestions)
+    ? JSON.stringify(data.customQuestions)
+    : (data.customQuestions && typeof data.customQuestions === "string" ? data.customQuestions : JSON.stringify(current.customQuestions || []));
+
+  const result = await db.query(
+    `INSERT INTO rsvp_settings (
+      event_id,
+      rsvp_deadline,
+      allow_plus_ones,
+      max_plus_ones,
+      allow_maybe_response,
+      require_phone_number,
+      collect_dietary_restrictions,
+      collect_meal_preference,
+      collect_song_requests,
+      custom_questions,
+      updated_at
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, CURRENT_TIMESTAMP)
+    ON CONFLICT (event_id) DO UPDATE SET
+      rsvp_deadline = EXCLUDED.rsvp_deadline,
+      allow_plus_ones = EXCLUDED.allow_plus_ones,
+      max_plus_ones = EXCLUDED.max_plus_ones,
+      allow_maybe_response = EXCLUDED.allow_maybe_response,
+      require_phone_number = EXCLUDED.require_phone_number,
+      collect_dietary_restrictions = EXCLUDED.collect_dietary_restrictions,
+      collect_meal_preference = EXCLUDED.collect_meal_preference,
+      collect_song_requests = EXCLUDED.collect_song_requests,
+      custom_questions = EXCLUDED.custom_questions,
+      updated_at = CURRENT_TIMESTAMP
+    RETURNING 
+      id,
+      event_id AS "eventId",
+      rsvp_deadline AS "rsvpDeadline",
+      allow_plus_ones AS "allowPlusOnes",
+      max_plus_ones AS "maxPlusOnes",
+      allow_maybe_response AS "allowMaybeResponse",
+      require_phone_number AS "requirePhoneNumber",
+      collect_dietary_restrictions AS "collectDietaryRestrictions",
+      collect_meal_preference AS "collectMealPreference",
+      collect_song_requests AS "collectSongRequests",
+      custom_questions AS "customQuestions",
+      created_at AS "createdAt",
+      updated_at AS "updatedAt"`,
+    [
+      eventId,
+      rsvpDeadline || null,
+      allowPlusOnes,
+      maxPlusOnes,
+      allowMaybeResponse,
+      requirePhoneNumber,
+      collectDietaryRestrictions,
+      collectMealPreference,
+      collectSongRequests,
+      customQuestions
+    ]
+  );
+
+  const row = result.rows[0];
+  return {
+    rsvpDeadline: row.rsvpDeadline || null,
+    allowPlusOnes: row.allowPlusOnes !== false,
+    maxPlusOnes: row.maxPlusOnes != null ? Number(row.maxPlusOnes) : 1,
+    allowMaybeResponse: Boolean(row.allowMaybeResponse),
+    requirePhoneNumber: Boolean(row.requirePhoneNumber),
+    collectDietaryRestrictions: Boolean(row.collectDietaryRestrictions),
+    collectMealPreference: Boolean(row.collectMealPreference),
+    collectSongRequests: Boolean(row.collectSongRequests),
+    customQuestions: Array.isArray(row.customQuestions) ? row.customQuestions : [],
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+};
+
+const DEFAULT_DESIGN_SETTINGS = {
+  typography: {
+    titleFont: "Playfair Display",
+    bodyFont: "Questrial",
+  },
+  colorScheme: {
+    preset: "Stripe Blurple",
+    primaryColor: "#635BFF",
+    secondaryColor: "#00D4FF",
+    textColor: "#1F2937",
+  },
+  background: {
+    type: "gradient",
+    gradientDirection: "to-r",
+    color: "#ffffff",
+    patternUrl: "",
+    imageUrl: "",
+  },
+};
+
+/**
+ * Retrieve design settings for an event
+ * @param {string} eventId - UUID
+ * @returns {Promise<Object>}
+ */
+const findDesignSettingsByEventId = async (eventId) => {
+  try {
+    const result = await db.query(
+      `SELECT 
+        id,
+        event_id AS "eventId",
+        typography,
+        color_scheme AS "colorScheme",
+        background,
+        created_at AS "createdAt",
+        updated_at AS "updatedAt"
+       FROM design_settings
+       WHERE event_id = $1`,
+      [eventId]
+    );
+
+    if (!result.rows[0]) {
+      return { ...DEFAULT_DESIGN_SETTINGS };
+    }
+
+    const row = result.rows[0];
+    return {
+      id: row.id,
+      eventId: row.eventId,
+      typography: {
+        titleFont: row.typography?.titleFont || DEFAULT_DESIGN_SETTINGS.typography.titleFont,
+        bodyFont: row.typography?.bodyFont || DEFAULT_DESIGN_SETTINGS.typography.bodyFont,
+      },
+      colorScheme: {
+        preset: row.colorScheme?.preset || DEFAULT_DESIGN_SETTINGS.colorScheme.preset,
+        primaryColor: row.colorScheme?.primaryColor || DEFAULT_DESIGN_SETTINGS.colorScheme.primaryColor,
+        secondaryColor: row.colorScheme?.secondaryColor || DEFAULT_DESIGN_SETTINGS.colorScheme.secondaryColor,
+        textColor: row.colorScheme?.textColor || DEFAULT_DESIGN_SETTINGS.colorScheme.textColor,
+      },
+      background: {
+        type: row.background?.type || DEFAULT_DESIGN_SETTINGS.background.type,
+        gradientDirection: row.background?.gradientDirection || DEFAULT_DESIGN_SETTINGS.background.gradientDirection,
+        color: row.background?.color || DEFAULT_DESIGN_SETTINGS.background.color,
+        patternUrl: row.background?.patternUrl || DEFAULT_DESIGN_SETTINGS.background.patternUrl,
+        imageUrl: row.background?.imageUrl || DEFAULT_DESIGN_SETTINGS.background.imageUrl,
+      },
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    };
+  } catch (err) {
+    console.warn("Could not query design_settings:", err.message);
+    return { ...DEFAULT_DESIGN_SETTINGS };
+  }
+};
+
+/**
+ * Insert or update design settings for an event
+ * @param {string} eventId - UUID
+ * @param {Object} data
+ * @returns {Promise<Object>}
+ */
+const upsertDesignSettings = async (eventId, data = {}) => {
+  const current = await findDesignSettingsByEventId(eventId);
+
+  const typography = {
+    titleFont: data?.typography?.titleFont || current?.typography?.titleFont || DEFAULT_DESIGN_SETTINGS.typography.titleFont,
+    bodyFont: data?.typography?.bodyFont || current?.typography?.bodyFont || DEFAULT_DESIGN_SETTINGS.typography.bodyFont,
+  };
+
+  const colorScheme = {
+    preset: data?.colorScheme?.preset || current?.colorScheme?.preset || DEFAULT_DESIGN_SETTINGS.colorScheme.preset,
+    primaryColor: data?.colorScheme?.primaryColor || current?.colorScheme?.primaryColor || DEFAULT_DESIGN_SETTINGS.colorScheme.primaryColor,
+    secondaryColor: data?.colorScheme?.secondaryColor || current?.colorScheme?.secondaryColor || DEFAULT_DESIGN_SETTINGS.colorScheme.secondaryColor,
+    textColor: data?.colorScheme?.textColor || current?.colorScheme?.textColor || DEFAULT_DESIGN_SETTINGS.colorScheme.textColor,
+  };
+
+  const background = {
+    type: data?.background?.type || current?.background?.type || DEFAULT_DESIGN_SETTINGS.background.type,
+    gradientDirection: data?.background?.gradientDirection !== undefined ? data.background.gradientDirection : (current?.background?.gradientDirection || "to-r"),
+    color: data?.background?.color !== undefined ? data.background.color : (current?.background?.color || "#ffffff"),
+    patternUrl: data?.background?.patternUrl !== undefined ? data.background.patternUrl : (current?.background?.patternUrl || ""),
+    imageUrl: data?.background?.imageUrl !== undefined ? data.background.imageUrl : (current?.background?.imageUrl || ""),
+  };
+
+  const result = await db.query(
+    `INSERT INTO design_settings (
+      event_id,
+      typography,
+      color_scheme,
+      background,
+      updated_at
+    ) VALUES ($1, $2::jsonb, $3::jsonb, $4::jsonb, CURRENT_TIMESTAMP)
+    ON CONFLICT (event_id) DO UPDATE SET
+      typography = EXCLUDED.typography,
+      color_scheme = EXCLUDED.color_scheme,
+      background = EXCLUDED.background,
+      updated_at = CURRENT_TIMESTAMP
+    RETURNING 
+      id,
+      event_id AS "eventId",
+      typography,
+      color_scheme AS "colorScheme",
+      background,
+      created_at AS "createdAt",
+      updated_at AS "updatedAt"`,
+    [
+      eventId,
+      JSON.stringify(typography),
+      JSON.stringify(colorScheme),
+      JSON.stringify(background),
+    ]
+  );
+
+  const row = result.rows[0];
+  return {
+    id: row.id,
+    eventId: row.eventId,
+    typography: row.typography || typography,
+    colorScheme: row.colorScheme || colorScheme,
+    background: row.background || background,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+};
+
+const DEFAULT_EVENT_REMINDERS = [
+  {
+    enabled: true,
+    daysBefore: 14,
+    sendVia: "Email",
+    message: "Don't forget to RSVP for our event!",
+  },
+  {
+    enabled: true,
+    daysBefore: 7,
+    sendVia: "Email",
+    message: "Only one week left! We hope to see you there.",
+  },
+];
+
+/**
+ * Retrieve all reminders for an event
+ * @param {string} eventId - UUID
+ * @returns {Promise<Array>}
+ */
+const findRemindersByEventId = async (eventId) => {
+  try {
+    const result = await db.query(
+      `SELECT 
+        id,
+        event_id AS "eventId",
+        enabled,
+        days_before AS "daysBefore",
+        send_via AS "sendVia",
+        message,
+        created_at AS "createdAt",
+        updated_at AS "updatedAt"
+       FROM event_reminders
+       WHERE event_id = $1
+       ORDER BY days_before DESC, created_at ASC`,
+      [eventId]
+    );
+
+    if (!result.rows || result.rows.length === 0) {
+      return [];
+    }
+
+    return result.rows.map((row) => ({
+      id: row.id,
+      eventId: row.eventId,
+      enabled: Boolean(row.enabled),
+      daysBefore: Number(row.daysBefore),
+      sendVia: row.sendVia,
+      message: row.message || "",
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    }));
+  } catch (err) {
+    console.warn("Could not query event_reminders:", err.message);
+    return [];
+  }
+};
+
+/**
+ * Replace/overwrite all reminders for an event
+ * @param {string} eventId - UUID
+ * @param {Array} reminders - Array of reminder objects
+ * @returns {Promise<Array>}
+ */
+const updateRemindersForEvent = async (eventId, reminders = []) => {
+  const client = await db.pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    // Delete existing reminders for this event
+    await client.query("DELETE FROM event_reminders WHERE event_id = $1", [eventId]);
+
+    const insertedRows = [];
+
+    if (Array.isArray(reminders) && reminders.length > 0) {
+      for (const item of reminders) {
+        const enabled = item.enabled !== undefined ? Boolean(item.enabled) : true;
+        const daysBefore = !isNaN(Number(item.daysBefore)) ? Number(item.daysBefore) : 3;
+        const sendVia = item.sendVia || "Email";
+        const message = typeof item.message === "string" ? item.message : "";
+
+        const res = await client.query(
+          `INSERT INTO event_reminders (
+            event_id,
+            enabled,
+            days_before,
+            send_via,
+            message,
+            created_at,
+            updated_at
+          ) VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+          RETURNING 
+            id,
+            event_id AS "eventId",
+            enabled,
+            days_before AS "daysBefore",
+            send_via AS "sendVia",
+            message,
+            created_at AS "createdAt",
+            updated_at AS "updatedAt"`,
+          [eventId, enabled, daysBefore, sendVia, message]
+        );
+        if (res.rows[0]) {
+          insertedRows.push({
+            id: res.rows[0].id,
+            eventId: res.rows[0].eventId,
+            enabled: Boolean(res.rows[0].enabled),
+            daysBefore: Number(res.rows[0].daysBefore),
+            sendVia: res.rows[0].sendVia,
+            message: res.rows[0].message || "",
+            createdAt: res.rows[0].createdAt,
+            updatedAt: res.rows[0].updatedAt,
+          });
+        }
+      }
+    }
+
+    await client.query("COMMIT");
+    return insertedRows;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    console.error("Error updating reminders for event:", error);
+    throw error;
+  } finally {
+    client.release();
+  }
 };
 
 module.exports = {
@@ -378,5 +822,14 @@ module.exports = {
   findEventById,
   createEvent,
   updateEvent,
-  deleteEvent
+  deleteEvent,
+  findRsvpSettingsByEventId,
+  upsertRsvpSettings,
+  DEFAULT_RSVP_SETTINGS,
+  findDesignSettingsByEventId,
+  upsertDesignSettings,
+  DEFAULT_DESIGN_SETTINGS,
+  findRemindersByEventId,
+  updateRemindersForEvent,
+  DEFAULT_EVENT_REMINDERS,
 };
