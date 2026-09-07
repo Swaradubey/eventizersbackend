@@ -36,13 +36,19 @@ const getRegistries = async (req, res) => {
       return res.status(400).json({ error: "eventId is required." });
     }
 
-    // Verify event ownership
+    // Verify event ownership for hosts
     const event = await eventService.findEventByIdAndUserId(eventId, userId);
-    if (!event) {
+    if (!event && req.user.role !== "ADMIN" && req.user.role !== "GUEST") {
       return res.status(403).json({ error: "Access Denied. You do not own this event." });
     }
 
-    const registries = await registryService.findRegistriesByEventId(eventId, userId);
+    // Pass userId only if the user is not an Admin or Guest, so they see all registries
+    let fetchUserId = userId;
+    if (req.user.role === "ADMIN" || req.user.role === "GUEST") {
+      fetchUserId = undefined;
+    }
+
+    const registries = await registryService.findRegistriesByEventId(eventId, fetchUserId);
     const serialized = registries.map(serializeRegistry);
 
     return res.status(200).json({
@@ -200,8 +206,15 @@ const updateRegistry = async (req, res) => {
     }
 
     // Verify ownership of the related event
-    if (registry.event.createdBy !== userId) {
+    if (registry.event.createdBy !== userId && req.user.role !== "ADMIN" && req.user.role !== "GUEST") {
       return res.status(403).json({ error: "Access Denied. You do not own the related event." });
+    }
+
+    // If GUEST, they are only allowed to update currentAmount and contributorCount
+    if (req.user.role === "GUEST") {
+      if (type !== undefined || title !== undefined || description !== undefined || goalAmount !== undefined || currency !== undefined || externalUrl !== undefined || isActive !== undefined) {
+        return res.status(403).json({ error: "Guests are only allowed to update current amount and contributor count." });
+      }
     }
 
     // Validate fields if provided

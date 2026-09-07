@@ -602,8 +602,7 @@ const sendInvitation = async (req, res) => {
 const sendInvitationToGuests = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { invitationId, guestIds, recipients, cardSnapshotUrl, snapshotUrl, cardImageBase64, snapshot, deliveryMethod,
-            imageUrl, coverImage, titleFont, bodyFont, fontFamily, textColor, buttonColor } = req.body || {};
+    const { invitationId, guestIds, recipients, cardSnapshotUrl, snapshotUrl, cardImageBase64, snapshot } = req.body || {};
 
     if (!invitationId) {
       return res.status(400).json({ error: "invitationId is required." });
@@ -627,7 +626,7 @@ const sendInvitationToGuests = async (req, res) => {
     const rawSnapshot = snapshot || cardImageBase64 || snapshotUrl || cardSnapshotUrl || null;
     let resolvedSnapshotUrl = null;
 
-    console.log(`[InvitationController] Dispatching to guests for invitation ID: ${invitationId}, deliveryMethod: ${deliveryMethod || 'Email'}, imageUrl: ${invitation.imageUrl || "(none)"}, snapshot payload size: ${rawSnapshot ? `${(rawSnapshot.length / 1024).toFixed(1)} KB` : "0 KB"}`);
+    console.log(`[InvitationController] Dispatching to guests for invitation ID: ${invitationId}, imageUrl: ${invitation.imageUrl || "(none)"}, snapshot payload size: ${rawSnapshot ? `${(rawSnapshot.length / 1024).toFixed(1)} KB` : "0 KB"}`);
 
     if (rawSnapshot && typeof rawSnapshot === "string") {
       const trimmed = rawSnapshot.trim();
@@ -646,38 +645,6 @@ const sendInvitationToGuests = async (req, res) => {
           console.warn("[InvitationController] ⚠️  Email will use themed fallback banner instead of card image.");
         }
       }
-    }
-
-    // WhatsApp / non-email channel: sirf snapshot + image save karo, email mat bhejo
-    const isWhatsAppOrShare = deliveryMethod && (deliveryMethod === 'WhatsApp' || deliveryMethod === 'SMS' || deliveryMethod === 'Share');
-    if (isWhatsAppOrShare) {
-      // Invitation record mein latest snapshot update karo
-      const updatePayload = {};
-      if (resolvedSnapshotUrl) { updatePayload.cardSnapshotUrl = resolvedSnapshotUrl; updatePayload.snapshotUrl = resolvedSnapshotUrl; }
-      if (rawSnapshot && rawSnapshot.length > 300) { updatePayload.cardImageBase64 = rawSnapshot.substring(0, 100000); }
-      if (imageUrl || coverImage) { updatePayload.imageUrl = imageUrl || coverImage; }
-      if (Object.keys(updatePayload).length > 0) {
-        try { await invitationService.updateInvitation(invitationId, updatePayload, userId); } catch (_) {}
-      }
-      // Guest status update karo
-      if (Array.isArray(guestIds) && guestIds.length > 0 && invitation.eventId) {
-        try {
-          const allGuests = await guestService.findGuestsByUserId(userId, "", invitation.eventId);
-          if (Array.isArray(allGuests)) {
-            await Promise.allSettled(
-              allGuests.filter(g => guestIds.includes(g.id)).map(g =>
-                guestService.updateGuest(g.id, { rsvpStatus: 'invited', sentAt: new Date() }, userId)
-              )
-            );
-          }
-        } catch (_) {}
-      }
-      return res.status(200).json({
-        success: true,
-        message: `WhatsApp invitation dispatched to ${(guestIds || []).length} guest(s). Record updated.`,
-        recipientCount: (guestIds || []).length,
-        snapshotUrl: resolvedSnapshotUrl,
-      });
     }
 
     let targetEmails = [];
