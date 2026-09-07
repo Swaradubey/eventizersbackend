@@ -537,6 +537,31 @@ const updateAttendanceGuarantee = async (req, res) => {
   }
 };
 
+/**
+ * Trigger manual execution of auto-waive job
+ * POST /api/security/attendance-guarantee/auto-waive
+ */
+const triggerAutoWaive = async (req, res) => {
+  try {
+    const { processAutoWaive } = require("../jobs/autoWaive.job");
+    const result = await processAutoWaive();
+    if (!result.success) {
+      return res.status(500).json({ success: false, error: result.error });
+    }
+    return res.status(200).json({
+      success: true,
+      message: `Auto-waive job executed. Waived ${result.totalWaived} pending guarantee fees.`,
+      data: result,
+    });
+  } catch (error) {
+    console.error("Trigger Auto-Waive Error:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Server error executing auto-waive job.",
+    });
+  }
+};
+
 module.exports = {
   getSecurityDashboard,
   getSecuritySummary,
@@ -545,5 +570,6 @@ module.exports = {
   deleteAuditLog,
   getAttendanceGuarantee,
   updateAttendanceGuarantee,
+  triggerAutoWaive,
 };
 

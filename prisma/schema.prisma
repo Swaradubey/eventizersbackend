@@ -122,8 +122,13 @@ model Guest {
   isClicked   Boolean   @default(false) @map("is_clicked")
   clickedAt   DateTime? @map("clicked_at")
   respondedAt DateTime? @map("responded_at")
-  rsvpStatus  String?   @map("rsvp_status")
-  groups      String[]  @default([])
+  rsvpStatus            String?   @map("rsvp_status")
+  groups                String[]  @default([])
+  guaranteeStatus       String?   @default("PENDING") @map("guarantee_status")
+  penaltyNoticeSentAt   DateTime? @map("penalty_notice_sent_at")
+  guaranteeChargedAt    DateTime? @map("guarantee_charged_at")
+  guaranteeWaivedAt     DateTime? @map("guarantee_waived_at")
+  stripePaymentMethodId String?   @map("stripe_payment_method_id")
 
   @@map("guests")
 }
@@ -309,6 +314,8 @@ model RegistryContribution {
 enum Role {
   USER
   ADMIN
+  GUEST
+  COHOST
 }
 
 enum MessageStatus {

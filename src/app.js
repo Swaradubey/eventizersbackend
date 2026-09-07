@@ -185,6 +185,10 @@ app.use("/api/analytics", analyticsRoutes);
 const trackRoutes = require("./routes/track.routes");
 app.use("/api/track", trackRoutes);
 
+// Cron Background Worker Trigger Routes
+const cronRoutes = require("./routes/cron.routes");
+app.use("/api/cron", cronRoutes);
+
 // Serve uploads folder statically (uses /tmp on serverless, ./uploads locally)
 const { UPLOADS_DIR } = require("./utils/fileStorage");
 app.use("/uploads", express.static(UPLOADS_DIR, {

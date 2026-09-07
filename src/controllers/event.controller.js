@@ -941,6 +941,141 @@ const updateEventReminders = async (req, res) => {
   }
 };
 
+/**
+ * Get attendance commitment metrics and no-shows for an event
+ * GET /api/events/:eventId/attendance-commitment
+ */
+const getAttendanceCommitment = async (req, res) => {
+  try {
+    const eventId = req.params.eventId || req.params.id;
+    const userId = req.user.id;
+
+    if (!eventId) {
+      return res.status(400).json({ success: false, error: "Event ID is required." });
+    }
+
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(eventId)) {
+      return res.status(400).json({ success: false, error: "Invalid event ID format." });
+    }
+
+    // Verify event existence and ownership
+    const event = await prisma.event.findUnique({
+      where: { id: eventId },
+      select: {
+        id: true,
+        title: true,
+        eventDate: true,
+        eventTime: true,
+        createdBy: true,
+      },
+    });
+
+    if (!event) {
+      return res.status(404).json({ success: false, error: "Event not found." });
+    }
+
+    if (event.createdBy !== userId) {
+      return res.status(403).json({ success: false, error: "Access denied. You do not own this event." });
+    }
+
+    // Get user guarantee setting for guaranteeAmount
+    const guaranteeSetting = await prisma.attendanceGuaranteeSetting.findUnique({
+      where: { userId },
+    });
+    const configuredGuaranteeAmount = guaranteeSetting?.guaranteeAmount
+      ? parseFloat(guaranteeSetting.guaranteeAmount)
+      : 25.0;
+
+    // Query guests for eventId where rsvpStatus IN ('attending', 'yes', 'confirmed') including relation checkIns
+    const attendingGuests = await prisma.guest.findMany({
+      where: {
+        eventId,
+        OR: [
+          { rsvpStatus: { in: ["attending", "yes", "confirmed", "ATTENDING", "YES", "CONFIRMED", "Confirmed", "Attending"] } },
+          { status: { in: ["confirmed", "attending", "CONFIRMED", "ATTENDING"] } },
+        ],
+      },
+      include: {
+        checkIns: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    // Check if event has started
+    let eventStartDateTime = new Date(event.eventDate);
+    if (event.eventTime) {
+      const timeStr = typeof event.eventTime === "string"
+        ? event.eventTime
+        : event.eventTime instanceof Date
+          ? event.eventTime.toTimeString().split(" ")[0]
+          : null;
+      if (timeStr) {
+        const parts = timeStr.split(":");
+        if (parts.length >= 2) {
+          eventStartDateTime.setHours(parseInt(parts[0], 10), parseInt(parts[1], 10), 0, 0);
+        }
+      }
+    }
+    const hasEventStarted = eventStartDateTime <= new Date();
+
+    const totalConfirmed = attendingGuests.length;
+    const attendedSafe = attendingGuests.filter((g) => g.checkIns && g.checkIns.length > 0).length;
+
+    // Attending guests with zero check-in records
+    const unCheckedInGuests = attendingGuests.filter((g) => !g.checkIns || g.checkIns.length === 0);
+    // noShows: Attending guests with zero check-in records after the event starts
+    const noShowsCount = hasEventStarted ? unCheckedInGuests.length : 0;
+
+    const waivedCount = attendingGuests.filter((g) => g.guaranteeStatus?.toUpperCase() === "WAIVED").length;
+    const chargedCount = attendingGuests.filter((g) => g.guaranteeStatus?.toUpperCase() === "CHARGED").length;
+    const pendingCount = attendingGuests.filter(
+      (g) => !g.guaranteeStatus || g.guaranteeStatus?.toUpperCase() === "PENDING"
+    ).length;
+
+    const reviewWindowDays = guaranteeSetting?.reviewWindowDays || 7;
+
+    const noShowsList = unCheckedInGuests.map((g) => ({
+      id: g.id,
+      name: g.name,
+      email: g.email,
+      phone: g.phone || null,
+      guaranteeStatus: g.guaranteeStatus || "PENDING",
+      guaranteeAmount: configuredGuaranteeAmount,
+      rsvpAt: g.respondedAt || g.createdAt,
+      isEventStarted: hasEventStarted,
+      penaltyNoticeSentAt: g.penaltyNoticeSentAt || null,
+      guaranteeChargedAt: g.guaranteeChargedAt || null,
+      guaranteeWaivedAt: g.guaranteeWaivedAt || null,
+      eventDate: event.eventDate,
+      eventTitle: event.title,
+      reviewWindowDays,
+    }));
+
+    return res.status(200).json({
+      success: true,
+      hasEventStarted,
+      metrics: {
+        totalConfirmed,
+        attendedSafe,
+        noShows: noShowsCount,
+        waivedCount,
+        chargedCount,
+        pendingCount,
+      },
+      noShows: noShowsList,
+    });
+  } catch (error) {
+    console.error("Get Attendance Commitment Error:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Server error retrieving attendance commitment metrics.",
+    });
+  }
+};
+
 module.exports = {
   getEvents,
   getEventById,
@@ -954,5 +1089,6 @@ module.exports = {
   sendEventInvitations,
   getEventReminders,
   updateEventReminders,
+  getAttendanceCommitment,
 };
 

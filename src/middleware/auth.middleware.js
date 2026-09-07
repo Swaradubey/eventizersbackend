@@ -63,6 +63,17 @@ const requireAdmin = (req, res, next) => {
   }
 };
 
+const restrictGuest = (req, res, next) => {
+  if (req.user && req.user.role === "GUEST") {
+    return res.status(403).json({
+      error: "Access Denied: Guest accounts are restricted from host management and administrative actions."
+    });
+  }
+  next();
+};
+
 module.exports = authMiddleware;
 module.exports.requireAuth = requireAuth;
 module.exports.requireAdmin = requireAdmin;
+module.exports.restrictGuest = restrictGuest;
+
