@@ -41,15 +41,16 @@ if (!frontendUrl) {
   console.warn("[stripe] FRONTEND_URL is not set. Checkout redirects may fail.");
 }
 
+const dbUrl = process.env.DATABASE_URL || "";
+
 function validateEnvironment() {
   if (!process.env.DATABASE_URL) {
     console.error("[env] DATABASE_URL is missing.");
     process.exit(1);
   }
-  const dbUrl = process.env.DATABASE_URL;
 
   try {
-    const parsed = new URL(dbUrl);
+    const parsed = new URL(process.env.DATABASE_URL);
     if (!parsed.protocol.startsWith("postgres")) {
       throw new Error("Invalid protocol. Must start with postgresql:// or postgres://");
     }
@@ -228,6 +229,13 @@ async function startServer() {
     // Clean up pre-existing orphan ticket records in the database
     const { cleanOrphanTicketsAndOrders } = require("./utils/orphanTicketCleaner");
     await cleanOrphanTicketsAndOrders();
+
+    // Start auto-waive and no-show penalty notification daily scheduled cron jobs
+    const { startAutoWaiveCron } = require("./jobs/autoWaive.job");
+    startAutoWaiveCron();
+
+    const { startProcessNoShowsCron } = require("./jobs/processNoShows.job");
+    startProcessNoShowsCron();
 
     app.listen(PORT, () => {
       console.log(`[Eventizers Backend] Server is running on port ${PORT}`);

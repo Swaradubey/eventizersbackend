@@ -1033,9 +1033,197 @@ const sendInvitationEmails = async ({
   };
 };
 
+/**
+ * Generate HTML string for No-Show Penalty Notice
+ */
+const generateNoShowPenaltyNoticeHtml = ({
+  guestName = "Valued Guest",
+  eventName = "Event",
+  eventDate = "Scheduled Date",
+  guaranteeAmount = 25,
+  reviewWindowDays = 7,
+  hostName = "Event Host",
+  hostEmail = "host@example.com",
+  contactUrl = "",
+}) => {
+  const resolvedContactUrl = contactUrl || `mailto:${hostEmail}?subject=${encodeURIComponent(`Absence Inquiry: ${eventName}`)}`;
+  
+  // Try loading from template file if accessible
+  try {
+    const templatePath = path.resolve(__dirname, "../../emails/noShowPenaltyNotice.html");
+    if (fs.existsSync(templatePath)) {
+      let template = fs.readFileSync(templatePath, "utf8");
+      template = template.replace(/\{\{guestName\}\}/g, guestName);
+      template = template.replace(/\{\{eventName\}\}/g, eventName);
+      template = template.replace(/\{\{eventDate\}\}/g, eventDate);
+      template = template.replace(/\{\{guaranteeAmount\}\}/g, Number(guaranteeAmount).toFixed(2));
+      template = template.replace(/\{\{reviewWindowDays\}\}/g, String(reviewWindowDays));
+      template = template.replace(/\{\{hostName\}\}/g, hostName);
+      template = template.replace(/\{\{hostEmail\}\}/g, hostEmail);
+      template = template.replace(/\{\{contactUrl\}\}/g, resolvedContactUrl);
+      return template;
+    }
+  } catch (err) {
+    console.warn("[EmailService] Could not read template file, using fallback inline HTML generator:", err.message);
+  }
+
+  // Fallback inline template
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Notice: Attendance Commitment & Absence for ${eventName}</title>
+</head>
+<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background-color:#f6f9fc;color:#1e293b;">
+  <div style="width:100%;padding:40px 12px;background-color:#f6f9fc;">
+    <div style="max-width:580px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e2e8f0;box-shadow:0 4px 24px rgba(0,0,0,0.06);">
+      <div style="background:linear-gradient(135deg,#1e1b4b 0%,#312e81 100%);padding:36px 32px 28px;text-align:center;color:#fff;">
+        <span style="display:inline-block;background:rgba(239,68,68,0.2);border:1px solid rgba(239,68,68,0.4);color:#fca5a5;font-size:11px;font-weight:700;letter-spacing:0.8px;padding:5px 14px;border-radius:9999px;margin-bottom:14px;text-transform:uppercase;">Absence Recorded</span>
+        <h1 style="margin:0 0 8px;font-size:22px;color:#fff;font-weight:700;">Attendance Commitment Notice</h1>
+        <p style="margin:0;color:#cbd5e1;font-size:14px;">${eventName}</p>
+      </div>
+      <div style="padding:32px 32px 24px;">
+        <div style="font-size:17px;font-weight:600;color:#0f172a;margin-bottom:14px;">Hello ${guestName},</div>
+        <p style="font-size:14px;line-height:1.6;color:#475569;margin-bottom:24px;">
+          We noticed that you were unable to attend <strong>${eventName}</strong> on <strong>${eventDate}</strong>.
+          Because your RSVP reservation was confirmed prior to the event, resources and catering were reserved specifically for you.
+        </p>
+        <div style="background:#f8faff;border:1px solid #e0e7ff;border-radius:12px;padding:20px;margin-bottom:24px;">
+          <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#4338ca;margin-bottom:14px;">Event & Commitment Summary</div>
+          <table style="width:100%;border-collapse:collapse;font-size:13.5px;">
+            <tr><td style="padding:6px 0;color:#64748b;font-weight:500;">Event Name:</td><td style="padding:6px 0;text-align:right;font-weight:600;color:#0f172a;">${eventName}</td></tr>
+            <tr><td style="padding:6px 0;color:#64748b;font-weight:500;">Event Date:</td><td style="padding:6px 0;text-align:right;font-weight:600;color:#0f172a;">${eventDate}</td></tr>
+            <tr><td style="padding:6px 0;color:#64748b;font-weight:500;">Guest Name:</td><td style="padding:6px 0;text-align:right;font-weight:600;color:#0f172a;">${guestName}</td></tr>
+            <tr><td style="padding:6px 0;color:#64748b;font-weight:500;">Guarantee Fee:</td><td style="padding:6px 0;text-align:right;font-weight:700;color:#b91c1c;font-size:15px;">$${Number(guaranteeAmount).toFixed(2)}</td></tr>
+            <tr><td style="padding:6px 0;color:#64748b;font-weight:500;">Review Window:</td><td style="padding:6px 0;text-align:right;font-weight:600;color:#0f172a;">${reviewWindowDays} Days</td></tr>
+          </table>
+        </div>
+        <div style="background:#fffbeb;border-left:4px solid #f59e0b;padding:14px 16px;border-radius:0 8px 8px 0;margin-bottom:24px;font-size:13px;line-height:1.55;color:#92400e;">
+          <strong>Review Window in Progress:</strong> Since attendance was confirmed but check-in was missed, the host has a <strong>${reviewWindowDays}-day review window</strong> to either waive or apply the reservation guarantee fee. If no action is taken during this period, the fee will be automatically waived.
+        </div>
+        <p style="font-size:14px;line-height:1.6;color:#475569;margin-bottom:24px;">
+          Did an unforeseen emergency prevent your attendance? Please reach out to the event host using the button below.
+        </p>
+        <div style="text-align:center;padding:8px 0 24px;">
+          <a href="${resolvedContactUrl}" style="display:inline-block;background:#5b45f4;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:13px 30px;border-radius:10px;box-shadow:0 3px 10px rgba(91,69,244,0.25);" target="_blank">Contact Host / Report Emergency</a>
+        </div>
+      </div>
+      <div style="background:#f8fafc;border-top:1px solid #f1f5f9;padding:24px 32px;text-align:center;font-size:12px;color:#94a3b8;line-height:1.6;">
+        <p style="margin:0 0 6px;">This is an automated attendance notice from <strong>InviteHub</strong> on behalf of ${hostName}.</p>
+        <p style="margin:0;">Reply directly to host at <a href="mailto:${hostEmail}" style="color:#6366f1;">${hostEmail}</a>.</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+};
+
+/**
+ * Send No-Show Penalty Notice email to an absent guest
+ * @param {Object} params
+ * @param {Object} params.guest
+ * @param {Object} params.event
+ * @param {Object} [params.host]
+ * @param {number} [params.guaranteeAmount]
+ * @param {number} [params.reviewWindowDays]
+ * @returns {Promise<{success: boolean, messageId?: string, error?: string}>}
+ */
+const sendNoShowPenaltyNoticeEmail = async ({
+  guest,
+  event,
+  host = null,
+  guaranteeAmount = 25,
+  reviewWindowDays = 7,
+}) => {
+  try {
+    if (!guest || !guest.email) {
+      throw new Error("Missing recipient guest or email address.");
+    }
+
+    const eventName = event?.title || "Upcoming Event";
+    const subject = `Notice: Attendance Commitment & Absence for ${eventName}`;
+
+    // Format date cleanly
+    let formattedDate = "Scheduled Date";
+    if (event?.eventDate) {
+      try {
+        const d = new Date(event.eventDate);
+        formattedDate = d.toLocaleDateString("en-US", {
+          weekday: "short",
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        });
+      } catch (_) {
+        formattedDate = String(event.eventDate);
+      }
+    }
+
+    const hostName = host?.name || "Event Host";
+    const hostEmail = host?.email || process.env.EMAIL_FROM || "no-reply@invitehub.com";
+    const frontendBase = (process.env.FRONTEND_URL || "http://localhost:3000").replace(/\/+$/, "");
+    const contactUrl = `mailto:${hostEmail}?subject=${encodeURIComponent(`Absence Inquiry: ${eventName}`)}`;
+
+    const htmlContent = generateNoShowPenaltyNoticeHtml({
+      guestName: guest.name || "Guest",
+      eventName,
+      eventDate: formattedDate,
+      guaranteeAmount,
+      reviewWindowDays,
+      hostName,
+      hostEmail,
+      contactUrl,
+    });
+
+    const from = process.env.EMAIL_FROM || process.env.SMTP_FROM || `"InviteHub Attendance" <${process.env.SMTP_USER || "notifications@invitehub.dev"}>`;
+
+    // Dispatch via Resend API if key is present
+    if (process.env.RESEND_API_KEY) {
+      const resendResult = await sendViaResend({
+        recipients: [guest.email],
+        subject,
+        html: htmlContent,
+        from,
+      });
+      return {
+        success: true,
+        messageId: resendResult.messageId,
+        email: guest.email,
+      };
+    }
+
+    // Default: Dispatch via Nodemailer transporter
+    const transporter = await getTransporter();
+    const mailOptions = {
+      from,
+      to: guest.email,
+      subject,
+      html: htmlContent,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`[EmailService] Sent No-Show Penalty Notice to ${guest.email}. MessageId: ${info.messageId || info.response}`);
+
+    return {
+      success: true,
+      messageId: info.messageId || info.response,
+      email: guest.email,
+    };
+  } catch (error) {
+    console.error(`[EmailService] Failed to send No-Show Penalty Notice to ${guest?.email}:`, error.message);
+    return {
+      success: false,
+      error: error.message,
+      email: guest?.email,
+    };
+  }
+};
+
 module.exports = {
   sendInvitationEmails,
   generateInvitationHtml,
+  sendNoShowPenaltyNoticeEmail,
+  generateNoShowPenaltyNoticeHtml,
   resolvePublicImageUrl,
   getCleanDisplayTitle,
   isDarkColor,
@@ -1043,3 +1231,4 @@ module.exports = {
   generateGuestToken,
   validateGuestToken,
 };
+

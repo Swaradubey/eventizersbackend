@@ -456,4 +456,12 @@ CREATE TABLE IF NOT EXISTS event_reminders (
 );
 CREATE INDEX IF NOT EXISTS idx_event_reminders_event_id ON event_reminders(event_id);
 
+-- Attendance guarantee fields on guests table
+ALTER TABLE guests ADD COLUMN IF NOT EXISTS guarantee_status VARCHAR(50) DEFAULT 'PENDING';
+ALTER TABLE guests ADD COLUMN IF NOT EXISTS penalty_notice_sent_at TIMESTAMP;
+ALTER TABLE guests ADD COLUMN IF NOT EXISTS guarantee_charged_at TIMESTAMP;
+ALTER TABLE guests ADD COLUMN IF NOT EXISTS guarantee_waived_at TIMESTAMP;
+ALTER TABLE guests ADD COLUMN IF NOT EXISTS stripe_payment_method_id VARCHAR(255);
+
+
 

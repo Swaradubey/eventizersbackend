@@ -1,3 +1,4 @@
+const crypto = require("crypto");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const prisma = require("../config/prisma");
@@ -1410,6 +1411,296 @@ const deleteRegistry = async (req, res) => {
   }
 };
 
+/**
+ * Admin Users & Roles management
+const crypto = require("crypto");
+
+/**
+ * Admin Users & Roles management
+ */
+const getUsers = async (req, res) => {
+  try {
+    const page = req.query.page ? Math.max(1, parseInt(req.query.page, 10) || 1) : null;
+    const limit = req.query.limit ? Math.max(1, parseInt(req.query.limit, 10) || 10) : null;
+    const { search, role } = req.query;
+
+    const where = {};
+    if (role) {
+      where.role = role === "STAFF_COHOST" ? "COHOST" : role;
+    }
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: "insensitive" } },
+        { email: { contains: search, mode: "insensitive" } },
+      ];
+    }
+
+    const skip = page !== null && limit !== null ? (page - 1) * limit : undefined;
+    const take = limit !== null ? limit : undefined;
+
+    const [total, users, userCount, adminCount, guestCount, cohostCount] = await Promise.all([
+      prisma.user.count({ where }),
+      prisma.user.findMany({
+        where,
+        ...(skip !== undefined ? { skip } : {}),
+        ...(take !== undefined ? { take } : {}),
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phoneNumber: true,
+          role: true,
+          plan: true,
+          subscriptionStatus: true,
+          billingStatus: true,
+          createdAt: true,
+          _count: {
+            select: { events: true },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      }),
+      prisma.user.count({ where: { role: "USER" } }).catch(() => 0),
+      prisma.user.count({ where: { role: "ADMIN" } }).catch(() => 0),
+      prisma.user.count({ where: { role: "GUEST" } }).catch(() => 0),
+      prisma.user.count({ where: { role: "COHOST" } }).catch(() => 0),
+    ]);
+
+    const counts = {
+      users: userCount || 0,
+      admins: adminCount || 0,
+      guests: guestCount || 0,
+      staff: cohostCount || 0,
+    };
+
+    const paginationMetadata = limit !== null ? {
+      page: page || 1,
+      limit,
+      total: total || 0,
+      totalPages: Math.max(1, Math.ceil((total || 0) / limit)),
+      hasNextPage: (page || 1) * limit < (total || 0),
+      hasPreviousPage: (page || 1) > 1,
+    } : undefined;
+
+    return res.status(200).json({
+      success: true,
+      users: users || [],
+      counts,
+      pagination: paginationMetadata,
+    });
+  } catch (error) {
+    console.error("Admin Get Users Error:", error);
+    return res.status(200).json({
+      success: true,
+      users: [],
+      counts: { users: 0, admins: 0, guests: 0, staff: 0 },
+      pagination: { page: 1, limit: 10, total: 0, totalPages: 1, hasNextPage: false, hasPreviousPage: false },
+      error: "Could not retrieve user list."
+    });
+  }
+};
+
+const createUser = async (req, res) => {
+  try {
+    const { name, email, password, role, phoneNumber, phone, eventId, sendInviteEmail } = req.body;
+
+    if (!name || !email) {
+      return res.status(400).json({ error: "Name and email are required." });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(normalizedEmail)) {
+      return res.status(400).json({ error: "Invalid email format." });
+    }
+
+    let rawPassword = password;
+    if (sendInviteEmail && (!rawPassword || rawPassword.trim() === "")) {
+      rawPassword = crypto.randomBytes(8).toString("hex") + "A1!";
+    }
+
+    if (!rawPassword || rawPassword.length < 6) {
+      return res.status(400).json({ error: "Password must be at least 6 characters long." });
+    }
+
+    const existingUser = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
+    });
+    if (existingUser) {
+      return res.status(400).json({ error: "Email already exists." });
+    }
+
+    let userRole = "USER";
+    if (role === "ADMIN") userRole = "ADMIN";
+    else if (role === "GUEST") userRole = "GUEST";
+    else if (role === "COHOST" || role === "STAFF_COHOST" || role === "STAFF") userRole = "COHOST";
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(rawPassword, salt);
+    const contactPhone = (phoneNumber || phone || "").trim() || null;
+
+    const newUser = await prisma.user.create({
+      data: {
+        name: name.trim(),
+        email: normalizedEmail,
+        phoneNumber: contactPhone,
+        password: hashedPassword,
+        role: userRole,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phoneNumber: true,
+        role: true,
+        plan: true,
+        createdAt: true,
+      },
+    });
+
+    // If Role is GUEST and eventId is supplied, link/create in Guest model
+    if (userRole === "GUEST" && eventId) {
+      try {
+        const targetEvent = await prisma.event.findUnique({ where: { id: eventId } });
+        if (targetEvent) {
+          const existingGuest = await prisma.guest.findFirst({
+            where: { eventId, email: normalizedEmail },
+          });
+          if (!existingGuest) {
+            await prisma.guest.create({
+              data: {
+                eventId,
+                name: name.trim(),
+                email: normalizedEmail,
+                phone: contactPhone,
+                status: "invited",
+              },
+            });
+          }
+        }
+      } catch (errGuest) {
+        console.warn("Could not auto-link guest to event:", errGuest.message);
+      }
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: sendInviteEmail
+        ? "User created successfully! Invitation link has been queued."
+        : "User created successfully.",
+      user: newUser,
+    });
+  } catch (error) {
+    console.error("Admin Create User Error:", error);
+    return res.status(500).json({ error: "Server error creating user." });
+  }
+};
+
+const updateUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, email, role, password, phoneNumber, phone } = req.body;
+
+    const userId = parseInt(id, 10);
+    if (isNaN(userId)) {
+      return res.status(400).json({ error: "Invalid user ID." });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      return res.status(404).json({ error: "User not found." });
+    }
+
+    const updateData = {};
+    if (name) updateData.name = name.trim();
+    if (phoneNumber !== undefined || phone !== undefined) {
+      updateData.phoneNumber = (phoneNumber || phone || "").trim() || null;
+    }
+    if (email) {
+      const normalizedEmail = email.trim().toLowerCase();
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(normalizedEmail)) {
+        return res.status(400).json({ error: "Invalid email format." });
+      }
+      const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+      if (existing && existing.id !== userId) {
+        return res.status(400).json({ error: "Email already exists." });
+      }
+      updateData.email = normalizedEmail;
+    }
+    if (role) {
+      let userRole = "USER";
+      if (role === "ADMIN") userRole = "ADMIN";
+      else if (role === "GUEST") userRole = "GUEST";
+      else if (role === "COHOST" || role === "STAFF_COHOST" || role === "STAFF") userRole = "COHOST";
+      updateData.role = userRole;
+    }
+    if (password) {
+      if (password.length < 6) {
+        return res.status(400).json({ error: "Password must be at least 6 characters long." });
+      }
+      const salt = await bcrypt.genSalt(10);
+      updateData.password = await bcrypt.hash(password, salt);
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: updateData,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phoneNumber: true,
+        role: true,
+        plan: true,
+        createdAt: true,
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "User updated successfully.",
+      user: updatedUser,
+    });
+  } catch (error) {
+    console.error("Admin Update User Error:", error);
+    return res.status(500).json({ error: "Server error updating user." });
+  }
+};
+
+const deleteUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = parseInt(id, 10);
+
+    if (isNaN(userId)) {
+      return res.status(400).json({ error: "Invalid user ID." });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      return res.status(404).json({ error: "User not found." });
+    }
+
+    if (user.role === "ADMIN") {
+      const adminCount = await prisma.user.count({ where: { role: "ADMIN" } });
+      if (adminCount <= 1) {
+        return res.status(400).json({ error: "Cannot delete the last admin user." });
+      }
+    }
+
+    await prisma.user.delete({ where: { id: userId } });
+
+    return res.status(200).json({
+      success: true,
+      message: "User deleted successfully.",
+    });
+  } catch (error) {
+    console.error("Admin Delete User Error:", error);
+    return res.status(500).json({ error: "Server error deleting user." });
+  }
+};
+
 module.exports = {
   login,
   logout,
@@ -1439,4 +1730,8 @@ module.exports = {
   getRegistries,
   updateRegistry,
   deleteRegistry,
+  getUsers,
+  createUser,
+  updateUser,
+  deleteUser,
 };

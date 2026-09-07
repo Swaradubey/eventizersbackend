@@ -56,6 +56,12 @@ router.get("/messages", messageController.adminGetMessages);
 router.get("/messages/stats", messageController.adminGetStats);
 router.get("/messages/:id", messageController.adminGetMessageById);
 
+// Admin Users & Roles management
+router.get("/users", adminController.getUsers);
+router.post("/users", adminController.createUser);
+router.put("/users/:id", adminController.updateUser);
+router.delete("/users/:id", adminController.deleteUser);
+
 // Admin Billing management
 const adminBillingController = require("../controllers/admin.billing.controller");
 router.get("/billing/stats", adminBillingController.getBillingStats);
