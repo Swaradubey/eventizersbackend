@@ -18,6 +18,9 @@ const findEventsByUserId = async (userId) => {
       e.city, 
       e.state, 
       e.country, 
+      e.venue_latitude AS "venueLatitude",
+      e.venue_longitude AS "venueLongitude",
+      COALESCE(e.geofence_radius, 150)::int AS "geofenceRadius",
       TO_CHAR(e.event_date, 'YYYY-MM-DD') AS "eventDate", 
       e.event_time AS "eventTime", 
       COALESCE(e.cover_image, inv.image_url) AS "coverImage", 
@@ -82,6 +85,9 @@ const findEventByIdAndUserId = async (id, userId) => {
       e.city, 
       e.state, 
       e.country, 
+      e.venue_latitude AS "venueLatitude",
+      e.venue_longitude AS "venueLongitude",
+      COALESCE(e.geofence_radius, 150)::int AS "geofenceRadius",
       TO_CHAR(e.event_date, 'YYYY-MM-DD') AS "eventDate", 
       e.event_time AS "eventTime", 
       COALESCE(e.cover_image, inv.image_url) AS "coverImage", 
@@ -137,6 +143,12 @@ const findEventByIdAndUserId = async (id, userId) => {
     } catch (e) {
       console.warn("Could not load design_settings:", e.message);
       event.designSettings = { ...DEFAULT_DESIGN_SETTINGS };
+    }
+    try {
+      event.reminders = await findRemindersByEventId(id);
+    } catch (e) {
+      console.warn("Could not load event reminders:", e.message);
+      event.reminders = [];
     }
   }
   return event;
@@ -391,6 +403,18 @@ const findEventById = async (id, userId) => {
     } catch (e) {
       console.warn("Could not load rsvp_settings:", e.message);
       event.rsvpSettings = { ...DEFAULT_RSVP_SETTINGS };
+    }
+    try {
+      event.designSettings = await findDesignSettingsByEventId(id);
+    } catch (e) {
+      console.warn("Could not load design_settings:", e.message);
+      event.designSettings = { ...DEFAULT_DESIGN_SETTINGS };
+    }
+    try {
+      event.reminders = await findRemindersByEventId(id);
+    } catch (e) {
+      console.warn("Could not load event reminders:", e.message);
+      event.reminders = [];
     }
   }
   return event;
@@ -708,23 +732,28 @@ const DEFAULT_EVENT_REMINDERS = [
  * @param {string} eventId - UUID
  * @returns {Promise<Array>}
  */
-const findRemindersByEventId = async (eventId) => {
+const findRemindersByEventId = async (eventId, targetAudience = null) => {
   try {
-    const result = await db.query(
-      `SELECT 
+    let queryStr = `SELECT 
         id,
         event_id AS "eventId",
         enabled,
         days_before AS "daysBefore",
         send_via AS "sendVia",
         message,
+        COALESCE(target_audience, 'ALL') AS "targetAudience",
         created_at AS "createdAt",
         updated_at AS "updatedAt"
        FROM event_reminders
-       WHERE event_id = $1
-       ORDER BY days_before DESC, created_at ASC`,
-      [eventId]
-    );
+       WHERE event_id = $1`;
+    const params = [eventId];
+    if (targetAudience) {
+      queryStr += ` AND target_audience = $2`;
+      params.push(targetAudience);
+    }
+    queryStr += ` ORDER BY days_before DESC, created_at ASC`;
+
+    const result = await db.query(queryStr, params);
 
     if (!result.rows || result.rows.length === 0) {
       return [];
@@ -737,6 +766,7 @@ const findRemindersByEventId = async (eventId) => {
       daysBefore: Number(row.daysBefore),
       sendVia: row.sendVia,
       message: row.message || "",
+      targetAudience: row.targetAudience || "ALL",
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     }));
@@ -768,6 +798,9 @@ const updateRemindersForEvent = async (eventId, reminders = []) => {
         const daysBefore = !isNaN(Number(item.daysBefore)) ? Number(item.daysBefore) : 3;
         const sendVia = item.sendVia || "Email";
         const message = typeof item.message === "string" ? item.message : "";
+        const targetAudience = ["ALL", "RSVP_PENDING", "GUARANTEED"].includes(item.targetAudience)
+          ? item.targetAudience
+          : "ALL";
 
         const res = await client.query(
           `INSERT INTO event_reminders (
@@ -776,9 +809,10 @@ const updateRemindersForEvent = async (eventId, reminders = []) => {
             days_before,
             send_via,
             message,
+            target_audience,
             created_at,
             updated_at
-          ) VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+          ) VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
           RETURNING 
             id,
             event_id AS "eventId",
@@ -786,9 +820,10 @@ const updateRemindersForEvent = async (eventId, reminders = []) => {
             days_before AS "daysBefore",
             send_via AS "sendVia",
             message,
+            COALESCE(target_audience, 'ALL') AS "targetAudience",
             created_at AS "createdAt",
             updated_at AS "updatedAt"`,
-          [eventId, enabled, daysBefore, sendVia, message]
+          [eventId, enabled, daysBefore, sendVia, message, targetAudience]
         );
         if (res.rows[0]) {
           insertedRows.push({
@@ -798,6 +833,7 @@ const updateRemindersForEvent = async (eventId, reminders = []) => {
             daysBefore: Number(res.rows[0].daysBefore),
             sendVia: res.rows[0].sendVia,
             message: res.rows[0].message || "",
+            targetAudience: res.rows[0].targetAudience || "ALL",
             createdAt: res.rows[0].createdAt,
             updatedAt: res.rows[0].updatedAt,
           });

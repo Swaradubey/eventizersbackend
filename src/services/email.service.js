@@ -1219,11 +1219,129 @@ const sendNoShowPenaltyNoticeEmail = async ({
   }
 };
 
+/**
+ * Send an event reminder email to a guest
+ * @param {Object} options
+ * @param {Object} options.guest - { id, name, email, phone }
+ * @param {Object} options.event - { id, title, eventDate, eventTime, venue, address }
+ * @param {string} options.reminderMessage - Custom message from reminder config
+ * @param {number} options.daysBefore - Number of days before the event
+ * @param {string} options.targetAudience - 'ALL' | 'RSVP_PENDING' | 'GUARANTEED'
+ * @returns {Promise<{success: boolean, messageId?: string, email: string, error?: string}>}
+ */
+const sendEventReminderEmail = async ({ guest, event, reminderMessage, daysBefore, targetAudience }) => {
+  if (!guest || !guest.email) {
+    return { success: false, error: "No guest email provided", email: guest?.email };
+  }
+  try {
+    const transporter = await getTransporter();
+    const guestName = guest.name || "Guest";
+    const eventTitle = event.title || "Upcoming Event";
+
+    // Format event date
+    let eventDateFormatted = "TBD";
+    if (event.eventDate) {
+      try {
+        eventDateFormatted = new Date(event.eventDate).toLocaleDateString("en-US", {
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        });
+      } catch (_) {}
+    }
+
+    // Audience-specific label
+    let audienceLabel = "";
+    if (targetAudience === "GUARANTEED") {
+      audienceLabel = `<p style="color:#5b45f4;font-weight:bold;font-size:13px;margin-bottom:12px;">⚠️ You have a confirmed reservation. Your attendance guarantee is active.</p>`;
+    } else if (targetAudience === "RSVP_PENDING") {
+      audienceLabel = `<p style="color:#f59e0b;font-weight:bold;font-size:13px;margin-bottom:12px;">📋 Action required: Please confirm your RSVP for this event.</p>`;
+    }
+
+    const daysText = daysBefore === 1 ? "tomorrow" : `in ${daysBefore} day${daysBefore !== 1 ? "s" : ""}`;
+
+    const htmlContent = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Event Reminder: ${eventTitle}</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:'Inter',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:32px 0;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.06);">
+        <!-- Header -->
+        <tr>
+          <td style="background:linear-gradient(135deg,#5b45f4,#3b82f6);padding:32px 40px;text-align:center;">
+            <h1 style="margin:0;color:#fff;font-size:24px;font-weight:700;letter-spacing:-0.5px;">🔔 Event Reminder</h1>
+            <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:15px;">Your event is coming up ${daysText}!</p>
+          </td>
+        </tr>
+        <!-- Body -->
+        <tr>
+          <td style="padding:36px 40px;">
+            <p style="color:#374151;font-size:16px;margin:0 0 16px;">Hi <strong>${guestName}</strong>,</p>
+            ${audienceLabel}
+            <p style="color:#374151;font-size:15px;margin:0 0 24px;">${reminderMessage || `This is a reminder that <strong>${eventTitle}</strong> is happening ${daysText}.`}</p>
+            <!-- Event Details Box -->
+            <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8faff;border:1px solid #e0e7ff;border-radius:12px;margin-bottom:24px;">
+              <tr>
+                <td style="padding:20px 24px;">
+                  <p style="margin:0 0 8px;font-size:18px;font-weight:700;color:#1e293b;">${eventTitle}</p>
+                  ${event.eventDate ? `<p style="margin:4px 0;font-size:14px;color:#64748b;">📅 ${eventDateFormatted}${event.eventTime ? " at " + event.eventTime : ""}</p>` : ""}
+                  ${event.venue ? `<p style="margin:4px 0;font-size:14px;color:#64748b;">📍 ${event.venue}${event.address ? ", " + event.address : ""}</p>` : ""}
+                </td>
+              </tr>
+            </table>
+            <p style="color:#64748b;font-size:13px;margin:0;">We look forward to seeing you there!</p>
+          </td>
+        </tr>
+        <!-- Footer -->
+        <tr>
+          <td style="background:#f8faff;padding:20px 40px;text-align:center;border-top:1px solid #e2e8f0;">
+            <p style="margin:0;color:#94a3b8;font-size:12px;">Sent via InviteHub • You're receiving this because you RSVP'd or were invited to this event.</p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+    const mailOptions = {
+      from: `"InviteHub" <${process.env.SMTP_USER || "noreply@invitehub.app"}>`,
+      to: guest.email,
+      subject: `🔔 Reminder: ${eventTitle} is ${daysText}`,
+      html: htmlContent,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`[EmailService] Event reminder sent to ${guest.email} for "${eventTitle}". MessageId: ${info.messageId || info.response}`);
+
+    return {
+      success: true,
+      messageId: info.messageId || info.response,
+      email: guest.email,
+    };
+  } catch (error) {
+    console.error(`[EmailService] Failed to send event reminder to ${guest?.email}:`, error.message);
+    return {
+      success: false,
+      error: error.message,
+      email: guest?.email,
+    };
+  }
+};
+
 module.exports = {
   sendInvitationEmails,
   generateInvitationHtml,
   sendNoShowPenaltyNoticeEmail,
   generateNoShowPenaltyNoticeHtml,
+  sendEventReminderEmail,
   resolvePublicImageUrl,
   getCleanDisplayTitle,
   isDarkColor,
@@ -1231,4 +1349,3 @@ module.exports = {
   generateGuestToken,
   validateGuestToken,
 };
-

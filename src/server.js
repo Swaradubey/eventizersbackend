@@ -237,6 +237,10 @@ async function startServer() {
     const { startProcessNoShowsCron } = require("./jobs/processNoShows.job");
     startProcessNoShowsCron();
 
+    // Start daily event reminder dispatch cron (08:00 AM)
+    const { startRemindersCron } = require("./jobs/reminders.job");
+    startRemindersCron();
+
     app.listen(PORT, () => {
       console.log(`[Eventizers Backend] Server is running on port ${PORT}`);
     });
