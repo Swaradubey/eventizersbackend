@@ -486,6 +486,35 @@ const updateEvent = async (req, res) => {
       }
     }
 
+    // Handle reminders if included in payload (non-destructive merge)
+    if (req.body.reminders && Array.isArray(req.body.reminders)) {
+      try {
+        const incomingReminders = req.body.reminders;
+        // Validate incoming reminder audience values
+        const VALID_AUDIENCES = ["ALL", "RSVP_PENDING", "GUARANTEED"];
+        const sanitized = incomingReminders.map((r) => ({
+          ...r,
+          daysBefore: !isNaN(Number(r.daysBefore)) ? Number(r.daysBefore) : 3,
+          sendVia: ["Email", "SMS", "WhatsApp"].includes(r.sendVia) ? r.sendVia : "Email",
+          targetAudience: VALID_AUDIENCES.includes(r.targetAudience) ? r.targetAudience : "ALL",
+          enabled: r.enabled !== undefined ? Boolean(r.enabled) : true,
+          message: typeof r.message === "string" ? r.message : "",
+        }));
+        eventWithImages.reminders = await eventService.updateRemindersForEvent(id, sanitized);
+      } catch (remErr) {
+        console.warn("Failed to sync reminders during event update:", remErr.message);
+        try {
+          eventWithImages.reminders = await eventService.findRemindersByEventId(id);
+        } catch (_) {}
+      }
+    } else {
+      try {
+        eventWithImages.reminders = await eventService.findRemindersByEventId(id);
+      } catch (e) {
+        // ignore
+      }
+    }
+
     // Log event update
     const { createAuditLog } = require("../utils/auditLogger");
     await createAuditLog({
@@ -919,12 +948,21 @@ const updateEventReminders = async (req, res) => {
     }
 
     // Validation
+    const VALID_SEND_VIA = ["Email", "SMS", "WhatsApp"];
+    const VALID_AUDIENCES = ["ALL", "RSVP_PENDING", "GUARANTEED"];
     for (const item of reminders) {
       if (typeof item.daysBefore !== "undefined" && isNaN(Number(item.daysBefore))) {
         return res.status(400).json({ success: false, error: "Invalid daysBefore value in reminders." });
       }
-      if (item.sendVia && !["Email", "SMS", "WhatsApp"].includes(item.sendVia)) {
-        return res.status(400).json({ success: false, error: "sendVia must be 'Email', 'SMS', or 'WhatsApp'." });
+      const db = Number(item.daysBefore);
+      if (!isNaN(db) && (db < 0 || db > 365)) {
+        return res.status(400).json({ success: false, error: "daysBefore must be between 0 and 365." });
+      }
+      if (item.sendVia && !VALID_SEND_VIA.includes(item.sendVia)) {
+        return res.status(400).json({ success: false, error: `sendVia must be one of: ${VALID_SEND_VIA.join(", ")}.` });
+      }
+      if (item.targetAudience && !VALID_AUDIENCES.includes(item.targetAudience)) {
+        return res.status(400).json({ success: false, error: `targetAudience must be one of: ${VALID_AUDIENCES.join(", ")}.` });
       }
     }
 
@@ -1076,6 +1114,304 @@ const getAttendanceCommitment = async (req, res) => {
   }
 };
 
+/**
+ * Calculate distance between two coordinate pairs using Haversine formula (in meters)
+ * d = 2R * asin(sqrt(sin^2(dLat/2) + cos(phi1)*cos(phi2)*sin^2(dLon/2)))
+ */
+function calculateHaversineDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371000; // Earth's radius in meters
+  const toRad = (deg) => (deg * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const phi1 = toRad(lat1);
+  const phi2 = toRad(lat2);
+
+  const sinHalfDLat = Math.sin(dLat / 2);
+  const sinHalfDLon = Math.sin(dLon / 2);
+
+  const a =
+    sinHalfDLat * sinHalfDLat +
+    Math.cos(phi1) * Math.cos(phi2) * sinHalfDLon * sinHalfDLon;
+
+  const d = 2 * R * Math.asin(Math.min(1, Math.sqrt(a)));
+  return Math.round(d);
+}
+
+/**
+ * Process GPS Check-In for an event
+ * POST /api/events/:id/gps-checkin
+ */
+const gpsCheckIn = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { latitude, longitude } = req.body;
+
+    if (latitude === undefined || longitude === undefined || latitude === null || longitude === null) {
+      return res.status(400).json({
+        success: false,
+        error: "Coordinates (latitude, longitude) are required for GPS check-in.",
+      });
+    }
+
+    const event = await prisma.event.findUnique({
+      where: { id },
+      include: { user: true },
+    });
+
+    if (!event) {
+      return res.status(404).json({ success: false, error: "Event not found." });
+    }
+
+    // Default coordinates if not set on event yet (fallback e.g. Oakwood Community Park: 28.535517, 77.391029)
+    let venueLat = event.venueLatitude !== null ? Number(event.venueLatitude) : 28.535517;
+    let venueLon = event.venueLongitude !== null ? Number(event.venueLongitude) : 77.391029;
+    const geofenceRadius = event.geofenceRadius ? Number(event.geofenceRadius) : 150;
+
+    const userLat = Number(latitude);
+    const userLon = Number(longitude);
+
+    if (isNaN(userLat) || isNaN(userLon)) {
+      return res.status(400).json({ success: false, error: "Invalid coordinates provided." });
+    }
+
+    const distance = calculateHaversineDistance(venueLat, venueLon, userLat, userLon);
+
+    if (distance > geofenceRadius) {
+      return res.status(400).json({
+        success: false,
+        message: "You are outside the check-in perimeter",
+        distance,
+        geofenceRadius,
+        eventLocation: {
+          venue: event.venue,
+          latitude: venueLat,
+          longitude: venueLon,
+        },
+      });
+    }
+
+    // Identify user / guest
+    const userEmail = req.user?.email ? req.user.email.toLowerCase().trim() : null;
+    const userName = req.user?.name || "Guest Attendee";
+
+    // Look for existing Guest record for this event
+    let guest = null;
+    if (userEmail) {
+      guest = await prisma.guest.findFirst({
+        where: {
+          eventId: event.id,
+          email: { equals: userEmail, mode: "insensitive" },
+        },
+      });
+    }
+
+    // If not found, create a guest entry for this user so they appear in attendee lists
+    if (!guest && userEmail) {
+      guest = await prisma.guest.create({
+        data: {
+          eventId: event.id,
+          name: userName,
+          email: userEmail,
+          status: "checked_in",
+          rsvpStatus: "attending",
+        },
+      });
+    }
+
+    // Check if check-in record exists
+    let checkIn = null;
+    if (guest) {
+      checkIn = await prisma.checkIn.findFirst({
+        where: {
+          eventId: event.id,
+          guestId: guest.id,
+        },
+      });
+    }
+
+    const checkInData = {
+      eventId: event.id,
+      guestId: guest ? guest.id : null,
+      method: "GPS",
+      checkInType: "GPS",
+      latitude: userLat,
+      longitude: userLon,
+      distanceMeters: distance,
+      timestamp: new Date(),
+      checkedInAt: new Date(),
+      checkedInById: req.user ? `${req.user.name || req.user.email} (ID: ${req.user.id})` : "Guest GPS",
+      notes: `GPS self check-in verified at ${distance}m distance (boundary: ${geofenceRadius}m)`,
+    };
+
+    if (checkIn) {
+      checkIn = await prisma.checkIn.update({
+        where: { id: checkIn.id },
+        data: checkInData,
+      });
+    } else {
+      checkIn = await prisma.checkIn.create({
+        data: checkInData,
+      });
+    }
+
+    if (guest) {
+      await prisma.guest.update({
+        where: { id: guest.id },
+        data: { status: "checked_in" },
+      });
+    }
+
+    // Audit log
+    try {
+      await prisma.auditLog.create({
+        data: {
+          eventId: event.id,
+          action: "GPS_CHECK_IN",
+          actorEmail: userEmail || "guest@invitehub.io",
+          userEmail: userEmail,
+          entityType: "CheckIn",
+          entityId: checkIn.id,
+          metadata: {
+            distanceMeters: distance,
+            geofenceRadius,
+            latitude: userLat,
+            longitude: userLon,
+            method: "GPS",
+          },
+        },
+      });
+    } catch (logErr) {
+      console.warn("[gpsCheckIn] Failed to write audit log:", logErr.message);
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Checked in successfully via GPS!",
+      distance,
+      geofenceRadius,
+      checkIn,
+    });
+  } catch (error) {
+    console.error("GPS Check-in Error:", error);
+    return res.status(500).json({ success: false, error: "Failed to process GPS check-in." });
+  }
+};
+
+/**
+ * Get live arrivals stream for an event
+ * GET /api/events/:id/arrivals
+ */
+const getLiveArrivals = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const arrivals = await prisma.checkIn.findMany({
+      where: { eventId: id },
+      include: {
+        guest: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            status: true,
+          },
+        },
+      },
+      orderBy: { checkedInAt: "desc" },
+      take: 50,
+    });
+
+    const formattedArrivals = arrivals.map((c) => ({
+      id: c.id,
+      guestId: c.guestId,
+      guestName: c.guest?.name || c.checkedInById?.split(" (")[0] || "Guest Attendee",
+      guestEmail: c.guest?.email || null,
+      method: c.checkInType || c.method || "GPS",
+      distanceMeters: c.distanceMeters ? Number(c.distanceMeters) : null,
+      checkedInAt: c.timestamp || c.checkedInAt,
+      deviceInfo: c.deviceInfo,
+    }));
+
+    return res.status(200).json({
+      success: true,
+      count: formattedArrivals.length,
+      arrivals: formattedArrivals,
+    });
+  } catch (error) {
+    console.error("Get Live Arrivals Error:", error);
+    return res.status(500).json({ success: false, error: "Failed to fetch live arrivals." });
+  }
+};
+
+/**
+ * Update geofence perimeter radius and coordinates for an event
+ * PATCH /api/events/:id/geofence
+ */
+const updateGeofenceRadius = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { geofenceRadius, venueLatitude, venueLongitude } = req.body;
+
+    const event = await prisma.event.findUnique({
+      where: { id },
+    });
+
+    if (!event) {
+      return res.status(404).json({ success: false, error: "Event not found." });
+    }
+
+    // Permission check: Organizer or Admin
+    const isOrganizer = event.createdBy === req.user?.id;
+    const isAdmin = req.user?.role === "ADMIN";
+
+    if (!isOrganizer && !isAdmin) {
+      return res.status(403).json({
+        success: false,
+        error: "Access denied. Only event organizers and administrators can update geofence parameters.",
+      });
+    }
+
+    const updateData = {};
+    if (geofenceRadius !== undefined) {
+      const radiusNum = parseInt(geofenceRadius, 10);
+      if (![50, 150, 300, 500].includes(radiusNum) && (isNaN(radiusNum) || radiusNum <= 0)) {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid radius. Acceptable boundaries: 50, 150, 300, or 500 meters.",
+        });
+      }
+      updateData.geofenceRadius = radiusNum;
+    }
+
+    if (venueLatitude !== undefined && venueLatitude !== null) {
+      updateData.venueLatitude = Number(venueLatitude);
+    }
+    if (venueLongitude !== undefined && venueLongitude !== null) {
+      updateData.venueLongitude = Number(venueLongitude);
+    }
+
+    const updatedEvent = await prisma.event.update({
+      where: { id },
+      data: updateData,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Geofence perimeter updated successfully.",
+      event: {
+        id: updatedEvent.id,
+        geofenceRadius: updatedEvent.geofenceRadius,
+        venueLatitude: updatedEvent.venueLatitude,
+        venueLongitude: updatedEvent.venueLongitude,
+      },
+    });
+  } catch (error) {
+    console.error("Update Geofence Error:", error);
+    return res.status(500).json({ success: false, error: "Failed to update geofence parameter." });
+  }
+};
+
 module.exports = {
   getEvents,
   getEventById,
@@ -1090,5 +1426,10 @@ module.exports = {
   getEventReminders,
   updateEventReminders,
   getAttendanceCommitment,
+  gpsCheckIn,
+  getLiveArrivals,
+  updateGeofenceRadius,
+  calculateHaversineDistance,
 };
+
 

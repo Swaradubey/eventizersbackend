@@ -451,10 +451,14 @@ CREATE TABLE IF NOT EXISTS event_reminders (
     days_before INTEGER NOT NULL DEFAULT 3,
     send_via VARCHAR(50) NOT NULL DEFAULT 'Email',
     message TEXT NOT NULL,
+    target_audience VARCHAR(50) NOT NULL DEFAULT 'ALL',
     created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_event_reminders_event_id ON event_reminders(event_id);
+CREATE INDEX IF NOT EXISTS idx_event_reminders_event_audience ON event_reminders(event_id, target_audience);
+-- Migration: add target_audience if upgrading existing installs
+ALTER TABLE event_reminders ADD COLUMN IF NOT EXISTS target_audience VARCHAR(50) NOT NULL DEFAULT 'ALL';
 
 -- Attendance guarantee fields on guests table
 ALTER TABLE guests ADD COLUMN IF NOT EXISTS guarantee_status VARCHAR(50) DEFAULT 'PENDING';

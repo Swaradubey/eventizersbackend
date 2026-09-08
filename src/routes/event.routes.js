@@ -45,8 +45,21 @@ router.put("/:id/reminders", restrictGuest, eventController.updateEventReminders
 const invitationController = require("../controllers/invitation.controller");
 router.get("/:eventId/invitation", invitationController.getInvitationByEvent);
 
-// Attendance Commitment route
+// Attendance Commitment & Reservation Guarantee routes
+const securityController = require("../controllers/security.controller");
 router.get("/:eventId/attendance-commitment", eventController.getAttendanceCommitment);
 router.get("/:id/attendance-commitment", eventController.getAttendanceCommitment);
+router.put("/:id/reservation-guarantee", restrictGuest, securityController.updateAttendanceGuarantee);
+router.patch("/:id/reservation-guarantee", restrictGuest, securityController.updateAttendanceGuarantee);
+router.post("/:id/reservation-guarantee", restrictGuest, securityController.updateAttendanceGuarantee);
+router.put("/:id/attendance-guarantee", restrictGuest, securityController.updateAttendanceGuarantee);
+router.put("/:id/attendance-commitment", restrictGuest, securityController.updateAttendanceGuarantee);
+router.patch("/:id/attendance-commitment", restrictGuest, securityController.updateAttendanceGuarantee);
+
+// GPS Check-In routes
+router.post("/:id/gps-checkin", eventController.gpsCheckIn);
+router.get("/:id/arrivals", eventController.getLiveArrivals);
+router.patch("/:id/geofence", restrictGuest, eventController.updateGeofenceRadius);
 
 module.exports = router;
+

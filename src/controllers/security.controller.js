@@ -1,6 +1,7 @@
 const prisma = require("../config/prisma");
 const db = require("../config/db");
 const { createAuditLog } = require("../utils/auditLogger");
+const eventService = require("../services/event.service");
 
 /**
  * Get security dashboard statistics, alerts, and audit logs for the authenticated user
@@ -478,17 +479,69 @@ const getAttendanceGuarantee = async (req, res) => {
 
 /**
  * Update attendance guarantee settings
- * PUT or PATCH /api/security/attendance-guarantee
+ * PUT, PATCH, or POST /api/security/attendance-guarantee
+ * or /api/events/:id/reservation-guarantee
  */
 const updateAttendanceGuarantee = async (req, res) => {
   try {
-    const userId = req.user.id;
-    const { isEnabled, guaranteeAmount, reviewWindowDays } = req.body;
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized: User session not found.",
+        error: "Unauthorized",
+      });
+    }
 
-    const enabledVal = isEnabled !== undefined ? Boolean(isEnabled) : true;
-    const amountVal = guaranteeAmount !== undefined ? parseFloat(guaranteeAmount) || 25 : 25;
-    const windowVal = reviewWindowDays !== undefined ? parseInt(reviewWindowDays, 10) || 7 : 7;
+    // 1. Flexible parsing & sanitization of field names/types
+    const rawEnabled =
+      req.body.isGuaranteeEnabled !== undefined
+        ? req.body.isGuaranteeEnabled
+        : req.body.isEnabled !== undefined
+        ? req.body.isEnabled
+        : req.body.enabled;
+    const enabledVal = rawEnabled !== undefined ? Boolean(rawEnabled) : true;
 
+    let rawAmount =
+      req.body.guaranteeFeeAmount !== undefined
+        ? req.body.guaranteeFeeAmount
+        : req.body.guaranteeAmount !== undefined
+        ? req.body.guaranteeAmount
+        : req.body.amount;
+
+    if (typeof rawAmount === "string") {
+      rawAmount = parseFloat(rawAmount.replace(/[^0-9.]/g, ""));
+    }
+    const amountVal = !isNaN(rawAmount) && rawAmount !== null ? Number(rawAmount) : 25;
+
+    let rawWindow =
+      req.body.hostReviewWindow !== undefined
+        ? req.body.hostReviewWindow
+        : req.body.reviewWindowDays;
+
+    if (typeof rawWindow === "string") {
+      rawWindow = parseInt(rawWindow.replace(/[^0-9]/g, ""), 10);
+    }
+    const windowVal = !isNaN(rawWindow) && rawWindow !== null ? Number(rawWindow) : 7;
+
+    // 2. Input validation
+    if (isNaN(amountVal) || amountVal < 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Guarantee fee amount must be a positive number.",
+        error: "Invalid guarantee fee amount",
+      });
+    }
+
+    if (isNaN(windowVal) || windowVal < 1 || windowVal > 90) {
+      return res.status(400).json({
+        success: false,
+        message: "Host review window must be between 1 and 90 days.",
+        error: "Invalid review window",
+      });
+    }
+
+    // 3. Upsert user guarantee settings
     const upsertQuery = `
       INSERT INTO attendance_guarantee_settings (user_id, is_enabled, guarantee_amount, review_window_days, updated_at)
       VALUES ($1, $2, $3, $4, NOW())
@@ -504,19 +557,57 @@ const updateAttendanceGuarantee = async (req, res) => {
     const result = await db.query(upsertQuery, [userId, enabledVal, amountVal, windowVal]);
     const row = result.rows[0];
 
-    // Attempt to log audit log if user has events
-    const userEvents = await prisma.event.findMany({
-      where: { createdBy: userId },
-      select: { id: true },
-      take: 1,
-    });
+    // 4. Handle event ID and optional guarantee reminders sync
+    const effectiveEventId =
+      req.body.eventId ||
+      req.body.id ||
+      req.params.id ||
+      req.params.eventId;
 
-    if (userEvents.length > 0) {
-      await createAuditLog({
-        userId,
-        action: "ATTENDANCE_GUARANTEE_UPDATED",
-        eventId: userEvents[0].id,
-      });
+    const guaranteeReminders = req.body.guaranteeReminders || req.body.reminders;
+
+    if (effectiveEventId && Array.isArray(guaranteeReminders)) {
+      try {
+        // Fetch existing event reminders
+        const existingReminders = await eventService.findRemindersByEventId(effectiveEventId);
+        // Keep non-GUARANTEED reminders intact, replace GUARANTEED ones
+        const nonGuaranteeReminders = (existingReminders || []).filter(
+          (r) => r.targetAudience !== "GUARANTEED"
+        );
+        const newGuaranteeReminders = guaranteeReminders.map((r) => ({
+          ...r,
+          targetAudience: "GUARANTEED",
+          daysBefore: !isNaN(Number(r.daysBefore)) ? Number(r.daysBefore) : 3,
+          sendVia: ["Email", "SMS", "WhatsApp"].includes(r.sendVia) ? r.sendVia : "Email",
+          enabled: r.enabled !== undefined ? Boolean(r.enabled) : true,
+          message: typeof r.message === "string" ? r.message : "",
+        }));
+        const mergedReminders = [...nonGuaranteeReminders, ...newGuaranteeReminders];
+        await eventService.updateRemindersForEvent(effectiveEventId, mergedReminders);
+        console.log(`[SecurityController] Successfully synced ${newGuaranteeReminders.length} guarantee reminder(s) for event ${effectiveEventId}`);
+      } catch (remErr) {
+        console.warn("[SecurityController] Warning: Could not merge guarantee reminders:", remErr.message);
+      }
+    }
+
+    // 5. Attempt audit log safely
+    try {
+      const auditEventId =
+        effectiveEventId ||
+        (await prisma.event.findFirst({
+          where: { createdBy: userId },
+          select: { id: true },
+        }))?.id;
+
+      if (auditEventId) {
+        await createAuditLog({
+          userId,
+          action: "ATTENDANCE_GUARANTEE_UPDATED",
+          eventId: auditEventId,
+        });
+      }
+    } catch (auditErr) {
+      console.warn("[SecurityController] Audit log failed (non-critical):", auditErr.message);
     }
 
     return res.status(200).json({
@@ -529,10 +620,11 @@ const updateAttendanceGuarantee = async (req, res) => {
       message: "Attendance guarantee settings updated successfully.",
     });
   } catch (error) {
-    console.error("Update Attendance Guarantee Error:", error);
-    return res.status(500).json({
+    console.error("[SecurityController] Update Attendance Guarantee Error:", error);
+    return res.status(400).json({
       success: false,
-      error: "Server error updating attendance guarantee settings.",
+      message: error.message || "Failed to update attendance guarantee settings.",
+      error: error.message || "Failed to update attendance guarantee settings.",
     });
   }
 };

@@ -165,6 +165,13 @@ app.use("/api/messages", messageRoutes);
 const securityRoutes = require("./routes/security.routes");
 app.use("/api/security", securityRoutes);
 
+// Attendance Commitment Settings Direct Route
+const securityController = require("./controllers/security.controller");
+const authMiddleware = require("./middleware/auth.middleware");
+app.put("/api/attendance-commitment/settings", authMiddleware, securityController.updateAttendanceGuarantee);
+app.post("/api/attendance-commitment/settings", authMiddleware, securityController.updateAttendanceGuarantee);
+app.get("/api/attendance-commitment/settings", authMiddleware, securityController.getAttendanceGuarantee);
+
 // Admin Settings Routes
 const settingsRoutes = require("./routes/settings.routes");
 app.use("/api/admin/settings", settingsRoutes);

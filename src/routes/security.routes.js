@@ -21,6 +21,7 @@ router.delete("/audit-logs/:id", securityController.deleteAuditLog);
 router.get("/attendance-guarantee", securityController.getAttendanceGuarantee);
 router.put("/attendance-guarantee", securityController.updateAttendanceGuarantee);
 router.patch("/attendance-guarantee", securityController.updateAttendanceGuarantee);
+router.post("/attendance-guarantee", securityController.updateAttendanceGuarantee);
 router.post("/attendance-guarantee/auto-waive", securityController.triggerAutoWaive);
 
 module.exports = router;

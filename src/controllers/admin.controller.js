@@ -1583,6 +1583,18 @@ const createUser = async (req, res) => {
       }
     }
 
+    // If Role is COHOST / STAFF and eventId is supplied
+    if (userRole === "COHOST" && eventId) {
+      try {
+        const targetEvent = await prisma.event.findUnique({ where: { id: eventId } });
+        if (targetEvent) {
+          console.log(`[Admin] Staff / Co-Host ${newUser.email} assigned to event ${targetEvent.title} (${eventId})`);
+        }
+      } catch (errCohost) {
+        console.warn("Could not verify cohost event:", errCohost.message);
+      }
+    }
+
     return res.status(201).json({
       success: true,
       message: sendInviteEmail

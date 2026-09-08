@@ -119,16 +119,22 @@ async function callGeminiWithRetry(client, aiPrompt) {
   }
 }
 
-const generateEventWithAI = async (req, res) => {
+/**
+ * Autonomous AI Event Generation Engine
+ * Parses natural language user prompt, extracts or infers complete event attributes,
+ * applies smart fallbacks and user overrides, persists the event, invitation, and design
+ * settings to PostgreSQL, and returns eventId & redirectUrl.
+ */
+const processAutonomousEventGeneration = async (req, res) => {
   try {
-    const { prompt, eventType, guestCount, date, time, guestListId, guestListName } = req.body;
+    const rawPrompt = (req.body.userPrompt || req.body.prompt || '').trim();
     const userId = req.user.id;
 
-    if (!prompt) {
-      return res.status(400).json({ error: 'Please provide a prompt to generate the event.' });
+    if (!rawPrompt) {
+      return res.status(400).json({ error: 'Please provide a description of your event.' });
     }
 
-    // Guard: API key must be present — never fall back to mock data
+    // Guard: API key must be present
     if (!keyIsValid) {
       console.error("AI Generation failed: Gemini API key is missing or not configured in environment variables.");
       return res.status(500).json({ error: 'Gemini API key is not configured.' });
@@ -136,42 +142,71 @@ const generateEventWithAI = async (req, res) => {
 
     const client = getAiClient();
 
+    // Optional user pre-filled overrides
+    const {
+      eventType,
+      guestCount,
+      date,
+      time,
+      startTime,
+      endTime,
+      isFullDay,
+      venue,
+      guestListId,
+      guestListName,
+    } = req.body;
+
+    const today = new Date();
+    const refDateStr = today.toISOString().split('T')[0];
+
     const aiPrompt = `
-      You are an expert event planner and designer.
-      The user wants to create an event based on this description: "${prompt}"
-      ${eventType ? `Event Type constraint: ${eventType}` : ''}
-      ${guestCount ? `Guest Count constraint: ${guestCount}` : ''}
-      ${date ? `Required Event Date: ${date}` : ''}
-      ${time ? `Required Event Time: ${time}` : ''}
-      ${guestListName || guestListId ? `Target Guest List: ${guestListName || guestListId}` : ''}
+You are an expert event planner, concierge, and designer.
+Today's reference date is ${refDateStr}.
 
-      Generate a creative, detailed event structure including both event parameters and invitation design options.
-      Do not generate sample or placeholder guests. Keep guest lists empty.
-      Return the response STRICTLY as a JSON object with NO markdown formatting, NO \`\`\`json block, just raw JSON matching this schema:
-      {
-        "title": "string (the catchy event title)",
-        "eventType": "string (one of: Birthday, Baby Shower, Graduation, Wedding, Corporate Event, Networking, Fundraiser, Community Event, Private Dinner, or other suitable type)",
-        "eventDate": "string (YYYY-MM-DD format)",
-        "eventTime": "string (HH:MM format, 24-hour, e.g. '18:00')",
-        "venue": "string (venue name/location)",
-        "host": "string (the host name, e.g. 'The Patels' or individual/organization)",
-        "description": "string (engaging event description)",
-        "accentColor": "string (Hex color code, e.g. #FF5733)",
-        "backgroundColor": "string (Hex color code, e.g. #2D1B3D)",
-        "textColor": "string (Hex color code, readable against the background, e.g. #FAF8F5)",
-        "invitationText": "string (formal/fun invite text to print on card, e.g. 'You are cordially invited...')",
-        "fontFamily": "string (one of: 'Playfair Display', 'Inter', 'Georgia', 'monospace')",
-        "fontWeight": "string (one of: '300', '400', '500', '600', '700', '800')",
-        "titleSize": "number (an integer between 28 and 64)",
-        "buttonText": "string (button text, e.g. 'RSVP Now')",
-        "buttonColor": "string (Hex color code, e.g. #FF5733)",
-        "buttonRadius": "number (an integer between 0 and 24)",
-        "guests": []
-      }
-    `;
+The user provided the following natural language event description:
+"${rawPrompt}"
 
-    // Call Gemini with automatic retry on 429
-    console.log("Calling Gemini API for prompt:", prompt);
+${eventType ? `Explicit User Override - Event Type: "${eventType}"` : ''}
+${guestCount ? `Explicit User Override - Guest Count / Group: "${guestCount}"` : ''}
+${date ? `Explicit User Override - Event Date: "${date}"` : ''}
+${time || startTime ? `Explicit User Override - Start Time: "${time || startTime}"` : ''}
+${endTime ? `Explicit User Override - End Time: "${endTime}"` : ''}
+${venue ? `Explicit User Override - Venue: "${venue}"` : ''}
+${guestListName || guestListId ? `Explicit User Override - Guest List: "${guestListName || guestListId}"` : ''}
+
+Your task is to parse all explicit details from the description, and infer realistic, creative smart defaults for any missing properties.
+Do not generate fake guests or placeholder attendees.
+
+Return the response STRICTLY as a raw JSON object with NO markdown formatting, NO backticks, NO \`\`\`json code block.
+Match this exact JSON schema:
+{
+  "title": "string (creative, catchy event title)",
+  "eventType": "string (e.g. Wedding, Birthday, Corporate Event, Baby Shower, Graduation, Networking, Fundraiser, Community Event, Private Dinner, Anniversary, Conference, Gala, or Celebration)",
+  "date": "string (YYYY-MM-DD format, e.g. 2026-12-25. If not mentioned in prompt, pick an upcoming weekend date 3-5 weeks from ${refDateStr})",
+  "startTime": "string (24-hour HH:MM format, e.g. '18:00'. If not mentioned, choose a sensible start time for this event type)",
+  "endTime": "string (24-hour HH:MM format, e.g. '22:00'. If not mentioned, default to 3-4 hours after startTime)",
+  "isFullDay": false,
+  "venue": "string (venue name and location, e.g. 'Central Park Grand Hall'. If not mentioned, suggest a suitable realistic venue name)",
+  "estimatedGuestCount": 120,
+  "description": "string (engaging, detailed description of the event concept and atmosphere)",
+  "theme": "string (overall theme or aesthetic, e.g. 'Rustic Autumn Elegance')",
+  "themePalette": ["#8B4513", "#D2691E", "#F4A460", "#FFF8DC"],
+  "accentColor": "string (Primary hex color code from palette, e.g. '#D2691E')",
+  "backgroundColor": "string (Background hex color code for invitation, e.g. '#FAF8F5')",
+  "textColor": "string (High-contrast text hex color code, e.g. '#1A1118')",
+  "invitationText": "string (warm or formal invitation card copy, e.g. 'You are cordially invited to celebrate...')",
+  "host": "string (host name or 'The Host')",
+  "schedule": ["string (3-5 timeline steps, e.g. '18:00 - Guest Arrival & Cocktails')"],
+  "decor": ["string (3-5 decor/design recommendations)"],
+  "food": ["string (3-5 food and beverage concepts)"],
+  "activities": ["string (3-5 entertainment or activity ideas)"],
+  "checklist": ["string (3-5 setup and planning tasks)"],
+  "estimatedBudget": "string (estimated budget range, e.g. '$3,000 - $6,000')",
+  "guests": []
+}
+`;
+
+    console.log("Calling Gemini API for autonomous event prompt:", rawPrompt);
     let response;
     try {
       response = await callGeminiWithRetry(client, aiPrompt);
@@ -180,10 +215,10 @@ const generateEventWithAI = async (req, res) => {
       throw geminiError;
     }
 
-    let aiResultText = response.text;
-    console.log("Raw Gemini Response:", aiResultText);
+    const aiResultText = response.text || '';
+    console.log("Raw Gemini Response received, length:", aiResultText.length);
 
-    // Strip markdown code fences if present, also trim whitespace
+    // Strip markdown fences or extra wrappers
     let cleanedText = aiResultText.trim();
     if (cleanedText.includes('```json')) {
       cleanedText = cleanedText.substring(cleanedText.indexOf('```json') + 7);
@@ -205,281 +240,225 @@ const generateEventWithAI = async (req, res) => {
       console.error("Failed to parse Gemini response as JSON.", {
         rawResponse: aiResultText,
         cleanedText: cleanedText,
-        error: parseError
+        error: parseError,
       });
       return res.status(500).json({
-        error: 'Gemini returned an invalid JSON response. Please try again.'
+        error: 'Gemini returned an invalid response structure. Please try again.',
       });
     }
 
-    // Robust validation/formatting of date and time to prevent database crashes
-    let finalDate = date || aiData.eventDate;
-    if (!finalDate || isNaN(new Date(finalDate).getTime())) {
+    // --- SMART NORMALIZATION & FALLBACKS ---
+
+    // 1. Title
+    const finalTitle = aiData.title || 'AI Generated Celebration';
+
+    // 2. Event Type (user override > AI parsed > fallback)
+    const finalEventType = eventType || aiData.eventType || 'Celebration';
+
+    // 3. Date (user override > AI parsed > upcoming Saturday ~30 days out)
+    let candidateDate = date || aiData.date || aiData.eventDate;
+    let finalDate;
+    if (candidateDate && !isNaN(new Date(candidateDate).getTime())) {
+      try {
+        finalDate = new Date(candidateDate).toISOString().split('T')[0];
+      } catch (_) {
+        finalDate = null;
+      }
+    }
+    if (!finalDate) {
       const fallbackDate = new Date();
       fallbackDate.setDate(fallbackDate.getDate() + 30);
       finalDate = fallbackDate.toISOString().split('T')[0];
-      console.warn(`Malformed date received: ${aiData.eventDate}. Using fallback date: ${finalDate}`);
     }
 
-    let finalTime = time || aiData.eventTime;
+    // 4. Start Time & End Time
     const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
-    if (!finalTime || !timeRegex.test(String(finalTime).trim())) {
-      finalTime = "18:00";
-      console.warn(`Malformed time received: ${aiData.eventTime}. Using fallback time: ${finalTime}`);
-    } else {
-      finalTime = String(finalTime).trim();
+    let candidateStart = startTime || time || aiData.startTime || aiData.eventTime;
+    let finalStartTime = "18:00";
+    if (candidateStart) {
+      const match = String(candidateStart).trim().match(/(\d{1,2}):(\d{2})/);
+      if (match) {
+        finalStartTime = `${match[1].padStart(2, '0')}:${match[2]}`;
+      }
     }
 
-    // Create the event in the database using the AI-generated data
+    let candidateEnd = endTime || aiData.endTime;
+    let finalEndTime = "22:00";
+    if (candidateEnd) {
+      const match = String(candidateEnd).trim().match(/(\d{1,2}):(\d{2})/);
+      if (match) {
+        finalEndTime = `${match[1].padStart(2, '0')}:${match[2]}`;
+      }
+    }
+
+    // 5. Full Day flag
+    const finalIsFullDay = typeof isFullDay === 'boolean'
+      ? isFullDay
+      : (aiData.isFullDay === true || String(time).toLowerCase() === 'full day');
+
+    // 6. Venue (user override > AI parsed > fallback)
+    const finalVenue = (venue && String(venue).trim()) || aiData.venue || 'The Grand Pavilion';
+
+    // 7. Estimated Guest Count
+    let finalGuestCount = 50;
+    if (guestCount) {
+      const parsedUserCount = parseInt(String(guestCount).replace(/\D/g, ''), 10);
+      if (!isNaN(parsedUserCount) && parsedUserCount > 0) {
+        finalGuestCount = parsedUserCount;
+      }
+    } else if (aiData.estimatedGuestCount) {
+      const parsedAiCount = parseInt(String(aiData.estimatedGuestCount).replace(/\D/g, ''), 10);
+      if (!isNaN(parsedAiCount) && parsedAiCount > 0) {
+        finalGuestCount = parsedAiCount;
+      }
+    }
+
+    // 8. Theme & Palette
+    const palette = Array.isArray(aiData.themePalette) && aiData.themePalette.length > 0
+      ? aiData.themePalette
+      : ['#4C6FFF', '#00C0F9', '#F0EEFF'];
+    const accentColor = aiData.accentColor || palette[0] || '#4C6FFF';
+    const backgroundColor = aiData.backgroundColor || '#FAF8F5';
+    const textColor = aiData.textColor || '#1A1118';
+
+    // 9. Format Rich Event Description
+    const formattedDescription = `${aiData.description || 'Join us for this special event.'}${
+      aiData.theme ? `\n\n✨ **Theme**: ${aiData.theme}` : ''
+    }${
+      aiData.estimatedBudget ? `\n💰 **Estimated Budget**: ${aiData.estimatedBudget}` : ''
+    }${
+      finalGuestCount ? `\n👥 **Expected Guests**: ${finalGuestCount}` : ''
+    }${
+      aiData.schedule?.length ? `\n\n📅 **Schedule**:\n${aiData.schedule.map((i) => `• ${i}`).join('\n')}` : ''
+    }${
+      aiData.decor?.length ? `\n\n🎈 **Decor**:\n${aiData.decor.map((i) => `• ${i}`).join('\n')}` : ''
+    }${
+      aiData.food?.length ? `\n\n🍴 **Food & Drink**:\n${aiData.food.map((i) => `• ${i}`).join('\n')}` : ''
+    }${
+      aiData.activities?.length ? `\n\n🎮 **Activities**:\n${aiData.activities.map((i) => `• ${i}`).join('\n')}` : ''
+    }${
+      aiData.checklist?.length ? `\n\n✅ **Checklist**:\n${aiData.checklist.map((i) => `• ${i}`).join('\n')}` : ''
+    }`;
+
+    // --- DIRECT DATABASE PERSISTENCE ---
     const eventPayload = {
-      title: aiData.title || 'AI Generated Event',
-      description: aiData.description || 'Join us for our AI-generated event.',
-      eventType: eventType || aiData.eventType || 'Other',
-      eventDate: finalDate,
-      eventTime: finalTime,
-      venue: aiData.venue || 'Grand Plaza Hotel',
-      status: 'draft',
-    };
-
-    console.log("Saving generated event to database with payload:", eventPayload);
-    const newEvent = await eventService.createEvent(eventPayload, userId);
-    console.log(`Event saved successfully with ID: ${newEvent.id}`);
-
-    // Automatically create a fully styled base invitation for this event
-    const newInvitation = await prisma.invitation.create({
-      data: {
-        eventId: newEvent.id,
-        title: aiData.title || newEvent.title,
-        subtitle: aiData.host || aiData.venue || 'TBD',
-        mainText: aiData.invitationText || aiData.description || 'You are cordially invited.',
-        message: aiData.description || 'Event Details description',
-        accentColor: aiData.accentColor || '#5B5FEF',
-        backgroundColor: aiData.backgroundColor || '#F6F9FC',
-        textColor: aiData.textColor || '#1A1118',
-        titleSize: Number(aiData.titleSize) || 48,
-        fontWeight: String(aiData.fontWeight) || '700',
-        fontFamily: aiData.fontFamily || 'Playfair Display',
-        textAlignment: 'center',
-        buttonText: aiData.buttonText || 'RSVP Now',
-        buttonColor: aiData.buttonColor || aiData.accentColor || '#5B5FEF',
-        buttonRadius: Number(aiData.buttonRadius) || 12,
-        status: 'draft',
-      },
-    });
-    console.log(`Invitation design saved successfully with ID: ${newInvitation.id}`);
-
-    return res.status(201).json({
-      success: true,
-      message: 'Event generated successfully by AI',
-      event: { ...newEvent, totalGuests: 0, guests: [] },
-      invitation: newInvitation,
-      guests: [],
-      guestList: [],
-    });
-  } catch (error) {
-    console.error('AI Generation Error / Gemini failure:', error);
-    const code = classifyGeminiError(error);
-
-    // 429 — quota exhausted after all retries
-    if (code === 429) {
-      return res.status(429).json({
-        error: 'Gemini service is temporarily unavailable. Please try again in a few moments.',
-      });
-    }
-
-    // 401 / 403 — invalid or unauthorized key
-    if (code === 401 || code === 403) {
-      return res.status(401).json({
-        error: 'Invalid Gemini API key.',
-      });
-    }
-
-    // 404 — model not found or unsupported
-    if (code === 404) {
-      return res.status(500).json({
-        error: `Gemini model "${GEMINI_MODEL}" was not found or is not supported. Check your GEMINI_MODEL environment variable.`,
-      });
-    }
-
-    return res.status(500).json({ error: 'Failed to generate event with AI. Please try again later.' });
-  }
-};
-
-const generateStructuredEventWithAI = async (req, res) => {
-  try {
-    const { prompt, eventType, guestCount, date, time, guestListName } = req.body;
-
-    if (!prompt) {
-      return res.status(400).json({ error: 'Please provide a prompt to generate the event.' });
-    }
-
-    // Guard: API key must be present — never fall back to mock data
-    if (!keyIsValid) {
-      console.error("AI Generation failed: Gemini API key is missing or not configured in environment variables.");
-      return res.status(500).json({ error: 'Gemini API key is not configured.' });
-    }
-
-    const client = getAiClient();
-
-    const aiPrompt = `
-      You are an expert event planner and designer.
-      The user wants to create an event based on this description: "${prompt}"
-      ${eventType ? `Event Type constraint: ${eventType}` : ''}
-      ${guestCount ? `Guest Count/Group constraint: ${guestCount}` : ''}
-      ${date ? `Required Event Date: ${date}` : ''}
-      ${time ? `Required Event Time: ${time}` : ''}
-      ${guestListName ? `Target Guest List: ${guestListName}` : ''}
-
-      Generate a creative, detailed event plan.
-      Do not generate sample or placeholder guests. Keep guest lists empty.
-      Return the response STRICTLY as a JSON object with NO markdown formatting, NO \`\`\`json block, just raw JSON matching this schema:
-      {
-        "title": "string (creative, catchy event title)",
-        "description": "string (engaging, detailed description of the event)",
-        "theme": "string (the overall aesthetic/theme of the event)",
-        "schedule": ["string (at least 3-5 timeline steps, e.g., '14:00 - Guests Arrive')"],
-        "decor": ["string (3-5 decor/design suggestions)"],
-        "food": ["string (3-5 food and beverage ideas)"],
-        "activities": ["string (3-5 event activities/games)"],
-        "checklist": ["string (3-5 todo list tasks for setting up the event)"],
-        "estimatedBudget": "string (an estimated budget or range, e.g., '$500 - $1,000')",
-        "guests": []
-      }
-    `;
-
-    // Call Gemini with automatic retry on 429
-    console.log("Calling Gemini API with structured prompt for:", prompt);
-    let response;
-    try {
-      response = await callGeminiWithRetry(client, aiPrompt);
-    } catch (geminiError) {
-      console.error("Gemini API call failed:", geminiError);
-      throw geminiError;
-    }
-
-    let aiResultText = response.text;
-    console.log("Raw Gemini Response:", aiResultText);
-
-    // Strip markdown code fences if present, also trim whitespace
-    let cleanedText = aiResultText.trim();
-    if (cleanedText.includes('```json')) {
-      cleanedText = cleanedText.substring(cleanedText.indexOf('```json') + 7);
-      if (cleanedText.includes('```')) {
-        cleanedText = cleanedText.substring(0, cleanedText.lastIndexOf('```'));
-      }
-    } else if (cleanedText.includes('```')) {
-      cleanedText = cleanedText.substring(cleanedText.indexOf('```') + 3);
-      if (cleanedText.includes('```')) {
-        cleanedText = cleanedText.substring(0, cleanedText.lastIndexOf('```'));
-      }
-    }
-    cleanedText = cleanedText.trim();
-
-    let aiData;
-    try {
-      aiData = JSON.parse(cleanedText);
-    } catch (parseError) {
-      console.error("Failed to parse Gemini response as JSON.", {
-        rawResponse: aiResultText,
-        cleanedText: cleanedText,
-        error: parseError
-      });
-      return res.status(500).json({
-        error: 'Gemini returned an invalid JSON response. Please try again.'
-      });
-    }
-
-    // Format detailed description with event planning elements
-    const formattedDescription = `${aiData.description || ""}
-
-✨ **Theme**: ${aiData.theme || "TBD"}
-💰 **Estimated Budget**: ${aiData.estimatedBudget || "TBD"}
-
-📅 **Schedule**:
-${aiData.schedule?.map((item) => `• ${item}`).join('\n') || 'None'}
-
-🎈 **Decor**:
-${aiData.decor?.map((item) => `• ${item}`).join('\n') || 'None'}
-
-🍴 **Food & Drink**:
-${aiData.food?.map((item) => `• ${item}`).join('\n') || 'None'}
-
-🎮 **Activities**:
-${aiData.activities?.map((item) => `• ${item}`).join('\n') || 'None'}
-
-✅ **Checklist**:
-${aiData.checklist?.map((item) => `• ${item}`).join('\n') || 'None'}`;
-
-    // Normalize date and time
-    let finalDate = date || aiData.eventDate;
-    if (!finalDate || isNaN(new Date(finalDate).getTime())) {
-      const fallbackDate = new Date();
-      fallbackDate.setDate(fallbackDate.getDate() + 30);
-      finalDate = fallbackDate.toISOString().split('T')[0];
-    }
-
-    let finalTime = time || aiData.eventTime || "18:00";
-
-    const userId = req.user.id;
-    const { venue } = req.body;
-
-    const eventPayload = {
-      title: aiData.title || 'AI Generated Event',
+      title: finalTitle,
       description: formattedDescription,
-      eventType: eventType || 'Other',
+      eventType: finalEventType,
       eventDate: finalDate,
-      eventTime: finalTime,
-      venue: venue || 'TBD Venue',
+      eventTime: finalIsFullDay ? '09:00' : finalStartTime,
+      venue: finalVenue,
       status: 'draft',
     };
 
-    console.log("Saving structured AI event to database for user:", userId);
+    console.log("Saving autonomously generated event to database:", eventPayload);
     const newEvent = await eventService.createEvent(eventPayload, userId);
-    console.log(`Structured event saved successfully with ID: ${newEvent.id}`);
+    console.log(`Event created successfully with ID: ${newEvent.id}`);
 
-    // Create corresponding invitation
+    // Create Base Styled Invitation
     let newInvitation = null;
     try {
       newInvitation = await prisma.invitation.create({
         data: {
           eventId: newEvent.id,
-          title: aiData.title || newEvent.title,
-          subtitle: venue || 'TBD Venue',
-          mainText: aiData.description || 'You are cordially invited.',
+          title: finalTitle,
+          subtitle: aiData.host || finalVenue,
+          mainText: aiData.invitationText || aiData.description || 'You are cordially invited.',
           message: formattedDescription,
-          accentColor: '#5B5FEF',
-          backgroundColor: '#F6F9FC',
-          textColor: '#1A1118',
+          accentColor: accentColor,
+          backgroundColor: backgroundColor,
+          textColor: textColor,
           titleSize: 48,
           fontWeight: '700',
           fontFamily: 'Playfair Display',
           textAlignment: 'center',
           buttonText: 'RSVP Now',
-          buttonColor: '#5B5FEF',
+          buttonColor: accentColor,
           buttonRadius: 12,
           status: 'draft',
         },
       });
+      console.log(`Invitation created successfully with ID: ${newInvitation.id}`);
     } catch (invErr) {
       console.warn("Could not auto-create invitation:", invErr.message);
     }
 
+    // Save Design Settings Palette
+    try {
+      await prisma.designSettings.upsert({
+        where: { eventId: newEvent.id },
+        update: {
+          colorScheme: {
+            preset: aiData.theme || 'AI Generated Palette',
+            primaryColor: accentColor,
+            secondaryColor: palette[1] || '#00C0F9',
+            textColor: textColor,
+          },
+          typography: {
+            titleFont: 'Playfair Display',
+            bodyFont: 'Questrial',
+          },
+          background: {
+            type: 'gradient',
+            gradientDirection: 'to-r',
+            color: backgroundColor,
+          },
+        },
+        create: {
+          eventId: newEvent.id,
+          colorScheme: {
+            preset: aiData.theme || 'AI Generated Palette',
+            primaryColor: accentColor,
+            secondaryColor: palette[1] || '#00C0F9',
+            textColor: textColor,
+          },
+          typography: {
+            titleFont: 'Playfair Display',
+            bodyFont: 'Questrial',
+          },
+          background: {
+            type: 'gradient',
+            gradientDirection: 'to-r',
+            color: backgroundColor,
+          },
+        },
+      });
+      console.log(`Design settings saved for event: ${newEvent.id}`);
+    } catch (desErr) {
+      console.warn("Could not auto-create design settings:", desErr.message);
+    }
+
+    // Standardized Redirect Destination
+    const redirectUrl = `/dashboard/invitations?eventId=${newEvent.id}`;
+
     return res.status(201).json({
       success: true,
       message: 'Event generated and saved to dashboard successfully',
+      eventId: newEvent.id,
+      redirectUrl: redirectUrl,
       event: { ...newEvent, totalGuests: 0, guests: [] },
       invitation: newInvitation,
       guests: [],
       guestList: [],
       ...aiData,
-      guests: [],
-      guestList: [],
+      title: finalTitle,
+      eventType: finalEventType,
+      date: finalDate,
+      startTime: finalStartTime,
+      endTime: finalEndTime,
+      isFullDay: finalIsFullDay,
+      venue: finalVenue,
+      estimatedGuestCount: finalGuestCount,
+      themePalette: palette,
+      accentColor: accentColor,
+      backgroundColor: backgroundColor,
+      textColor: textColor,
     });
   } catch (error) {
     console.error('AI Generation Error / Gemini failure:', error);
     const code = classifyGeminiError(error);
 
-    // 429 — quota exhausted after all retries
+    // 429 — quota exhausted after retries
     if (code === 429) {
       return res.status(429).json({
         error: 'Gemini service is temporarily unavailable. Please try again in a few moments.',
@@ -500,8 +479,16 @@ ${aiData.checklist?.map((item) => `• ${item}`).join('\n') || 'None'}`;
       });
     }
 
-    return res.status(500).json({ error: 'Failed to generate event with AI. Please try again later.' });
+    return res.status(500).json({ error: error.message || 'Failed to generate event with AI. Please try again later.' });
   }
+};
+
+const generateEventWithAI = async (req, res) => {
+  return processAutonomousEventGeneration(req, res);
+};
+
+const generateStructuredEventWithAI = async (req, res) => {
+  return processAutonomousEventGeneration(req, res);
 };
 
 module.exports = {

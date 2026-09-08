@@ -52,6 +52,9 @@ model Event {
   city         String?
   state        String?
   country      String?
+  venueLatitude  Decimal?      @map("venue_latitude") @db.Decimal(9, 6)
+  venueLongitude Decimal?      @map("venue_longitude") @db.Decimal(9, 6)
+  geofenceRadius Int           @default(150) @map("geofence_radius")
   eventDate    DateTime      @map("event_date")
   eventTime    DateTime      @map("event_time") @db.Time(6)
   coverImage   String?       @map("cover_image")
@@ -234,6 +237,7 @@ model TicketOrderItem {
 enum CheckInMethod {
   QR
   MANUAL
+  GPS
 }
 
 model CheckIn {
@@ -242,10 +246,13 @@ model CheckIn {
   guestId       String?       @map("guest_id") @db.Uuid
   ticketId      String?       @map("ticket_id")
   checkedInAt   DateTime      @default(now()) @map("checked_in_at")
+  timestamp     DateTime      @default(now()) @map("timestamp")
   checkedInById String?       @map("checked_in_by_id")
   method        CheckInMethod @default(MANUAL)
+  checkInType   String?       @default("GPS") @map("check_in_type")
   latitude      Decimal?      @db.Decimal(9, 6)
   longitude     Decimal?      @db.Decimal(9, 6)
+  distanceMeters Decimal?     @map("distance_meters") @db.Decimal(10, 2)
   deviceInfo    String?       @map("device_info")
   notes         String?
   createdAt     DateTime      @default(now()) @map("created_at")
