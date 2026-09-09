@@ -18,12 +18,8 @@ router.get('/', async (req, res, next) => {
       console.warn("DB query for templates failed, using fallback:", dbErr.message);
     }
 
-    if (dbTemplates && dbTemplates.length > 0) {
-      return res.json(dbTemplates);
-    }
-
-    // Return rich website templates categorized by event type
-    const formattedTemplates = (newTemplatesDataBackend || []).map(t => {
+    // Format newTemplatesBackend.js templates
+    const formatTemplate = (t) => {
       let contentObj = {};
       try {
         contentObj = typeof t.content === 'string' ? JSON.parse(t.content) : (t.content || {});
@@ -32,7 +28,7 @@ router.get('/', async (req, res, next) => {
         id: t.id,
         name: t.name,
         category: t.category,
-        isPremium: t.isPremium,
+        isPremium: t.isPremium || false,
         thumbnailUrl: contentObj.imageUrl || t.thumbnailUrl || null,
         imageUrl: contentObj.imageUrl || null,
         coverImage: contentObj.imageUrl || null,
@@ -45,9 +41,31 @@ router.get('/', async (req, res, next) => {
         content: t.content,
         htmlContent: t.content,
       };
-    });
+    };
 
-    res.json(formattedTemplates);
+    // Build a map of newTemplates by id
+    const newTemplatesFormatted = (newTemplatesDataBackend || []).map(formatTemplate);
+    const newTemplatesMap = {};
+    for (const t of newTemplatesFormatted) {
+      newTemplatesMap[t.id] = t;
+    }
+
+    if (dbTemplates && dbTemplates.length > 0) {
+      // Build map of DB templates
+      const dbMap = {};
+      for (const t of dbTemplates) {
+        dbMap[t.id] = t;
+      }
+
+      // Merge: DB templates take priority, append newTemplates that are NOT in DB
+      const mergedIds = new Set(Object.keys(dbMap));
+      const extraNew = newTemplatesFormatted.filter(t => !mergedIds.has(t.id));
+      const merged = [...dbTemplates, ...extraNew];
+      return res.json(merged);
+    }
+
+    // No DB templates — serve newTemplatesBackend.js only
+    res.json(newTemplatesFormatted);
   } catch (err) {
     next(err);
   }

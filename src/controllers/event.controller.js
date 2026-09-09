@@ -286,6 +286,8 @@ const createEvent = async (req, res) => {
           const base64Res = await saveBase64Image(trimmedImg, req, "event_cover");
           if (base64Res && base64Res.url) {
             req.body.coverImage = base64Res.url;
+          } else {
+            req.body.coverImage = trimmedImg;
           }
         } else if (trimmedImg) {
           req.body.coverImage = trimmedImg;
