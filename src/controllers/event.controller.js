@@ -295,17 +295,31 @@ const createEvent = async (req, res) => {
       }
     }
 
-    const { title, eventDate, eventTime, venue, selectedTemplateId, templateId } = req.body;
+    let { title, eventDate, eventTime, venue, selectedTemplateId, templateId } = req.body;
     const userId = req.user.id;
 
-    // Validate required fields
-    if (!title || !eventDate || !eventTime || !venue) {
-      return res.status(400).json({
-        error: "Missing required fields. Please provide title, date, time, and venue."
-      });
+    const effectiveTemplateId = selectedTemplateId || templateId;
+
+    // Provide sensible defaults if any required field is omitted (e.g. quick template creation)
+    if (!title || !title.trim()) {
+      title = "New Celebration Event";
+    }
+    if (!venue || !venue.trim()) {
+      venue = "Celebration Venue";
+    }
+    if (!eventDate) {
+      const d = new Date();
+      d.setDate(d.getDate() + 7);
+      eventDate = d.toISOString().split("T")[0];
+    }
+    if (!eventTime) {
+      eventTime = "18:00";
     }
 
-    const effectiveTemplateId = selectedTemplateId || templateId;
+    req.body.title = title;
+    req.body.venue = venue;
+    req.body.eventDate = eventDate;
+    req.body.eventTime = eventTime;
 
     const newEvent = await eventService.createEvent({
       ...req.body,
@@ -735,7 +749,28 @@ const sendEventInvitations = async (req, res) => {
         [id]
       );
       if (invRes.rows && invRes.rows[0]) {
-        invitation = invRes.rows[0];
+        const rawInv = invRes.rows[0];
+        invitation = {
+          ...rawInv,
+          imageUrl: rawInv.image_url || rawInv.cover_image,
+          coverImage: rawInv.cover_image || rawInv.image_url,
+          mainText: rawInv.main_text,
+          eventDate: rawInv.event_date,
+          eventTime: rawInv.event_time,
+          eventTitle: rawInv.event_title,
+          eventVenue: rawInv.event_venue,
+          accentColor: rawInv.accent_color,
+          backgroundColor: rawInv.background_color,
+          textColor: rawInv.text_color,
+          buttonText: rawInv.button_text,
+          buttonColor: rawInv.button_color,
+          buttonRadius: rawInv.button_radius,
+          fontFamily: rawInv.font_family,
+          fontWeight: rawInv.font_weight,
+          titleSize: rawInv.title_size,
+          textAlignment: rawInv.text_alignment,
+          templateId: rawInv.template_id || rawInv.selected_template_id,
+        };
       }
     } catch (e) {
       console.warn("[EventController] No invitation record found, using event details:", e.message);

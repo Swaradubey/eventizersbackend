@@ -361,52 +361,25 @@ const generateInvitationHtml = ({
         <!-- Main Card Container -->
         <table class="email-container" align="center" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; width: 100%; background-color: ${containerBg}; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08); border: 1px solid ${metaBoxBorder};">
           
-          <!-- ─── TOP BADGE & CLEAN EVENT TITLE HEADER ─── -->
-          <tr>
-            <td style="padding: 28px 24px 10px 24px; text-align: center;">
-              <span style="display: inline-block; background-color: ${accent}15; color: ${accent}; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; padding: 6px 16px; border-radius: 30px; border: 1px solid ${accent}30;">
-                You're Cordially Invited
-              </span>
-              ${senderName ? `
-              <p style="margin: 8px 0 4px 0; font-size: 13px; color: ${secondaryText}; font-weight: 500;">
-                From <strong style="color: ${primaryText};">${senderName}</strong>
-              </p>
-              ` : ""}
-              <h2 class="mobile-title" style="margin: 12px 0 6px 0; font-size: ${Math.min(28, titleSize || 24)}px; font-weight: ${fontWeight || "700"}; font-family: ${fontStack}; color: ${primaryText}; line-height: 1.3; text-align: center;">
-                ${cleanTitle}
-              </h2>
-              ${subtitle ? `
-              <p style="margin: 0 0 8px 0; font-size: 14px; font-weight: 500; color: ${secondaryText}; text-align: center;">
-                ${subtitle}
-              </p>
-              ` : ""}
-              ${greetingText ? `
-              <p style="margin: 8px 0 0 0; font-size: 15px; font-weight: 600; color: ${accent}; text-align: center;">
-                ${greetingText}
-              </p>
-              ` : ""}
-            </td>
-          </tr>
-
-          <!-- ─── 1. FULL INVITATION SNAPSHOT CARD / BANNER CARD ─── -->
+          <!-- ─── 1. RENDERED INVITATION TEMPLATE CARD (ARTWORK / MEDIA COVER) ─── -->
           ${imageUrl ? `
           <tr>
-            <td align="center" style="padding: 12px 16px 20px 16px;">
+            <td align="center" style="padding: 0; background-color: ${cardIsDark ? "#0f172a" : "#ffffff"}; border-top-left-radius: 16px; border-top-right-radius: 16px; overflow: hidden;">
               <!--[if mso]>
-              <table align="center" border="0" cellspacing="0" cellpadding="0" width="560">
+              <table align="center" border="0" cellspacing="0" cellpadding="0" width="600">
               <tr>
-              <td align="center" valign="top" width="560">
+              <td align="center" valign="top" width="600">
               <![endif]-->
-              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 0 auto; max-width: 560px;">
+              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 0 auto; max-width: 600px;">
                 <tr>
-                  <td align="center" style="border-radius: 12px; overflow: hidden; background-color: ${cardIsDark ? "#1e293b" : "#f1f5f9"};">
+                  <td align="center" style="border-top-left-radius: 16px; border-top-right-radius: 16px; overflow: hidden;">
                     ${previewLink ? `<a href="${previewLink}" target="_blank" style="display: block; text-decoration: none; border: 0; outline: none;">` : ""}
                       <img 
                         src="${imageUrl}" 
                         alt="${cleanAltText}" 
-                        width="560" 
+                        width="600" 
                         border="0"
-                        style="display: block; width: 100%; max-width: 560px; height: auto; margin: 0 auto; border-radius: 12px; border: 0; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic; font-family: ${fontStack}; font-size: 15px; font-weight: 600; color: ${primaryText}; line-height: 1.4; text-align: center;" 
+                        style="display: block; width: 100%; max-width: 600px; height: auto; margin: 0 auto; border-top-left-radius: 16px; border-top-right-radius: 16px; border: 0; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic;" 
                       />
                     ${previewLink ? `</a>` : ""}
                   </td>
@@ -419,50 +392,71 @@ const generateInvitationHtml = ({
               <![endif]-->
             </td>
           </tr>
-          ${mainText ? `
-          <tr>
-            <td style="padding: 0 24px 12px 24px; text-align: center;">
-              <p style="margin: 0; font-size: 14px; color: ${secondaryText}; line-height: 1.6;">
-                ${mainText}
-              </p>
-            </td>
-          </tr>
-          ` : ""}
           ` : `
           <!-- ─── FALLBACK THEMED CARD BANNER (WHEN NO IMAGE IS PROVIDED) ─── -->
           <tr>
-            <td style="padding: 12px 24px 16px 24px;">
-              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: ${backgroundColor}; border-radius: 12px; padding: 24px 20px; text-align: ${textAlignment}; border: 1px solid ${metaBoxBorder}; box-shadow: 0 4px 12px rgba(0,0,0,0.04);">
-                <tr>
-                  <td align="${textAlignment}">
-                    <h3 style="margin: 0 0 8px 0; font-size: 18px; font-weight: 700; color: ${textColor}; font-family: ${fontStack};">
-                      ${cleanTitle}
-                    </h3>
-                    ${date ? `
-                    <p style="margin: 0 0 8px 0; font-size: 13px; font-weight: 600; color: ${accent};">
-                      📅 ${date}${time ? ` at ${time}` : ""}
-                    </p>
-                    ` : ""}
-                    ${mainText ? `
-                    <p style="margin: 0; font-size: 14px; color: ${textColor}; opacity: 0.9; line-height: 1.6;">
-                      ${mainText}
-                    </p>
-                    ` : `
-                    <p style="margin: 0; font-size: 14px; color: ${secondaryText}; line-height: 1.6;">
-                      You are cordially invited to join us for this special celebration!
-                    </p>
-                    `}
-                  </td>
-                </tr>
-              </table>
+            <td style="padding: 32px 24px 16px 24px; text-align: center; background-color: ${backgroundColor}; border-top-left-radius: 16px; border-top-right-radius: 16px;">
+              <span style="display: inline-block; background-color: ${accent}20; color: ${accent}; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; padding: 6px 16px; border-radius: 30px;">
+                Special Invitation
+              </span>
             </td>
           </tr>
           `}
 
-          <!-- ─── 2. CALL TO ACTION BUTTON ─── -->
+          <!-- ─── 2. STRUCTURED EVENT DETAILS UNDERNEATH ─── -->
+          <tr>
+            <td style="padding: 28px 24px 10px 24px; text-align: center;">
+              <span style="display: inline-block; background-color: ${accent}15; color: ${accent}; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; padding: 6px 16px; border-radius: 30px; border: 1px solid ${accent}30;">
+                You're Cordially Invited
+              </span>
+              ${senderName ? `
+              <p style="margin: 8px 0 4px 0; font-size: 13px; color: ${secondaryText}; font-weight: 500;">
+                Hosted by <strong style="color: ${primaryText};">${senderName}</strong>
+              </p>
+              ` : ""}
+              ${greetingText ? `
+              <p style="margin: 6px 0 0 0; font-size: 15px; font-weight: 600; color: ${accent}; text-align: center;">
+                ${greetingText}
+              </p>
+              ` : ""}
+
+              <!-- Event Title -->
+              <h1 class="mobile-title" style="margin: 12px 0 8px 0; font-size: ${Math.max(24, Math.min(32, titleSize || 28))}px; font-weight: ${fontWeight || "800"}; font-family: ${fontStack}; color: ${primaryText}; line-height: 1.25; text-align: center; letter-spacing: -0.5px;">
+                ${cleanTitle}
+              </h1>
+
+              ${subtitle ? `
+              <p style="margin: 0 0 10px 0; font-size: 15px; font-weight: 600; color: ${accent}; text-align: center;">
+                ${subtitle}
+              </p>
+              ` : ""}
+
+              <!-- Date & Time Headline -->
+              ${(date || time) ? `
+              <p style="margin: 4px 0 6px 0; font-size: 15px; font-weight: 600; color: ${primaryText}; text-align: center;">
+                📅 ${date}${time ? ` &bull; ${time}` : ""}
+              </p>
+              ` : ""}
+
+              <!-- Address / Location Headline -->
+              ${venue ? `
+              <p style="margin: 0 0 12px 0; font-size: 14px; font-weight: 500; color: ${secondaryText}; text-align: center;">
+                📍 ${venue}
+              </p>
+              ` : ""}
+
+              ${(mainText && mainText !== venue && mainText !== subtitle) ? `
+              <p style="margin: 8px auto 16px auto; max-width: 480px; font-size: 14px; color: ${secondaryText}; line-height: 1.6; text-align: center;">
+                ${mainText}
+              </p>
+              ` : ""}
+            </td>
+          </tr>
+
+          <!-- ─── 3. RSVP BUTTON / CALL TO ACTION ─── -->
           ${previewLink ? `
           <tr>
-            <td align="center" style="padding: 8px 24px 20px 24px;">
+            <td align="center" style="padding: 6px 24px 22px 24px;">
               <table border="0" cellspacing="0" cellpadding="0" align="center" style="margin: 0 auto;">
                 <tr>
                   <td align="center" style="border-radius: ${btnRadius}px; background-color: ${btnColor};">
@@ -599,6 +593,50 @@ const generateInvitationHtml = ({
   `;
 };
 
+const KNOWN_TEMPLATE_IMAGES = {
+  "tpl-electric-outline": "/assets/templates/electric-outline.svg",
+  "electric-outline": "/assets/templates/electric-outline.svg",
+  "electric outline": "/assets/templates/electric-outline.svg",
+  "tpl-cake-and-confetti": "/assets/templates/cake-and-confetti.svg",
+  "cake-and-confetti": "/assets/templates/cake-and-confetti.svg",
+  "cake and confetti": "/assets/templates/cake-and-confetti.svg",
+  "tpl-hype-night": "/assets/templates/hype-night.svg",
+  "hype-night": "/assets/templates/hype-night.svg",
+  "hype night": "/assets/templates/hype-night.svg",
+  "tpl-floating-cakes": "/assets/templates/floating-cakes.svg",
+  "floating-cakes": "/assets/templates/floating-cakes.svg",
+  "floating cakes": "/assets/templates/floating-cakes.svg",
+  "tpl-friendship-charms": "/assets/templates/friendship-charms.svg",
+  "friendship-charms": "/assets/templates/friendship-charms.svg",
+  "friendship charms": "/assets/templates/friendship-charms.svg",
+  "tpl-sporty-frame": "/assets/templates/sporty-frame.svg",
+  "sporty-frame": "/assets/templates/sporty-frame.svg",
+  "sporty frame": "/assets/templates/sporty-frame.svg",
+  "tpl-anniversary": "/assets/templates/anniversary.jpg",
+  "anniversary": "/assets/templates/anniversary.jpg",
+  "tpl-birthday": "/assets/templates/birthday.jpg",
+  "birthday": "/assets/templates/birthday.jpg",
+  "tpl-babyshower": "/assets/templates/babyshower.jpg",
+  "babyshower": "/assets/templates/babyshower.jpg",
+  "baby shower": "/assets/templates/babyshower.jpg",
+  "tpl-corporate": "/assets/templates/corporate.jpg",
+  "corporate": "/assets/templates/corporate.jpg",
+  "tpl-dinner": "/assets/templates/dinner.jpg",
+  "dinner": "/assets/templates/dinner.jpg",
+  "tpl-gala": "/assets/templates/gala.jpg",
+  "gala": "/assets/templates/gala.jpg",
+  "tpl-graduation": "/assets/templates/graduation_gala.jpg",
+  "graduation": "/assets/templates/graduation_gala.jpg",
+  "tpl-community": "/assets/templates/community_celebration.jpg",
+  "community": "/assets/templates/community_celebration.jpg",
+  "tpl-networking": "/assets/templates/networking_connections.jpg",
+  "networking": "/assets/templates/networking_connections.jpg",
+  "tpl-wedding": "/assets/templates/wedding.jpg",
+  "wedding": "/assets/templates/wedding.jpg",
+  "tpl-music": "/assets/templates/music.jpg",
+  "music": "/assets/templates/music.jpg",
+};
+
 /**
  * Send invitation emails with personalized tracking and robust image handling
  */
@@ -619,38 +657,40 @@ const sendInvitationEmails = async ({
     throw new Error("No recipient email addresses provided.");
   }
 
-  // Format date and time
+  // Format date and time supporting both camelCase and snake_case properties
+  const rawDate = event?.eventDate || event?.event_date || invitation?.eventDate || invitation?.event_date;
   let eventDate = "";
-  if (event?.eventDate) {
-    const d = new Date(event.eventDate);
-    eventDate = isNaN(d.getTime()) ? String(event.eventDate) : d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+  if (rawDate) {
+    const d = new Date(rawDate);
+    eventDate = isNaN(d.getTime()) ? String(rawDate) : d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
   }
 
+  const rawTime = event?.eventTime || event?.event_time || invitation?.eventTime || invitation?.event_time;
   let eventTime = "";
-  if (event?.eventTime) {
-    if (event.eventTime instanceof Date) {
-      eventTime = event.eventTime.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+  if (rawTime) {
+    if (rawTime instanceof Date) {
+      eventTime = rawTime.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
     } else {
-      eventTime = String(event.eventTime);
+      eventTime = String(rawTime);
     }
   }
 
-  const eventVenue = event?.venue || "";
-  const title = invitation?.title || event?.title || "Special Event Invitation";
-  const subtitle = invitation?.subtitle || "";
-  const mainText = invitation?.mainText || event?.description || "";
+  const eventVenue = event?.venue || event?.address || invitation?.eventVenue || invitation?.event_venue || "";
+  const title = invitation?.title || event?.title || invitation?.eventTitle || invitation?.event_title || "Special Event Invitation";
+  const subtitle = invitation?.subtitle || invitation?.message || "";
+  const mainText = invitation?.mainText || invitation?.main_text || event?.description || "";
 
-  // Extract design tokens from invitation
-  const backgroundColor = invitation?.backgroundColor || "#FAF8F5";
-  const textColor = invitation?.textColor || "#1A1118";
-  const accentColor = invitation?.accentColor || "#5B5FEF";
-  const buttonColor = invitation?.buttonColor || invitation?.accentColor || "#5B5FEF";
-  const buttonRadius = invitation?.buttonRadius !== undefined ? invitation.buttonRadius : 10;
-  const buttonText = invitation?.buttonText || "View Invitation & RSVP";
-  const fontFamily = invitation?.fontFamily || "sans-serif";
-  const fontWeight = invitation?.fontWeight || "700";
-  const titleSize = invitation?.titleSize || 28;
-  const textAlignment = invitation?.textAlignment || "center";
+  // Extract design tokens from invitation (supporting both camelCase and snake_case)
+  const backgroundColor = invitation?.backgroundColor || invitation?.background_color || "#FAF8F5";
+  const textColor = invitation?.textColor || invitation?.text_color || "#1A1118";
+  const accentColor = invitation?.accentColor || invitation?.accent_color || "#5B5FEF";
+  const buttonColor = invitation?.buttonColor || invitation?.button_color || invitation?.accentColor || invitation?.accent_color || "#5B5FEF";
+  const buttonRadius = invitation?.buttonRadius !== undefined ? invitation.buttonRadius : (invitation?.button_radius !== undefined ? invitation.button_radius : 10);
+  const buttonText = invitation?.buttonText || invitation?.button_text || "View Invitation & RSVP";
+  const fontFamily = invitation?.fontFamily || invitation?.font_family || "sans-serif";
+  const fontWeight = invitation?.fontWeight || invitation?.font_weight || "700";
+  const titleSize = invitation?.titleSize || invitation?.title_size || 28;
+  const textAlignment = invitation?.textAlignment || invitation?.text_alignment || "center";
 
   const baseUrl = frontendUrl || process.env.FRONTEND_URL || "http://localhost:3000";
   const trackBase = (trackingBaseUrl || process.env.API_BASE_URL || process.env.BACKEND_URL || "http://localhost:5000").replace(/\/+$/, "");
@@ -734,22 +774,33 @@ const sendInvitationEmails = async ({
     }
   }
 
-  // 4. Fallback to event/invitation image across all possible fields if not already resolved
+  // 4. Fallback to event/invitation image across all possible fields (supporting camelCase & snake_case)
   if (!resolvedCardImageSrc && !localSnapshotFilePath) {
-    const rawImage = (
+    let candidateImage = (
       invitation?.imageUrl ||
+      invitation?.image_url ||
       invitation?.cardImage ||
+      invitation?.card_image ||
       invitation?.coverImage ||
+      invitation?.cover_image ||
       invitation?.templateUrl ||
+      invitation?.template_url ||
       invitation?.snapshotUrl ||
+      invitation?.snapshot_url ||
       invitation?.bannerUrl ||
+      invitation?.banner_url ||
       invitation?.designData?.previewUrl ||
       invitation?.designData?.imageUrl ||
       event?.imageUrl ||
+      event?.image_url ||
       event?.coverImage ||
+      event?.cover_image ||
       event?.cardImage ||
+      event?.card_image ||
       event?.templateUrl ||
+      event?.template_url ||
       event?.snapshotUrl ||
+      event?.snapshot_url ||
       event?.thumbnail ||
       event?.thumbnailUrl ||
       event?.uploadedFileUrl ||
@@ -758,6 +809,52 @@ const sendInvitationEmails = async ({
       event?.designData?.imageUrl ||
       null
     );
+
+    // Filter out plain CSS colors or gradients stored in image fields (e.g. "#faf8f5" or "linear-gradient...")
+    if (candidateImage && typeof candidateImage === "string") {
+      const trimmed = candidateImage.trim();
+      if (trimmed.startsWith("#") || trimmed.startsWith("linear-gradient") || trimmed.startsWith("radial-gradient") || trimmed.startsWith("rgb")) {
+        candidateImage = null;
+      }
+    }
+
+    // If candidateImage is not found or was a color, resolve from template ID
+    if (!candidateImage) {
+      const candidateTemplateId = (
+        invitation?.templateId ||
+        invitation?.template_id ||
+        event?.selectedTemplateId ||
+        event?.selected_template_id ||
+        event?.templateId ||
+        event?.template_id ||
+        ""
+      ).trim().toLowerCase();
+
+      if (candidateTemplateId && KNOWN_TEMPLATE_IMAGES[candidateTemplateId]) {
+        candidateImage = KNOWN_TEMPLATE_IMAGES[candidateTemplateId];
+      } else if (candidateTemplateId) {
+        for (const [key, val] of Object.entries(KNOWN_TEMPLATE_IMAGES)) {
+          if (candidateTemplateId.includes(key) || key.includes(candidateTemplateId)) {
+            candidateImage = val;
+            break;
+          }
+        }
+      }
+    }
+
+    // Also fuzzy-match against event/invitation title if candidateImage is still missing
+    if (!candidateImage) {
+      const titleLower = `${title || ""} ${event?.title || ""}`.toLowerCase();
+      for (const [key, val] of Object.entries(KNOWN_TEMPLATE_IMAGES)) {
+        const cleanKey = key.replace(/^tpl-/, "").replace(/-/g, " ");
+        if (cleanKey.length > 3 && titleLower.includes(cleanKey)) {
+          candidateImage = val;
+          break;
+        }
+      }
+    }
+
+    const rawImage = candidateImage;
 
     if (rawImage && typeof rawImage === "string" && rawImage.trim()) {
       if (rawImage.startsWith("data:")) {
@@ -791,35 +888,57 @@ const sendInvitationEmails = async ({
   const attachments = [];
   let htmlCardImageSrc = null;
   const CID_IDENTIFIER = "invitationCard";
+  const mimeMap = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp", gif: "image/gif", svg: "image/svg+xml" };
 
   // Strategy A: Local file on disk → attach from file path (most reliable)
   if (localSnapshotFilePath && fs.existsSync(localSnapshotFilePath)) {
     const ext = path.extname(localSnapshotFilePath).toLowerCase().replace(".", "");
-    const mimeMap = {
-      png: "image/png",
-      jpg: "image/jpeg",
-      jpeg: "image/jpeg",
-      webp: "image/webp",
-      gif: "image/gif",
-      svg: "image/svg+xml",
-    };
-    const mimeType = mimeMap[ext] || "image/png";
+    if (ext === "svg") {
+      try {
+        const { Resvg } = require("@resvg/resvg-js");
+        const svgContent = fs.readFileSync(localSnapshotFilePath, "utf8");
+        const resvg = new Resvg(svgContent, { fitTo: { mode: "width", value: 600 } });
+        const pngData = resvg.render();
+        const pngBuffer = pngData.asPng();
 
-    try {
-      const stats = fs.statSync(localSnapshotFilePath);
-      if (stats.size > 100) {
         attachments.push({
-          filename: `invitation-card.${ext || "png"}`,
-          path: localSnapshotFilePath,
+          filename: "invitation-card.png",
+          content: pngBuffer,
           cid: CID_IDENTIFIER,
-          contentType: mimeType,
+          contentType: "image/png",
           contentDisposition: "inline",
         });
         htmlCardImageSrc = `cid:${CID_IDENTIFIER}`;
-        console.log(`[EmailService] CID attachment created from local file (${(stats.size / 1024).toFixed(1)} KB): ${localSnapshotFilePath}`);
+        console.log(`[EmailService] Converted SVG template to inline PNG attachment (${(pngBuffer.length / 1024).toFixed(1)} KB): ${localSnapshotFilePath}`);
+      } catch (svgErr) {
+        console.warn("[EmailService] Error converting SVG template to PNG:", svgErr.message);
+        attachments.push({
+          filename: "invitation-card.svg",
+          path: localSnapshotFilePath,
+          cid: CID_IDENTIFIER,
+          contentType: "image/svg+xml",
+          contentDisposition: "inline",
+        });
+        htmlCardImageSrc = `cid:${CID_IDENTIFIER}`;
       }
-    } catch (e) {
-      console.warn("[EmailService] Error checking local file for CID:", e.message);
+    } else {
+      try {
+        const stats = fs.statSync(localSnapshotFilePath);
+        if (stats.size > 100) {
+          const mimeType = mimeMap[ext] || "image/png";
+          attachments.push({
+            filename: `invitation-card.${ext || "png"}`,
+            path: localSnapshotFilePath,
+            cid: CID_IDENTIFIER,
+            contentType: mimeType,
+            contentDisposition: "inline",
+          });
+          htmlCardImageSrc = `cid:${CID_IDENTIFIER}`;
+          console.log(`[EmailService] CID attachment created from local file (${(stats.size / 1024).toFixed(1)} KB): ${localSnapshotFilePath}`);
+        }
+      } catch (e) {
+        console.warn("[EmailService] Error checking local file for CID:", e.message);
+      }
     }
 
   // Strategy B: Raw Base64 data available → attach directly as Base64 buffer
