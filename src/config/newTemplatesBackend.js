@@ -274,6 +274,29 @@ const newTemplatesDataBackend = [
       buttonRadius: 9999,
       textAlignment: "center"
     })
+  },
+  {
+    id: "tpl-fall-foliage",
+    name: "Fall Foliage",
+    category: "Bridal Shower",
+    isPremium: true,
+    content: JSON.stringify({
+      gradient: "linear-gradient(135deg, #FFF9F2 0%, #FFF3E6 100%)",
+      accentColor: "#8B2323",
+      emoji: "🍁",
+      host: "Amanda Sharpe",
+      venue: "2246 Eucalyptus Drive",
+      description: "Please join us for a shower honoring Amanda. See registry info below.",
+      imageUrl: "https://g0.evitecdn.com/templates/fabric_templates/initial/image-1755560605642499893.fall-foliage.png",
+      backgroundColor: "#FFFFFF",
+      textColor: "#8B2323",
+      titleSize: 42,
+      fontWeight: "400",
+      fontFamily: "Playfair Display",
+      buttonColor: "#8B2323",
+      buttonRadius: 0,
+      textAlignment: "center"
+    })
   }
 ];
 
