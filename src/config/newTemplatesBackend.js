@@ -136,6 +136,29 @@ const newTemplatesDataBackend = [
       buttonRadius: 8,
       textAlignment: "center"
     })
+  },
+  {
+    id: "tpl-pawpatrol",
+    name: "Paw Patrol: Raise the Woof",
+    category: "Birthday",
+    isPremium: true,
+    content: JSON.stringify({
+      gradient: "linear-gradient(135deg, #0061ae 0%, #004b87 100%)",
+      accentColor: "#E11D48",
+      emoji: "🐾",
+      host: "Hosted by Ryder",
+      venue: "The Lookout",
+      description: "No job is too big, no pup is too small! Join us for a PAWsome Birthday party.",
+      imageUrl: "https://g0.evitecdn.com/templates/fabric_templates/initial/image-1771960444987733327.paramount-0004-pawpatrol-raise-the-woof.jpg",
+      backgroundColor: "#0061ae",
+      textColor: "#FFFFFF",
+      titleSize: 42,
+      fontWeight: "800",
+      fontFamily: "Inter",
+      buttonColor: "#E11D48",
+      buttonRadius: 8,
+      textAlignment: "center"
+    })
   }
 ];
 
