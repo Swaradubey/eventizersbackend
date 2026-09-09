@@ -790,7 +790,7 @@ const sendInvitationEmails = async ({
   // across all email clients. Public HTTPS URL is used as a secondary fallback only.
   const attachments = [];
   let htmlCardImageSrc = null;
-  const CID_IDENTIFIER = `invitation-card-${Date.now()}@invitehub.io`;
+  const CID_IDENTIFIER = "invitationCard";
 
   // Strategy A: Local file on disk → attach from file path (most reliable)
   if (localSnapshotFilePath && fs.existsSync(localSnapshotFilePath)) {

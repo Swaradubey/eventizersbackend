@@ -4,10 +4,30 @@ const guestService = require("../services/guest.service");
 const emailService = require("../services/email.service");
 const { saveBase64Image } = require("../utils/fileStorage");
 
-// Helper to validate hex colors
+// Helper to validate and sanitize colors (hex, rgb/rgba, hsl/hsla, gradients, named colors)
 const isValidHexColor = (color) => {
   if (!color) return false;
-  return /^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6}|[A-Fa-f0-9]{8})$/.test(color);
+  if (typeof color === "object") return true;
+  if (typeof color !== "string") return false;
+  const trimmed = color.trim();
+  return (
+    trimmed.startsWith("#") ||
+    trimmed.startsWith("rgb") ||
+    trimmed.startsWith("hsl") ||
+    trimmed.includes("gradient") ||
+    /^[a-zA-Z]+$/.test(trimmed)
+  );
+};
+
+const sanitizeColor = (color, defaultColor = "#5B5FEF") => {
+  if (!color) return defaultColor;
+  if (typeof color === "object") {
+    color = color.hex || color.value || color.style || color.color || defaultColor;
+  }
+  if (typeof color !== "string") return defaultColor;
+  const trimmed = color.trim();
+  if (isValidHexColor(trimmed)) return trimmed;
+  return defaultColor;
 };
 
 // Safe Prisma error handler
@@ -170,32 +190,26 @@ const createInvitation = async (req, res) => {
       return res.status(404).json({ error: "Event not found or unauthorized access." });
     }
 
-    // Validate Title Size (20 - 80)
-    if (titleSize !== undefined && (titleSize < 20 || titleSize > 80)) {
-      return res.status(400).json({ error: "Title size must be between 20 and 80." });
+    // Validate and sanitize Title
+    let cleanTitle = title;
+    if (!cleanTitle || typeof cleanTitle !== "string" || cleanTitle.trim() === "") {
+      cleanTitle = eventTitle || (event ? `Invitation to ${event.title}` : "Party Invitation");
     }
 
-    // Validate Colors
-    if (accentColor && !isValidHexColor(accentColor)) {
-      return res.status(400).json({ error: "Invalid Accent Color HEX format." });
-    }
-    if (backgroundColor && !isValidHexColor(backgroundColor)) {
-      return res.status(400).json({ error: "Invalid Background Color HEX format." });
-    }
-    if (textColor && !isValidHexColor(textColor)) {
-      return res.status(400).json({ error: "Invalid Text Color HEX format." });
-    }
-    if (buttonColor && !isValidHexColor(buttonColor)) {
-      return res.status(400).json({ error: "Invalid Button Color HEX format." });
-    }
+    // Sanitize Title Size (clamped 16 - 120)
+    let cleanTitleSize = titleSize !== undefined ? parseInt(titleSize, 10) : 48;
+    if (isNaN(cleanTitleSize)) cleanTitleSize = 48;
+    cleanTitleSize = Math.max(16, Math.min(120, cleanTitleSize));
+
+    // Sanitize Colors & Button
+    const cleanAccentColor = sanitizeColor(accentColor, "#5B5FEF");
+    const cleanBackgroundColor = sanitizeColor(backgroundColor, "#FAF8F5");
+    const cleanTextColor = sanitizeColor(textColor, "#1A1118");
+    const cleanButtonColor = sanitizeColor(buttonColor, cleanAccentColor);
+    let cleanButtonRadius = buttonRadius !== undefined ? parseInt(buttonRadius, 10) : 8;
+    if (isNaN(cleanButtonRadius)) cleanButtonRadius = 8;
 
     const payloadId = id || `inv_${Math.random().toString(36).substr(2, 9)}`;
-
-    // Verify if invitation already exists for this event
-    const existing = await invitationService.findInvitationByEventId(eventId, userId);
-    if (existing) {
-      return res.status(400).json({ error: "An invitation already exists for this event." });
-    }
 
     let cleanImageUrl = imageUrl;
     if (imageUrl && typeof imageUrl === "string") {
@@ -210,25 +224,61 @@ const createInvitation = async (req, res) => {
       }
     }
 
+    // Verify if invitation already exists for this event — if so, gracefully update it instead of throwing 400
+    const existing = await invitationService.findInvitationByEventId(eventId, userId);
+    if (existing) {
+      const updated = await invitationService.updateInvitation(
+        existing.id,
+        {
+          title: cleanTitle,
+          subtitle,
+          mainText,
+          message: message !== undefined ? message : existing.message,
+          accentColor: cleanAccentColor,
+          backgroundColor: cleanBackgroundColor,
+          textColor: cleanTextColor,
+          titleSize: cleanTitleSize,
+          fontWeight: fontWeight || existing.fontWeight,
+          fontFamily: fontFamily || existing.fontFamily,
+          textAlignment: textAlignment || existing.textAlignment,
+          imageUrl: cleanImageUrl !== undefined ? cleanImageUrl : existing.imageUrl,
+          buttonText: buttonText || existing.buttonText,
+          buttonColor: cleanButtonColor,
+          buttonRadius: cleanButtonRadius,
+          status: status || existing.status,
+          eventTitle: eventTitle !== undefined ? eventTitle : existing.eventTitle,
+          eventDate: eventDate !== undefined ? eventDate : existing.eventDate,
+          eventTime: eventTime !== undefined ? eventTime : existing.eventTime,
+          eventVenue: eventVenue !== undefined ? eventVenue : existing.eventVenue,
+        },
+        userId
+      );
+      return res.status(200).json({
+        success: true,
+        message: "Invitation updated successfully.",
+        invitation: updated,
+      });
+    }
+
     const newInvitation = await invitationService.createInvitation(
       {
         id: payloadId,
         eventId,
-        title,
+        title: cleanTitle,
         subtitle,
         mainText,
         message,
-        accentColor,
-        backgroundColor,
-        textColor,
-        titleSize,
-        fontWeight,
-        fontFamily,
-        textAlignment,
+        accentColor: cleanAccentColor,
+        backgroundColor: cleanBackgroundColor,
+        textColor: cleanTextColor,
+        titleSize: cleanTitleSize,
+        fontWeight: fontWeight || "normal",
+        fontFamily: fontFamily || "sans-serif",
+        textAlignment: textAlignment || "center",
         imageUrl: cleanImageUrl,
-        buttonText,
-        buttonColor,
-        buttonRadius,
+        buttonText: buttonText || "RSVP Now",
+        buttonColor: cleanButtonColor,
+        buttonRadius: cleanButtonRadius,
         status: status || "draft",
         eventTitle: eventTitle || null,
         eventDate: eventDate || null,
@@ -286,29 +336,24 @@ const updateInvitation = async (req, res) => {
       return res.status(404).json({ error: "Invitation not found or unauthorized access." });
     }
 
-    // Validate required fields
-    if (!title || title.trim() === "") {
-      return res.status(400).json({ error: "Title is required." });
+    // Validate and sanitize Title
+    let cleanTitle = title;
+    if (!cleanTitle || typeof cleanTitle !== "string" || cleanTitle.trim() === "") {
+      cleanTitle = existingInvitation.title || "Party Invitation";
     }
 
-    // Validate Title Size (20 - 80)
-    if (titleSize !== undefined && (titleSize < 20 || titleSize > 80)) {
-      return res.status(400).json({ error: "Title size must be between 20 and 80." });
-    }
+    // Sanitize Title Size (clamped 16 - 120)
+    let cleanTitleSize = titleSize !== undefined ? parseInt(titleSize, 10) : existingInvitation.titleSize;
+    if (isNaN(cleanTitleSize)) cleanTitleSize = existingInvitation.titleSize || 48;
+    cleanTitleSize = Math.max(16, Math.min(120, cleanTitleSize));
 
-    // Validate Colors
-    if (accentColor && !isValidHexColor(accentColor)) {
-      return res.status(400).json({ error: "Invalid Accent Color HEX format." });
-    }
-    if (backgroundColor && !isValidHexColor(backgroundColor)) {
-      return res.status(400).json({ error: "Invalid Background Color HEX format." });
-    }
-    if (textColor && !isValidHexColor(textColor)) {
-      return res.status(400).json({ error: "Invalid Text Color HEX format." });
-    }
-    if (buttonColor && !isValidHexColor(buttonColor)) {
-      return res.status(400).json({ error: "Invalid Button Color HEX format." });
-    }
+    // Sanitize Colors & Button
+    const cleanAccentColor = sanitizeColor(accentColor, existingInvitation.accentColor || "#5B5FEF");
+    const cleanBackgroundColor = sanitizeColor(backgroundColor, existingInvitation.backgroundColor || "#FAF8F5");
+    const cleanTextColor = sanitizeColor(textColor, existingInvitation.textColor || "#1A1118");
+    const cleanButtonColor = sanitizeColor(buttonColor, existingInvitation.buttonColor || cleanAccentColor);
+    let cleanButtonRadius = buttonRadius !== undefined ? parseInt(buttonRadius, 10) : existingInvitation.buttonRadius;
+    if (isNaN(cleanButtonRadius)) cleanButtonRadius = existingInvitation.buttonRadius ?? 8;
 
     let cleanImageUrl = imageUrl;
     if (imageUrl && typeof imageUrl === "string") {
@@ -636,13 +681,36 @@ const sendInvitation = async (req, res) => {
 const sendInvitationToGuests = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { invitationId, guestIds, recipients, cardSnapshotUrl, snapshotUrl, cardImageBase64, snapshot } = req.body || {};
+    const { invitationId, eventId, guestIds, recipients, cardSnapshotUrl, snapshotUrl, cardImageBase64, snapshot } = req.body || {};
 
-    if (!invitationId) {
-      return res.status(400).json({ error: "invitationId is required." });
+    let targetInvitationId = invitationId;
+    if (!targetInvitationId && eventId) {
+      const existing = await invitationService.findInvitationByEventId(eventId, userId);
+      if (existing) {
+        targetInvitationId = existing.id;
+      } else {
+        try {
+          const autoInvite = await invitationService.createInvitation(
+            {
+              eventId,
+              title: req.body?.title || req.body?.eventDetails?.title || "Event Invitation",
+              imageUrl: req.body?.snapshotUrl || req.body?.cardSnapshotUrl || null,
+              status: "draft",
+            },
+            userId
+          );
+          targetInvitationId = autoInvite.id;
+        } catch (autoErr) {
+          console.warn("[InvitationController] Could not auto-create invitation:", autoErr.message);
+        }
+      }
     }
 
-    const invitation = await invitationService.findInvitationById(invitationId, userId);
+    if (!targetInvitationId) {
+      return res.status(400).json({ error: "invitationId or eventId is required to send invitations." });
+    }
+
+    const invitation = await invitationService.findInvitationById(targetInvitationId, userId);
     if (!invitation) {
       return res.status(404).json({ error: "Invitation not found or unauthorized access." });
     }
