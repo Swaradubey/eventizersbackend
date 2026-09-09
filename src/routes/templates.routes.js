@@ -8,17 +8,9 @@ const router = express.Router();
 
 const { newTemplatesDataBackend } = require('../config/newTemplatesBackend');
 
-// Get all templates
+// Get all templates — always serve ONLY newTemplatesBackend.js templates
 router.get('/', async (req, res, next) => {
   try {
-    let dbTemplates = [];
-    try {
-      dbTemplates = await prisma.template.findMany();
-    } catch (dbErr) {
-      console.warn("DB query for templates failed, using fallback:", dbErr.message);
-    }
-
-    // Format newTemplatesBackend.js templates
     const formatTemplate = (t) => {
       let contentObj = {};
       try {
@@ -29,7 +21,7 @@ router.get('/', async (req, res, next) => {
         name: t.name,
         category: t.category,
         isPremium: t.isPremium || false,
-        thumbnailUrl: contentObj.imageUrl || t.thumbnailUrl || null,
+        thumbnailUrl: contentObj.imageUrl || null,
         imageUrl: contentObj.imageUrl || null,
         coverImage: contentObj.imageUrl || null,
         emoji: contentObj.emoji || null,
@@ -43,29 +35,8 @@ router.get('/', async (req, res, next) => {
       };
     };
 
-    // Build a map of newTemplates by id
-    const newTemplatesFormatted = (newTemplatesDataBackend || []).map(formatTemplate);
-    const newTemplatesMap = {};
-    for (const t of newTemplatesFormatted) {
-      newTemplatesMap[t.id] = t;
-    }
-
-    if (dbTemplates && dbTemplates.length > 0) {
-      // Build map of DB templates
-      const dbMap = {};
-      for (const t of dbTemplates) {
-        dbMap[t.id] = t;
-      }
-
-      // Merge: DB templates take priority, append newTemplates that are NOT in DB
-      const mergedIds = new Set(Object.keys(dbMap));
-      const extraNew = newTemplatesFormatted.filter(t => !mergedIds.has(t.id));
-      const merged = [...dbTemplates, ...extraNew];
-      return res.json(merged);
-    }
-
-    // No DB templates — serve newTemplatesBackend.js only
-    res.json(newTemplatesFormatted);
+    const templates = (newTemplatesDataBackend || []).map(formatTemplate);
+    res.json(templates);
   } catch (err) {
     next(err);
   }
