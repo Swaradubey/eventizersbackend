@@ -456,9 +456,9 @@ CREATE TABLE IF NOT EXISTS event_reminders (
     updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_event_reminders_event_id ON event_reminders(event_id);
-CREATE INDEX IF NOT EXISTS idx_event_reminders_event_audience ON event_reminders(event_id, target_audience);
 -- Migration: add target_audience if upgrading existing installs
 ALTER TABLE event_reminders ADD COLUMN IF NOT EXISTS target_audience VARCHAR(50) NOT NULL DEFAULT 'ALL';
+CREATE INDEX IF NOT EXISTS idx_event_reminders_event_audience ON event_reminders(event_id, target_audience);
 
 -- Attendance guarantee fields on guests table
 ALTER TABLE guests ADD COLUMN IF NOT EXISTS guarantee_status VARCHAR(50) DEFAULT 'PENDING';
