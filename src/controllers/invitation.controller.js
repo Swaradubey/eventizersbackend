@@ -130,7 +130,7 @@ const getInvitationByEvent = async (req, res) => {
 const createInvitation = async (req, res) => {
   try {
     const userId = req.user.id;
-    const {
+  const {
       id,
       eventId,
       title,
@@ -148,7 +148,12 @@ const createInvitation = async (req, res) => {
       buttonText,
       buttonColor,
       buttonRadius,
-      status
+      status,
+      // Event detail overrides
+      eventTitle,
+      eventDate,
+      eventTime,
+      eventVenue,
     } = req.body;
 
     // Validate required fields
@@ -224,7 +229,11 @@ const createInvitation = async (req, res) => {
         buttonText,
         buttonColor,
         buttonRadius,
-        status: status || "draft"
+        status: status || "draft",
+        eventTitle: eventTitle || null,
+        eventDate: eventDate || null,
+        eventTime: eventTime || null,
+        eventVenue: eventVenue || null,
       },
       userId
     );
@@ -263,7 +272,12 @@ const updateInvitation = async (req, res) => {
       buttonText,
       buttonColor,
       buttonRadius,
-      status
+      status,
+      // Event detail overrides
+      eventTitle,
+      eventDate,
+      eventTime,
+      eventVenue,
     } = req.body;
 
     // Verify user owns the invitation
@@ -327,7 +341,12 @@ const updateInvitation = async (req, res) => {
         buttonText: buttonText || existingInvitation.buttonText,
         buttonColor: buttonColor || existingInvitation.buttonColor,
         buttonRadius: buttonRadius !== undefined ? buttonRadius : existingInvitation.buttonRadius,
-        status: status || existingInvitation.status
+        status: status || existingInvitation.status,
+        // Persist event detail overrides (null means clear, undefined means keep existing)
+        eventTitle: eventTitle !== undefined ? eventTitle : existingInvitation.eventTitle,
+        eventDate: eventDate !== undefined ? eventDate : existingInvitation.eventDate,
+        eventTime: eventTime !== undefined ? eventTime : existingInvitation.eventTime,
+        eventVenue: eventVenue !== undefined ? eventVenue : existingInvitation.eventVenue,
       },
       userId
     );
@@ -561,13 +580,28 @@ const sendInvitation = async (req, res) => {
       "http://localhost:3000"
     );
 
+    // Build effective event: merge invitation-level overrides onto the fetched event
+    // so the email always reflects what the user edited in accordion 5, not stale DB values
+    const effectiveEvent = event ? {
+      ...event,
+      title: invitation.eventTitle || event.title,
+      eventDate: invitation.eventDate || event.eventDate,
+      eventTime: invitation.eventTime || event.eventTime,
+      venue: invitation.eventVenue || event.venue,
+    } : {
+      title: invitation.eventTitle || "",
+      eventDate: invitation.eventDate || "",
+      eventTime: invitation.eventTime || "",
+      venue: invitation.eventVenue || "",
+    };
+
     // Send emails via Nodemailer service with personalized tracking pixel and CID inline card image
     // Pass both the resolved URL and the raw snapshot data so the email service can
     // create CID inline attachments directly from Base64 when public URLs are unavailable
     const sendResult = await emailService.sendInvitationEmails({
       recipients: resolvedGuests.length > 0 ? resolvedGuests : targetEmails,
       invitation,
-      event,
+      event: effectiveEvent,
       senderName: req.user.name || req.user.email,
       frontendUrl,
       snapshotUrl: resolvedSnapshotUrl,
@@ -685,12 +719,26 @@ const sendInvitationToGuests = async (req, res) => {
       "http://localhost:3000"
     );
 
+    // Build effective event: merge invitation-level overrides onto the fetched event
+    const effectiveEvent = event ? {
+      ...event,
+      title: invitation.eventTitle || event.title,
+      eventDate: invitation.eventDate || event.eventDate,
+      eventTime: invitation.eventTime || event.eventTime,
+      venue: invitation.eventVenue || event.venue,
+    } : {
+      title: invitation.eventTitle || "",
+      eventDate: invitation.eventDate || "",
+      eventTime: invitation.eventTime || "",
+      venue: invitation.eventVenue || "",
+    };
+
     // Pass both resolved URL and raw snapshot data so email service can create
     // CID inline attachments directly from Base64 when public URLs are unavailable
     const sendResult = await emailService.sendInvitationEmails({
       recipients: resolvedGuests.length > 0 ? resolvedGuests : targetEmails,
       invitation,
-      event,
+      event: effectiveEvent,
       senderName: req.user.name || req.user.email,
       frontendUrl,
       snapshotUrl: resolvedSnapshotUrl,

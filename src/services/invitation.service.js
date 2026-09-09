@@ -121,6 +121,11 @@ const createInvitation = async (data, userId) => {
     buttonColor,
     buttonRadius,
     status,
+    // Event detail overrides
+    eventTitle,
+    eventDate,
+    eventTime,
+    eventVenue,
   } = data;
 
   const invitation = await prisma.invitation.create({
@@ -143,6 +148,10 @@ const createInvitation = async (data, userId) => {
       buttonColor: buttonColor || "#5B5FEF",
       buttonRadius: buttonRadius !== undefined ? buttonRadius : 8,
       status: status || "draft",
+      eventTitle: eventTitle || null,
+      eventDate: eventDate || null,
+      eventTime: eventTime || null,
+      eventVenue: eventVenue || null,
     },
   });
 
@@ -185,6 +194,11 @@ const updateInvitation = async (id, data, userId) => {
     buttonColor,
     buttonRadius,
     status,
+    // Event detail overrides
+    eventTitle,
+    eventDate,
+    eventTime,
+    eventVenue,
   } = data;
 
   try {
@@ -207,6 +221,11 @@ const updateInvitation = async (id, data, userId) => {
         buttonColor,
         buttonRadius,
         status,
+        // Persist event detail overrides
+        eventTitle: eventTitle !== undefined ? eventTitle : undefined,
+        eventDate: eventDate !== undefined ? eventDate : undefined,
+        eventTime: eventTime !== undefined ? eventTime : undefined,
+        eventVenue: eventVenue !== undefined ? eventVenue : undefined,
       },
     });
 

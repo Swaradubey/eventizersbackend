@@ -100,6 +100,11 @@ model Invitation {
   buttonColor     String   @default("#5B5FEF") @map("button_color")
   buttonRadius    Int      @default(8) @map("button_radius")
   status          String   @default("draft")
+  // User-editable event detail overrides (decoupled from the canonical Event record)
+  eventTitle      String?  @map("event_title")
+  eventDate       String?  @map("event_date")
+  eventTime       String?  @map("event_time")
+  eventVenue      String?  @map("event_venue")
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
