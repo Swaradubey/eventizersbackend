@@ -80,7 +80,7 @@ const newTemplatesDataBackend = [
       host: "Hosted by Dylan",
       venue: "Dive In, Bruh",
       description: "It's Dylan's Birthday! Saturday | June 10th | 4 PM.",
-      imageUrl: "https://images.unsplash.com/photo-1518005020951-eccb494ad742?w=800&q=80",
+      imageUrl: "https://g0.evitecdn.com/templates/fabric_templates/initial/image-1777936540093157807.hype-wave.png",
       backgroundColor: "#EFF6FF",
       textColor: "#1E3A8A",
       titleSize: 42,
