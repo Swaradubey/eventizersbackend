@@ -8,64 +8,149 @@ const router = express.Router();
 
 const { newTemplatesDataBackend } = require('../config/newTemplatesBackend');
 
-// Get all templates
+// ─── Helper: format a raw template record into the API response shape ─────────
+const formatTemplate = (t) => {
+  let contentObj = {};
+  try {
+    contentObj = typeof t.content === 'string' ? JSON.parse(t.content) : (t.content || {});
+  } catch (_) { }
+  return {
+    id: t.id,
+    name: t.name,
+    category: t.category,
+    tags: t.tags || (t.category ? [t.category, 'All'] : ['All']),
+    isPremium: t.isPremium || false,
+    thumbnailUrl: contentObj.imageUrl || t.thumbnailUrl || null,
+    imageUrl: contentObj.imageUrl || null,
+    coverImage: contentObj.imageUrl || null,
+    emoji: contentObj.emoji || null,
+    gradient: contentObj.gradient || null,
+    accentColor: contentObj.accentColor || null,
+    backgroundColor: contentObj.backgroundColor || null,
+    textColor: contentObj.textColor || null,
+    fontFamily: contentObj.fontFamily || null,
+    fontWeight: contentObj.fontWeight || null,
+    titleSize: contentObj.titleSize || null,
+    buttonColor: contentObj.buttonColor || null,
+    buttonRadius: contentObj.buttonRadius ?? null,
+    textAlignment: contentObj.textAlignment || null,
+    host: contentObj.host || null,
+    venue: contentObj.venue || null,
+    description: contentObj.description || null,
+    textLayers: t.textLayers || contentObj.textLayers || null,
+    photoSlot: t.photoSlot || contentObj.photoSlot || null,
+    content: t.content,
+    htmlContent: t.content,
+  };
+};
+
+// ─── Helper: build merged list of all templates ───────────────────────────────
+const getMergedTemplates = async () => {
+  let dbTemplates = [];
+  try {
+    dbTemplates = await prisma.template.findMany();
+  } catch (dbErr) {
+    console.warn("DB query for templates failed, using fallback:", dbErr.message);
+  }
+
+  const newTemplatesFormatted = (newTemplatesDataBackend || []).map(formatTemplate);
+
+  if (dbTemplates && dbTemplates.length > 0) {
+    const dbMap = {};
+    for (const t of dbTemplates) {
+      dbMap[t.id] = t;
+    }
+    const mergedIds = new Set(Object.keys(dbMap));
+    const extraNew = newTemplatesFormatted.filter(t => !mergedIds.has(t.id));
+    return [...dbTemplates.map(formatTemplate), ...extraNew];
+  }
+
+  return newTemplatesFormatted;
+};
+
+router.get('/categories', async (req, res, next) => {
+  try {
+    const all = await getMergedTemplates();
+    const counts = {};
+    for (const t of all) {
+      const cat = t.category || 'Other';
+      counts[cat] = (counts[cat] || 0) + 1;
+    }
+    const categories = Object.entries(counts).map(([name, count]) => ({ name, count }));
+    // Prepend an "All" entry with the total count
+    categories.unshift({ name: 'All', count: all.length });
+    res.json({ categories });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/templates
+//   Returns all templates.
+//   Optional query params:
+//     ?category=Baby+Shower   → filter by category (case-insensitive)
+//     ?tag=Baby+Shower        → filter by tag
+//     ?premium=true|false     → filter by isPremium
+// ─────────────────────────────────────────────────────────────────────────────
 router.get('/', async (req, res, next) => {
   try {
-    let dbTemplates = [];
+    let templates = await getMergedTemplates();
+
+    // Category filter (matches category field, case-insensitive)
+    const { category, tag, premium } = req.query;
+    if (category && category.toLowerCase() !== 'all') {
+      templates = templates.filter(t =>
+        (t.category || '').toLowerCase() === category.toLowerCase()
+      );
+    }
+
+    // Tag filter (matches any element in the tags array)
+    if (tag && tag.toLowerCase() !== 'all') {
+      templates = templates.filter(t =>
+        (t.tags || []).some(tg => tg.toLowerCase() === tag.toLowerCase())
+      );
+    }
+
+    // Premium filter
+    if (premium !== undefined) {
+      const wantPremium = premium === 'true' || premium === '1';
+      templates = templates.filter(t => !!t.isPremium === wantPremium);
+    }
+
+    res.json(templates);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/templates/:id
+//   Returns a single template by its ID.
+//   Returns 404 if not found.
+// ─────────────────────────────────────────────────────────────────────────────
+router.get('/:id', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    // Try DB first
+    let template = null;
     try {
-      dbTemplates = await prisma.template.findMany();
+      template = await prisma.template.findUnique({ where: { id } });
     } catch (dbErr) {
-      console.warn("DB query for templates failed, using fallback:", dbErr.message);
+      console.warn("DB lookup failed, trying local fallback:", dbErr.message);
     }
 
-    // Format newTemplatesBackend.js templates
-    const formatTemplate = (t) => {
-      let contentObj = {};
-      try {
-        contentObj = typeof t.content === 'string' ? JSON.parse(t.content) : (t.content || {});
-      } catch (_) {}
-      return {
-        id: t.id,
-        name: t.name,
-        category: t.category,
-        isPremium: t.isPremium || false,
-        thumbnailUrl: contentObj.imageUrl || t.thumbnailUrl || null,
-        imageUrl: contentObj.imageUrl || null,
-        coverImage: contentObj.imageUrl || null,
-        emoji: contentObj.emoji || null,
-        gradient: contentObj.gradient || null,
-        accentColor: contentObj.accentColor || null,
-        host: contentObj.host || null,
-        venue: contentObj.venue || null,
-        description: contentObj.description || null,
-        content: t.content,
-        htmlContent: t.content,
-      };
-    };
-
-    // Build a map of newTemplates by id
-    const newTemplatesFormatted = (newTemplatesDataBackend || []).map(formatTemplate);
-    const newTemplatesMap = {};
-    for (const t of newTemplatesFormatted) {
-      newTemplatesMap[t.id] = t;
+    // Fallback to newTemplatesBackend
+    if (!template) {
+      template = (newTemplatesDataBackend || []).find(t => t.id === id) || null;
     }
 
-    if (dbTemplates && dbTemplates.length > 0) {
-      // Build map of DB templates
-      const dbMap = {};
-      for (const t of dbTemplates) {
-        dbMap[t.id] = t;
-      }
-
-      // Merge: DB templates take priority, append newTemplates that are NOT in DB
-      const mergedIds = new Set(Object.keys(dbMap));
-      const extraNew = newTemplatesFormatted.filter(t => !mergedIds.has(t.id));
-      const merged = [...dbTemplates, ...extraNew];
-      return res.json(merged);
+    if (!template) {
+      return res.status(404).json({ error: `Template '${id}' not found.` });
     }
 
-    // No DB templates — serve newTemplatesBackend.js only
-    res.json(newTemplatesFormatted);
+    res.json(formatTemplate(template));
   } catch (err) {
     next(err);
   }

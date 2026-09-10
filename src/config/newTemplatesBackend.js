@@ -182,6 +182,144 @@ const newTemplatesDataBackend = [
       buttonRadius: 0,
       textAlignment: "center"
     })
+  },
+  {
+    id: "tpl-winter-foliage",
+    name: "Winter Foliage",
+    category: "Baby Shower",
+    isPremium: false,
+    content: JSON.stringify({
+      gradient: "linear-gradient(135deg, #FCFAF5 0%, #F2ECE0 100%)",
+      accentColor: "#751824",
+      emoji: "🌿",
+      host: "Julia",
+      venue: "The Holly & Hearth Bistro",
+      description: "Please join us for Julia's Very Merry Baby Shower honoring baby girl Harper.",
+      imageUrl: "/assets/templates/winter-foliage.svg",
+      backgroundColor: "#FCFAF5",
+      textColor: "#203424",
+      titleSize: 36,
+      fontWeight: "700",
+      fontFamily: "Playfair Display",
+      buttonColor: "#751824",
+      buttonRadius: 9999,
+      textAlignment: "center"
+    })
+  },
+  {
+    id: "tpl-watercolor-eucalyptus-wreath",
+    name: "Watercolor Eucalyptus Wreath",
+    category: "Baby Shower",
+    isPremium: false,
+    content: JSON.stringify({
+      gradient: "linear-gradient(135deg, #FCFCFA 0%, #F2F4EF 100%)",
+      accentColor: "#3D5340",
+      emoji: "🌱",
+      host: "Jessica Thompson",
+      venue: "The Botanical Conservatory",
+      description: "Welcome Baby! Please join us to celebrate Baby Oliver Thompson and mom-to-be Jessica.",
+      imageUrl: "/assets/templates/watercolor-eucalyptus-wreath.svg",
+      backgroundColor: "#FCFCFA",
+      textColor: "#253526",
+      titleSize: 34,
+      fontWeight: "700",
+      fontFamily: "Cinzel",
+      buttonColor: "#3D5340",
+      buttonRadius: 9999,
+      textAlignment: "center"
+    })
+  },
+  {
+    id: "tpl-winnie-the-pooh-so-sweet",
+    name: "Disney's Winnie the Pooh: So Sweet",
+    category: "Baby Shower",
+    isPremium: false,
+    content: JSON.stringify({
+      gradient: "linear-gradient(135deg, #FCF8EE 0%, #EFE1BF 100%)",
+      accentColor: "#9C5A14",
+      emoji: "🍯",
+      host: "Amanda Jones",
+      venue: "Hundred Acre Garden Cafe",
+      description: "A little hunny is on the way! Join us for a So Sweet Baby Shower celebrating Amanda Jones and baby Noah.",
+      imageUrl: "/assets/templates/winnie-the-pooh-so-sweet.svg",
+      backgroundColor: "#FCF8EE",
+      textColor: "#523211",
+      titleSize: 32,
+      fontWeight: "700",
+      fontFamily: "Playfair Display",
+      buttonColor: "#F5B82E",
+      buttonRadius: 9999,
+      textAlignment: "center"
+    })
+  },
+  {
+    id: "tpl-camellia-fields",
+    name: "Camellia Fields",
+    category: "Baby Shower",
+    isPremium: false,
+    content: JSON.stringify({
+      gradient: "linear-gradient(135deg, #FCF8F7 0%, #F3E9E7 100%)",
+      accentColor: "#59252F",
+      emoji: "🌸",
+      host: "Cassidy Anderson",
+      venue: "The Rosewood Manor Garden",
+      description: "Please join us to celebrate Cassidy Anderson and the upcoming arrival of her baby girl.",
+      imageUrl: "/assets/templates/camellia-fields.svg",
+      backgroundColor: "#FCF8F7",
+      textColor: "#421E25",
+      titleSize: 40,
+      fontWeight: "700",
+      fontFamily: "Playfair Display",
+      buttonColor: "#8A4854",
+      buttonRadius: 9999,
+      textAlignment: "center"
+    })
+  },
+  {
+    id: "tpl-bountiful-bouquet",
+    name: "Bountiful Bouquet",
+    category: "Baby Shower",
+    isPremium: false,
+    content: JSON.stringify({
+      gradient: "linear-gradient(135deg, #FCFCFA 0%, #F4F4EE 100%)",
+      accentColor: "#1C241E",
+      emoji: "💐",
+      host: "Amber & Taylor",
+      venue: "The Glasshouse Loft",
+      description: "Join us for a baby shower honoring Amber & Taylor as they prepare to welcome their little one.",
+      imageUrl: "/assets/templates/bountiful-bouquet.svg",
+      backgroundColor: "#FCFCFA",
+      textColor: "#1C241E",
+      titleSize: 32,
+      fontWeight: "700",
+      fontFamily: "Cinzel",
+      buttonColor: "#2D3B2E",
+      buttonRadius: 9999,
+      textAlignment: "center"
+    })
+  },
+  {
+    id: "tpl-orchid-geranium",
+    name: "Orchid & Geranium",
+    category: "Baby Shower",
+    isPremium: false,
+    content: JSON.stringify({
+      gradient: "linear-gradient(135deg, #FFFDF9 0%, #F5ECE4 100%)",
+      accentColor: "#7E1343",
+      emoji: "🌺",
+      host: "Brittany Anderson",
+      venue: "The Palm Terrace Pavilion",
+      description: "A vibrant baby shower celebration for Brittany Anderson!",
+      imageUrl: "/assets/templates/orchid-geranium.svg",
+      backgroundColor: "#FFFDF9",
+      textColor: "#3D1222",
+      titleSize: 42,
+      fontWeight: "700",
+      fontFamily: "Dancing Script",
+      buttonColor: "#800D41",
+      buttonRadius: 9999,
+      textAlignment: "center"
+    })
   }
 ];
 
