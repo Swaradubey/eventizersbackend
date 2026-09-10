@@ -201,7 +201,8 @@ const findLocalFilePath = (imagePathOrUrl) => {
 
   // 2. Check if it references a static template asset (e.g. /assets/templates/birthday.jpg)
   if (trimmed.includes("/assets/") || trimmed.startsWith("assets/")) {
-    const relativeAssetPath = trimmed
+    const cleanPath = trimmed.split("?")[0].split("#")[0];
+    const relativeAssetPath = cleanPath
       .replace(/^https?:\/\/[^/]+/i, "")
       .replace(/^\/+/, ""); // e.g. "assets/templates/birthday.jpg"
     

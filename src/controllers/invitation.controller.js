@@ -441,6 +441,9 @@ const parseRecipientEmails = (input) => {
       .map(e => e.trim().toLowerCase())
       .filter(e => e && e.includes("@") && e.includes("."));
   }
+  if (typeof input === "object" && input !== null && input.email) {
+    return parseRecipientEmails(input.email);
+  }
   return [];
 };
 
@@ -536,7 +539,7 @@ const sendInvitation = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id;
-    const { recipients, guestEmails, cardSnapshotUrl, snapshotUrl, cardImageBase64, snapshot } = req.body || {};
+    const { recipients, guestEmails, cardSnapshotUrl, snapshotUrl, cardImageBase64, snapshot, guestIds } = req.body || {};
 
     const invitation = await invitationService.findInvitationById(id, userId);
     if (!invitation) {
@@ -589,12 +592,31 @@ const sendInvitation = async (req, res) => {
       targetEmails = parseRecipientEmails(guestEmails);
     }
 
+    // Extract explicit guest IDs if provided directly or embedded inside recipient objects
+    const explicitGuestIds = [
+      ...(Array.isArray(guestIds) ? guestIds : []),
+      ...(Array.isArray(recipients)
+        ? recipients
+            .filter((r) => r && typeof r === "object" && (r.guestId || r.id))
+            .map((r) => r.guestId || r.id)
+        : []),
+    ].filter(Boolean);
+
     // 2. Fallback to event guest list if no explicit recipients supplied
     if (targetEmails.length === 0 && invitation.eventId) {
       try {
         const guests = await guestService.findGuestsByUserId(userId, "", invitation.eventId);
         if (Array.isArray(guests)) {
-          targetEmails = guests.map(g => g.email ? g.email.trim().toLowerCase() : "").filter(e => e && e.includes("@"));
+          if (explicitGuestIds.length > 0) {
+            targetEmails = guests
+              .filter((g) => explicitGuestIds.includes(g.id))
+              .map((g) => (g.email ? g.email.trim().toLowerCase() : ""))
+              .filter((e) => e && e.includes("@"));
+          } else {
+            targetEmails = guests
+              .map((g) => (g.email ? g.email.trim().toLowerCase() : ""))
+              .filter((e) => e && e.includes("@"));
+          }
         }
       } catch (err) {
         console.warn("[InvitationController] Error fetching guests for event:", err.message);
@@ -608,7 +630,7 @@ const sendInvitation = async (req, res) => {
     }
 
     // Ensure guests are created/found in database and sent_at is recorded
-    const resolvedGuests = await ensureGuestsForEvent(invitation.eventId, targetEmails);
+    const resolvedGuests = await ensureGuestsForEvent(invitation.eventId, targetEmails, explicitGuestIds);
 
     const protocol = req.protocol || "http";
     const host = req.get("host");
