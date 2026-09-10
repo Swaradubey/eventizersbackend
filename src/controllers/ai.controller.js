@@ -491,7 +491,111 @@ const generateStructuredEventWithAI = async (req, res) => {
   return processAutonomousEventGeneration(req, res);
 };
 
+/**
+ * Scan an uploaded invitation card image using Gemini Vision.
+ * Extracts structured event data (title, date, time, venue, description, hostName)
+ * from the image and returns it as JSON.
+ * 
+ * Expects: req.body.imageBase64 — a base64-encoded image string
+ *          (with or without the "data:image/...;base64," prefix)
+ */
+const scanInvitationImage = async (req, res) => {
+  try {
+    const { imageBase64 } = req.body;
+
+    if (!imageBase64) {
+      return res.status(400).json({ error: 'No image data provided. Send imageBase64 in the request body.' });
+    }
+
+    if (!keyIsValid) {
+      return res.status(500).json({ error: 'Gemini API key is not configured.' });
+    }
+
+    const client = getAiClient();
+
+    // Strip the data URI prefix if present
+    let rawBase64 = imageBase64;
+    let mimeType = 'image/png';
+    const dataUriMatch = imageBase64.match(/^data:(image\/\w+);base64,(.+)$/);
+    if (dataUriMatch) {
+      mimeType = dataUriMatch[1];
+      rawBase64 = dataUriMatch[2];
+    }
+
+    const prompt = `You are an expert at reading invitation cards. Analyze this invitation card image carefully and extract ALL text and event information you can find.
+
+Return a JSON object with these fields (use null for any field you cannot determine):
+{
+  "title": "The main event title or heading (e.g., 'Wedding Ceremony', 'Birthday Party')",
+  "eventType": "Type of event (e.g., 'wedding', 'birthday', 'corporate', 'baby_shower')",
+  "date": "Event date in YYYY-MM-DD format if found",
+  "time": "Event time in HH:MM format (24-hour) if found",
+  "venue": "Venue or location name",
+  "address": "Full address if visible",
+  "hostName": "Name of the host or person organizing",
+  "description": "Any additional descriptive text on the card",
+  "guestOfHonor": "Name of the person being celebrated (birthday person, bride/groom, etc.)"
+}
+
+IMPORTANT: 
+- Return ONLY valid JSON, no markdown, no code fences, no explanation.
+- Extract as much information as possible from the image.
+- If a date is written as "March 15, 2025", convert it to "2025-03-15".
+- If time is written as "6:00 PM", convert to "18:00".`;
+
+    const response = await callGeminiWithRetry(client, [
+      {
+        role: 'user',
+        parts: [
+          {
+            inlineData: {
+              mimeType: mimeType,
+              data: rawBase64,
+            },
+          },
+          { text: prompt },
+        ],
+      },
+    ]);
+
+    const aiText = (response?.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
+    console.log('Gemini Vision OCR raw response length:', aiText.length);
+
+    // Parse the JSON response
+    let parsed;
+    try {
+      // Strip markdown code fences if present
+      const cleaned = aiText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+      parsed = JSON.parse(cleaned);
+    } catch (parseErr) {
+      console.error('Failed to parse Gemini Vision response:', aiText.substring(0, 500));
+      return res.status(200).json({
+        title: null,
+        eventType: null,
+        date: null,
+        time: null,
+        venue: null,
+        address: null,
+        hostName: null,
+        description: aiText.substring(0, 200) || null,
+        guestOfHonor: null,
+        rawText: aiText,
+      });
+    }
+
+    return res.status(200).json(parsed);
+  } catch (error) {
+    console.error('Scan invitation image error:', error);
+    const code = classifyGeminiError(error);
+    if (code === 429) {
+      return res.status(429).json({ error: 'AI service is busy. Please try again in a moment.' });
+    }
+    return res.status(500).json({ error: error.message || 'Failed to scan invitation image.' });
+  }
+};
+
 module.exports = {
   generateEventWithAI,
   generateStructuredEventWithAI,
+  scanInvitationImage,
 };

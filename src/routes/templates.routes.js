@@ -29,15 +29,16 @@ router.get('/', async (req, res, next) => {
         name: t.name,
         category: t.category,
         isPremium: t.isPremium || false,
-        thumbnailUrl: contentObj.imageUrl || t.thumbnailUrl || null,
-        imageUrl: contentObj.imageUrl || null,
+        thumbnailUrl: contentObj.thumbnailUrl || contentObj.imageUrl || t.thumbnailUrl || null,
+        imageUrl: contentObj.imageUrl || t.imageUrl || null,
         coverImage: contentObj.imageUrl || null,
-        emoji: contentObj.emoji || null,
+        emoji: contentObj.emoji || t.emoji || null,
         gradient: contentObj.gradient || null,
         accentColor: contentObj.accentColor || null,
         host: contentObj.host || null,
         venue: contentObj.venue || null,
         description: contentObj.description || null,
+        textElements: contentObj.textElements || t.textElements || [],
         content: t.content,
         htmlContent: t.content,
       };
@@ -50,22 +51,8 @@ router.get('/', async (req, res, next) => {
       newTemplatesMap[t.id] = t;
     }
 
-    if (dbTemplates && dbTemplates.length > 0) {
-      // Build map of DB templates
-      const dbMap = {};
-      for (const t of dbTemplates) {
-        dbMap[t.id] = t;
-      }
-
-      // Merge: DB templates take priority, append newTemplates that are NOT in DB
-      const mergedIds = new Set(Object.keys(dbMap));
-      const extraNew = newTemplatesFormatted.filter(t => !mergedIds.has(t.id));
-      const merged = [...dbTemplates, ...extraNew];
-      return res.json(merged);
-    }
-
-    // No DB templates — serve newTemplatesBackend.js only
-    res.json(newTemplatesFormatted);
+    // Return new structured Evite templates
+    return res.json(newTemplatesFormatted);
   } catch (err) {
     next(err);
   }

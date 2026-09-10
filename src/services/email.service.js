@@ -250,6 +250,9 @@ const generateInvitationHtml = ({
   date,
   time,
   venue,
+  emailDescription,
+  hostName,
+  locationDetails,
   cardImageSrc,
   previewLink,
   senderName,
@@ -428,6 +431,24 @@ const generateInvitationHtml = ({
             </td>
           </tr>
           ` : ""}
+          ${emailDescription ? `
+          <tr>
+            <td style="padding: 0 24px 12px 24px; text-align: center;">
+              <p style="margin: 0; font-size: 14px; color: ${secondaryText}; line-height: 1.6; font-style: italic;">
+                ${emailDescription}
+              </p>
+            </td>
+          </tr>
+          ` : ""}
+          ${hostName ? `
+          <tr>
+            <td style="padding: 0 24px 12px 24px; text-align: center;">
+              <p style="margin: 0; font-size: 14px; color: ${secondaryText}; line-height: 1.6; font-weight: 600;">
+                Hosted by: ${hostName}
+              </p>
+            </td>
+          </tr>
+          ` : ""}
           ` : `
           <!-- ─── FALLBACK THEMED CARD BANNER (WHEN NO IMAGE IS PROVIDED) ─── -->
           <tr>
@@ -578,6 +599,34 @@ const generateInvitationHtml = ({
           </tr>
           ` : ""}
 
+          ` : ""}
+
+          <!-- ─── ADDITIONAL VENUE INFORMATION ─── -->
+          ${(locationDetails && Object.values(locationDetails).some(v => v)) ? `
+          <tr>
+            <td style="padding: 16px 24px;">
+              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: ${metaBoxBg}; border: 1px solid ${metaBoxBorder}; border-radius: 8px; padding: 16px;">
+                <tr>
+                  <td>
+                    <h4 style="margin: 0 0 12px 0; font-size: 15px; font-weight: 700; color: ${primaryText}; font-family: ${fontStack};">
+                      Additional Venue Information
+                    </h4>
+                    ${locationDetails.directions ? `<p style="margin: 0 0 8px 0; font-size: 13px; color: ${secondaryText};"><strong>Directions:</strong> ${locationDetails.directions}</p>` : ""}
+                    ${locationDetails.parkingInstructions ? `<p style="margin: 0 0 8px 0; font-size: 13px; color: ${secondaryText};"><strong>Parking:</strong> ${locationDetails.parkingInstructions}</p>` : ""}
+                    ${locationDetails.nearbyParking ? `<p style="margin: 0 0 8px 0; font-size: 13px; color: ${secondaryText};"><strong>Nearby Parking:</strong> ${locationDetails.nearbyParking}</p>` : ""}
+                    ${locationDetails.entryInstructions ? `<p style="margin: 0 0 8px 0; font-size: 13px; color: ${secondaryText};"><strong>Entry Instructions:</strong> ${locationDetails.entryInstructions}</p>` : ""}
+                    ${locationDetails.floorNumber ? `<p style="margin: 0 0 8px 0; font-size: 13px; color: ${secondaryText};"><strong>Floor Number:</strong> ${locationDetails.floorNumber}</p>` : ""}
+                    ${locationDetails.roomNumber ? `<p style="margin: 0 0 8px 0; font-size: 13px; color: ${secondaryText};"><strong>Room/Suite:</strong> ${locationDetails.roomNumber}</p>` : ""}
+                    ${locationDetails.securityGateInfo ? `<p style="margin: 0 0 8px 0; font-size: 13px; color: ${secondaryText};"><strong>Security Gate:</strong> ${locationDetails.securityGateInfo}</p>` : ""}
+                    ${locationDetails.emergencyContact ? `<p style="margin: 0 0 8px 0; font-size: 13px; color: ${secondaryText};"><strong>Emergency Contact:</strong> ${locationDetails.emergencyContact}</p>` : ""}
+                    ${locationDetails.hotelRecommendations ? `<p style="margin: 0 0 0 0; font-size: 13px; color: ${secondaryText};"><strong>Hotel Recommendations:</strong> ${locationDetails.hotelRecommendations}</p>` : ""}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          ` : ""}
+
           <!-- ─── 4. FOOTER ─── -->
           <tr>
             <td style="background-color: ${cardIsDark ? "#090d16" : "#f8fafc"}; padding: 20px 24px; text-align: center; border-top: 1px solid ${metaBoxBorder}; font-size: 12px; color: ${secondaryText}; line-height: 1.5;">
@@ -639,6 +688,8 @@ const sendInvitationEmails = async ({
   const title = invitation?.title || event?.title || "Special Event Invitation";
   const subtitle = invitation?.subtitle || "";
   const mainText = invitation?.mainText || event?.description || "";
+  const emailDescription = event?.emailDescription || event?.email_description || "";
+  const hostName = event?.hostName || event?.host_name || senderName || "";
 
   // Extract design tokens from invitation
   const backgroundColor = invitation?.backgroundColor || "#FAF8F5";
@@ -782,7 +833,7 @@ const sendInvitationEmails = async ({
   }
 
   const displayTitle = getCleanDisplayTitle(title, event?.title || "Special Event");
-  const subject = `✨ Invitation: ${displayTitle}`;
+  const subject = event?.emailSubject || event?.email_subject || `✨ Invitation: ${displayTitle}`;
   const from = process.env.EMAIL_FROM || process.env.SMTP_FROM || `"InviteHub Events" <no-reply@invitehub.com>`;
 
   // ─── Configure Nodemailer CID inline attachment ───
@@ -977,6 +1028,19 @@ const sendInvitationEmails = async ({
       date: eventDate,
       time: eventTime,
       venue: eventVenue,
+      emailDescription,
+      hostName,
+      locationDetails: {
+        directions: event?.directions || null,
+        parkingInstructions: event?.parkingInstructions || event?.parking_instructions || null,
+        entryInstructions: event?.entryInstructions || event?.entry_instructions || null,
+        floorNumber: event?.floorNumber || event?.floor_number || null,
+        roomNumber: event?.roomNumber || event?.room_number || null,
+        securityGateInfo: event?.securityGateInfo || event?.security_gate_info || null,
+        emergencyContact: event?.emergencyContact || event?.emergency_contact || null,
+        hotelRecommendations: event?.hotelRecommendations || event?.hotel_recommendations || null,
+        nearbyParking: event?.nearbyParking || event?.nearby_parking || null,
+      },
       cardImageSrc: htmlCardImageSrc,
       previewLink: trackedPreviewLink,
       senderName,
