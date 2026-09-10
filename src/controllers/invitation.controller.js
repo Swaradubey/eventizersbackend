@@ -667,6 +667,9 @@ const sendInvitation = async (req, res) => {
       emergencyContact: req.body.emergencyContact || req.body.emergency_contact || event?.emergencyContact || event?.emergency_contact || "",
       hotelRecommendations: req.body.hotelRecommendations || req.body.hotel_recommendations || event?.hotelRecommendations || event?.hotel_recommendations || "",
       nearbyParking: req.body.nearbyParking || req.body.nearby_parking || event?.nearbyParking || event?.nearby_parking || "",
+      address: req.body.address || req.body.eventDetails?.address || event?.address || "",
+      mapUrl: req.body.mapUrl || req.body.map_url || req.body.eventDetails?.mapUrl || event?.mapUrl || event?.map_url || "",
+      mapImageUrl: req.body.mapImageUrl || req.body.map_image_url || req.body.eventDetails?.mapImageUrl || event?.mapImageUrl || event?.map_image_url || "",
     };
 
     // Send emails via Nodemailer service with personalized tracking pixel and CID inline card image
@@ -835,6 +838,9 @@ const sendInvitationToGuests = async (req, res) => {
       emergencyContact: req.body.emergencyContact || req.body.emergency_contact || event?.emergencyContact || event?.emergency_contact || "",
       hotelRecommendations: req.body.hotelRecommendations || req.body.hotel_recommendations || event?.hotelRecommendations || event?.hotel_recommendations || "",
       nearbyParking: req.body.nearbyParking || req.body.nearby_parking || event?.nearbyParking || event?.nearby_parking || "",
+      address: req.body.address || req.body.eventDetails?.address || event?.address || "",
+      mapUrl: req.body.mapUrl || req.body.map_url || req.body.eventDetails?.mapUrl || event?.mapUrl || event?.map_url || "",
+      mapImageUrl: req.body.mapImageUrl || req.body.map_image_url || req.body.eventDetails?.mapImageUrl || event?.mapImageUrl || event?.map_image_url || "",
     };
 
     // Pass both resolved URL and raw snapshot data so email service can create

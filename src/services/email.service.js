@@ -217,6 +217,48 @@ const resolvePublicImageUrl = (
 };
 
 /**
+ * Compute CartoDB Voyager street map tile URL for a given location/venue name or address
+ */
+const getMapTileUrlForLocation = async (locationStr) => {
+  if (!locationStr || typeof locationStr !== "string") {
+    return "https://basemaps.cartocdn.com/rastertiles/voyager/14/11713/6832.png";
+  }
+  const cleanLoc = locationStr.trim();
+  if (!cleanLoc || cleanLoc.toLowerCase() === "online" || cleanLoc.toLowerCase() === "tbd") {
+    return null;
+  }
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(cleanLoc)}&format=json&limit=1`,
+      {
+        headers: { "User-Agent": "EventizersApp/1.0" },
+        signal: AbortSignal.timeout(3500),
+      }
+    );
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        const lat = parseFloat(data[0].lat);
+        const lon = parseFloat(data[0].lon);
+        if (!isNaN(lat) && !isNaN(lon)) {
+          const zoom = 14;
+          const x = Math.floor(((lon + 180.0) / 360.0) * Math.pow(2, zoom));
+          const latRad = (lat * Math.PI) / 180.0;
+          const y = Math.floor(
+            ((1.0 - Math.log(Math.tan(latRad) + 1.0 / Math.cos(latRad)) / Math.PI) / 2.0) *
+              Math.pow(2, zoom)
+          );
+          return `https://basemaps.cartocdn.com/rastertiles/voyager/${zoom}/${x}/${y}.png`;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("[EmailService] Nominatim geocode lookup skipped:", err.message);
+  }
+  return "https://basemaps.cartocdn.com/rastertiles/voyager/14/11713/6832.png";
+};
+
+/**
  * Helper to sanitize titles and alt text to prevent raw filenames from rendering
  * @param {string} titleCandidate
  * @param {string} [fallback]
@@ -260,6 +302,7 @@ const generateInvitationHtml = ({
   greetingText,
   calendarLinkUrl,
   mapLinkUrl,
+  mapImageUrl,
   qrCodeUrl,
   qrLinkUrl,
   backgroundColor = "#FAF8F5",
@@ -566,6 +609,45 @@ const generateInvitationHtml = ({
           </tr>
           ` : ""}
 
+          <!-- ─── VISUAL MAP PREVIEW CARD ─── -->
+          ${(venue || mapImageUrl) ? `
+          <tr>
+            <td style="padding: 0 24px 20px 24px;">
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: ${metaBoxBg}; border-radius: 12px; overflow: hidden; border: 1px solid ${metaBoxBorder}; box-shadow: 0 4px 12px rgba(0,0,0,0.04);">
+                <tr>
+                  <td align="center" style="background-color: #e2e8f0; padding: 0; line-height: 0;">
+                    <a href="${mapLinkUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(venue || "")}`}" target="_blank" style="display: block; text-decoration: none; border: 0; outline: none;">
+                      <img src="${mapImageUrl || `https://basemaps.cartocdn.com/rastertiles/voyager/14/11713/6832.png`}" 
+                           alt="Venue Location Map" width="550" border="0" 
+                           style="display: block; width: 100%; max-width: 550px; height: 180px; object-fit: cover; border: 0; outline: none; margin: 0 auto;" />
+                    </a>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 12px 16px;">
+                    <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                      <tr>
+                        <td style="vertical-align: middle;">
+                          <p style="margin: 0; font-size: 14px; font-weight: 700; color: ${primaryText}; font-family: ${fontStack};">
+                            📍 ${venue || "Event Location"}
+                          </p>
+                          ${locationDetails?.address ? `<p style="margin: 3px 0 0 0; font-size: 12px; color: ${secondaryText};">${locationDetails.address}</p>` : ""}
+                        </td>
+                        <td align="right" style="vertical-align: middle; white-space: nowrap;">
+                          <a href="${mapLinkUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(venue || "")}`}" target="_blank" 
+                             style="display: inline-block; background-color: ${accent}; color: #ffffff; font-size: 12px; font-weight: 700; padding: 8px 14px; border-radius: 6px; text-decoration: none;">
+                            Open in Maps ↗
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          ` : ""}
+
           <!-- ─── QR CODE BLOCK (IF ENABLED) ─── -->
           ${qrCodeUrl ? `
           <tr>
@@ -683,6 +765,12 @@ const sendInvitationEmails = async ({
   }
 
   const eventVenue = event?.venue || "";
+  let eventMapImageUrl = event?.mapImageUrl || event?.map_image_url || null;
+  if (!eventMapImageUrl && (eventVenue || event?.address)) {
+    try {
+      eventMapImageUrl = await getMapTileUrlForLocation(event?.address || eventVenue);
+    } catch (_) {}
+  }
   const title = invitation?.title || event?.title || "Special Event Invitation";
   const subtitle = invitation?.subtitle || "";
   const mainText = invitation?.mainText || event?.description || "";
@@ -1029,6 +1117,7 @@ const sendInvitationEmails = async ({
       emailDescription,
       hostName,
       locationDetails: {
+        address: event?.address || null,
         directions: event?.directions || null,
         parkingInstructions: event?.parkingInstructions || event?.parking_instructions || null,
         entryInstructions: event?.entryInstructions || event?.entry_instructions || null,
@@ -1046,6 +1135,7 @@ const sendInvitationEmails = async ({
       greetingText,
       calendarLinkUrl,
       mapLinkUrl,
+      mapImageUrl: eventMapImageUrl,
       qrCodeUrl,
       qrLinkUrl,
       backgroundColor,
