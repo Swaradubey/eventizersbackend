@@ -10,19 +10,32 @@ const { newTemplatesDataBackend } = require('../config/newTemplatesBackend');
 
 // ─── Helper: format a raw template record into the API response shape ─────────
 const formatTemplate = (t) => {
+  const newTplMatch = (newTemplatesDataBackend || []).find(nt => nt.id === t.id);
+  let newTplContent = {};
+  if (newTplMatch) {
+    try {
+      newTplContent = typeof newTplMatch.content === 'string' ? JSON.parse(newTplMatch.content) : (newTplMatch.content || {});
+    } catch (_) { }
+  }
+
   let contentObj = {};
   try {
     contentObj = typeof t.content === 'string' ? JSON.parse(t.content) : (t.content || {});
   } catch (_) { }
+
+  // Prioritize standardized 4-layer Evite decoupled data from newTemplatesDataBackend if present
+  contentObj = { ...contentObj, ...newTplContent };
+
   return {
     id: t.id,
-    name: t.name,
-    category: t.category,
+    name: newTplMatch?.name || t.name,
+    category: newTplMatch?.category || t.category,
     tags: t.tags || (t.category ? [t.category, 'All'] : ['All']),
     isPremium: t.isPremium || false,
     thumbnailUrl: contentObj.imageUrl || t.thumbnailUrl || null,
     imageUrl: contentObj.imageUrl || null,
     coverImage: contentObj.imageUrl || null,
+    decorationImage: contentObj.decorationImage || (contentObj.imageUrl && contentObj.imageUrl.endsWith('.svg') && !contentObj.imageUrl.endsWith('-bg.svg') ? contentObj.imageUrl.replace('.svg', '-bg.svg') : null),
     emoji: contentObj.emoji || null,
     gradient: contentObj.gradient || null,
     accentColor: contentObj.accentColor || null,
@@ -39,9 +52,44 @@ const formatTemplate = (t) => {
     description: contentObj.description || null,
     textLayers: t.textLayers || contentObj.textLayers || null,
     photoSlot: t.photoSlot || contentObj.photoSlot || null,
+    // 4-Layer Evite Decoupled Schema Properties
+    backdrop: contentObj.backdrop || {
+      type: 'color',
+      value: contentObj.gradient || contentObj.backgroundColor || '#1e293b',
+    },
+    envelope: contentObj.envelope || {
+      outerColor: contentObj.envelopeColor || contentObj.accentColor || '#781d60',
+      linerPatternUrl: contentObj.envelopeLiner || 'gold-foil',
+      isOpen: true,
+    },
+    card: contentObj.card || {
+      artworkUrl: contentObj.decorationImage || (contentObj.imageUrl && contentObj.imageUrl.endsWith('.svg') && !contentObj.imageUrl.endsWith('-bg.svg') ? contentObj.imageUrl.replace('.svg', '-bg.svg') : contentObj.imageUrl),
+      backgroundColor: contentObj.backgroundColor || '#ffffff',
+      aspectRatio: '5x7',
+    },
+    defaultTextLayers: contentObj.defaultTextLayers || (contentObj.textLayers ? contentObj.textLayers.map(l => ({
+      id: l.id,
+      key: l.key || l.id.replace(/^layer-/, ''),
+      text: l.text,
+      fontFamily: l.fontFamily,
+      fontSize: l.fontSize,
+      color: l.color,
+      fontWeight: l.fontWeight,
+      textAlign: l.align || l.textAlign || 'center',
+      top: l.top !== undefined ? l.top : (l.y !== undefined ? l.y : 50),
+      left: l.left !== undefined ? l.left : (l.x !== undefined ? l.x : 50),
+    })) : []),
     content: t.content,
     htmlContent: t.content,
   };
+};
+
+// ─── Helper: check if a template is corporate ─────────────────────────────────
+const isCorporate = (t) => {
+  const cat = (t.category || '').toLowerCase();
+  const id = (t.id || '').toLowerCase();
+  const name = (t.name || '').toLowerCase();
+  return cat.includes('corp') || id.includes('corp') || id.includes('executive') || name.includes('corporate') || cat.includes('business');
 };
 
 // ─── Helper: build merged list of all templates ───────────────────────────────
@@ -55,6 +103,7 @@ const getMergedTemplates = async () => {
 
   const newTemplatesFormatted = (newTemplatesDataBackend || []).map(formatTemplate);
 
+  let merged = [];
   if (dbTemplates && dbTemplates.length > 0) {
     const dbMap = {};
     for (const t of dbTemplates) {
@@ -62,10 +111,13 @@ const getMergedTemplates = async () => {
     }
     const mergedIds = new Set(Object.keys(dbMap));
     const extraNew = newTemplatesFormatted.filter(t => !mergedIds.has(t.id));
-    return [...dbTemplates.map(formatTemplate), ...extraNew];
+    merged = [...dbTemplates.map(formatTemplate), ...extraNew];
+  } else {
+    merged = newTemplatesFormatted;
   }
 
-  return newTemplatesFormatted;
+  // Strictly exclude any corporate templates
+  return merged.filter(t => !isCorporate(t));
 };
 
 router.get('/categories', async (req, res, next) => {
@@ -146,7 +198,7 @@ router.get('/:id', async (req, res, next) => {
       template = (newTemplatesDataBackend || []).find(t => t.id === id) || null;
     }
 
-    if (!template) {
+    if (!template || isCorporate(template)) {
       return res.status(404).json({ error: `Template '${id}' not found.` });
     }
 
