@@ -649,17 +649,24 @@ const sendInvitation = async (req, res) => {
 
     // Build effective event: merge invitation-level overrides onto the fetched event
     // so the email always reflects what the user edited in accordion 5, not stale DB values
-    const effectiveEvent = event ? {
-      ...event,
-      title: invitation.eventTitle || event.title,
-      eventDate: invitation.eventDate || event.eventDate,
-      eventTime: invitation.eventTime || event.eventTime,
-      venue: invitation.eventVenue || event.venue,
-    } : {
-      title: invitation.eventTitle || "",
-      eventDate: invitation.eventDate || "",
-      eventTime: invitation.eventTime || "",
-      venue: invitation.eventVenue || "",
+    const effectiveEvent = {
+      ...(event || {}),
+      ...(req.body.eventDetails || {}),
+      title: req.body.title || invitation?.eventTitle || event?.title || "",
+      eventDate: req.body.eventDate || invitation?.eventDate || event?.eventDate || "",
+      eventTime: req.body.eventTime || invitation?.eventTime || event?.eventTime || "",
+      venue: req.body.venue || invitation?.eventVenue || event?.venue || "",
+      hostName: req.body.hostName || req.body.host_name || invitation?.hostName || event?.hostName || event?.host_name || "",
+      emailDescription: req.body.emailDescription || req.body.email_description || event?.emailDescription || event?.email_description || "",
+      directions: req.body.directions || event?.directions || "",
+      parkingInstructions: req.body.parkingInstructions || event?.parkingInstructions || event?.parking_instructions || "",
+      entryInstructions: req.body.entryInstructions || event?.entryInstructions || event?.entry_instructions || "",
+      floorNumber: req.body.floorNumber || event?.floorNumber || event?.floor_number || "",
+      roomNumber: req.body.roomNumber || event?.roomNumber || event?.room_number || "",
+      securityGateInfo: req.body.securityGateInfo || req.body.security_gate_info || event?.securityGateInfo || event?.security_gate_info || "",
+      emergencyContact: req.body.emergencyContact || req.body.emergency_contact || event?.emergencyContact || event?.emergency_contact || "",
+      hotelRecommendations: req.body.hotelRecommendations || req.body.hotel_recommendations || event?.hotelRecommendations || event?.hotel_recommendations || "",
+      nearbyParking: req.body.nearbyParking || req.body.nearby_parking || event?.nearbyParking || event?.nearby_parking || "",
     };
 
     // Send emails via Nodemailer service with personalized tracking pixel and CID inline card image
@@ -810,17 +817,24 @@ const sendInvitationToGuests = async (req, res) => {
     );
 
     // Build effective event: merge invitation-level overrides onto the fetched event
-    const effectiveEvent = event ? {
-      ...event,
-      title: invitation.eventTitle || event.title,
-      eventDate: invitation.eventDate || event.eventDate,
-      eventTime: invitation.eventTime || event.eventTime,
-      venue: invitation.eventVenue || event.venue,
-    } : {
-      title: invitation.eventTitle || "",
-      eventDate: invitation.eventDate || "",
-      eventTime: invitation.eventTime || "",
-      venue: invitation.eventVenue || "",
+    const effectiveEvent = {
+      ...(event || {}),
+      ...(req.body.eventDetails || {}),
+      title: req.body.title || invitation?.eventTitle || event?.title || "",
+      eventDate: req.body.eventDate || invitation?.eventDate || event?.eventDate || "",
+      eventTime: req.body.eventTime || invitation?.eventTime || event?.eventTime || "",
+      venue: req.body.venue || invitation?.eventVenue || event?.venue || "",
+      hostName: req.body.hostName || req.body.host_name || invitation?.hostName || event?.hostName || event?.host_name || "",
+      emailDescription: req.body.emailDescription || req.body.email_description || event?.emailDescription || event?.email_description || "",
+      directions: req.body.directions || event?.directions || "",
+      parkingInstructions: req.body.parkingInstructions || event?.parkingInstructions || event?.parking_instructions || "",
+      entryInstructions: req.body.entryInstructions || event?.entryInstructions || event?.entry_instructions || "",
+      floorNumber: req.body.floorNumber || event?.floorNumber || event?.floor_number || "",
+      roomNumber: req.body.roomNumber || event?.roomNumber || event?.room_number || "",
+      securityGateInfo: req.body.securityGateInfo || req.body.security_gate_info || event?.securityGateInfo || event?.security_gate_info || "",
+      emergencyContact: req.body.emergencyContact || req.body.emergency_contact || event?.emergencyContact || event?.emergency_contact || "",
+      hotelRecommendations: req.body.hotelRecommendations || req.body.hotel_recommendations || event?.hotelRecommendations || event?.hotel_recommendations || "",
+      nearbyParking: req.body.nearbyParking || req.body.nearby_parking || event?.nearbyParking || event?.nearby_parking || "",
     };
 
     // Pass both resolved URL and raw snapshot data so email service can create
