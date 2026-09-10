@@ -599,8 +599,6 @@ const generateInvitationHtml = ({
           </tr>
           ` : ""}
 
-          ` : ""}
-
           <!-- ─── ADDITIONAL VENUE INFORMATION ─── -->
           ${(locationDetails && Object.values(locationDetails).some(v => v)) ? `
           <tr>
