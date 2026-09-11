@@ -679,41 +679,34 @@ async function eraseTextFromImage(rawBase64, textBlocks, cardBgColor) {
       return `data:image/jpeg;base64,${imgBuffer.toString('base64')}`;
     }
 
-    // 1. Determine the true background paper color by sampling clean central areas
-    let rSum = 0, gSum = 0, bSum = 0, validSamples = 0;
-    const testPoints = [
-      { x: 0.50, y: 0.22 },
-      { x: 0.45, y: 0.35 },
-      { x: 0.55, y: 0.35 },
-      { x: 0.50, y: 0.45 },
-      { x: 0.45, y: 0.55 },
-      { x: 0.55, y: 0.55 },
-      { x: 0.50, y: 0.65 },
-    ];
-
-    for (const pt of testPoints) {
-      const px = Math.floor(pt.x * img.width);
-      const py = Math.floor(pt.y * img.height);
-      if (px >= 0 && px < img.width && py >= 0 && py < img.height) {
-        const d = ctx.getImageData(px, py, 1, 1).data;
-        const brightness = (d[0] * 299 + d[1] * 587 + d[2] * 114) / 1000;
-        // Accept only bright/paper-like tones (ignore dark text/decorations)
-        if (brightness > 160) {
-          rSum += d[0];
-          gSum += d[1];
-          bSum += d[2];
-          validSamples++;
+    // 1. Determine the true background paper color by sampling pixels across the card interior
+    const samples = [];
+    for (let xf = 0.22; xf <= 0.78; xf += 0.04) {
+      for (let yf = 0.15; yf <= 0.85; yf += 0.04) {
+        const px = Math.floor(xf * img.width);
+        const py = Math.floor(yf * img.height);
+        if (px >= 0 && px < img.width && py >= 0 && py < img.height) {
+          const d = ctx.getImageData(px, py, 1, 1).data;
+          const r = d[0], g = d[1], b = d[2];
+          const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+          const maxC = Math.max(r, g, b);
+          const minC = Math.min(r, g, b);
+          const sat = maxC === 0 ? 0 : (maxC - minC) / maxC;
+          // Filter out dark text (<165) and highly saturated artwork (>0.30)
+          if (brightness > 165 && sat < 0.30) {
+            samples.push({ r, g, b, brightness });
+          }
         }
       }
     }
 
-    let fillR = 254, fillG = 250, fillB = 239;
-    if (validSamples > 0) {
-      fillR = Math.round(rSum / validSamples);
-      fillG = Math.round(gSum / validSamples);
-      fillB = Math.round(bSum / validSamples);
+    let fillR = 250, fillG = 242, fillB = 230;
+    if (samples.length > 0) {
+      fillR = Math.round(samples.reduce((s, p) => s + p.r, 0) / samples.length);
+      fillG = Math.round(samples.reduce((s, p) => s + p.g, 0) / samples.length);
+      fillB = Math.round(samples.reduce((s, p) => s + p.b, 0) / samples.length);
     }
-    const basePaperColor = cardBgColor && cardBgColor.startsWith('#') ? cardBgColor : `rgb(${fillR}, ${fillG}, ${fillB})`;
+    const paperColor = `rgb(${fillR}, ${fillG}, ${fillB})`;
 
     // 2. Compute unified text envelope to erase all text seamlessly without band-aids
     if (textBlocks.length >= 3) {
@@ -727,16 +720,22 @@ async function eraseTextFromImage(rawBase64, textBlocks, cardBgColor) {
         maxY = Math.max(maxY, Math.min(0.88, (b.y || 0.5) + hh));
       }
 
-      const padX = 0.04;
-      const padY = 0.025;
-      const zx0 = Math.max(0, Math.floor((minX - padX) * img.width));
-      const zy0 = Math.max(0, Math.floor((minY - padY) * img.height));
-      const zx1 = Math.min(img.width, Math.ceil((maxX + padX) * img.width));
-      const zy1 = Math.min(img.height, Math.ceil((maxY + padY) * img.height));
+      // Generous padding to cover 100% of printed text from top to bottom
+      const padX = 0.05;
+      const padY = 0.04;
+      let zx0 = Math.max(0, Math.floor((minX - padX) * img.width));
+      let zy0 = Math.max(0, Math.floor((minY - padY) * img.height));
+      let zx1 = Math.min(img.width, Math.ceil((maxX + padX) * img.width));
+      let zy1 = Math.min(img.height, Math.ceil((maxY + padY) * img.height));
+
+      // Guard against peeking top/bottom text if detected blocks are within inner 75%
+      if (minY <= 0.35) zy0 = Math.min(zy0, Math.floor(0.165 * img.height));
+      if (maxY >= 0.70) zy1 = Math.max(zy1, Math.ceil(0.835 * img.height));
+
       const zw = zx1 - zx0;
       const zh = zy1 - zy0;
 
-      ctx.fillStyle = basePaperColor;
+      ctx.fillStyle = paperColor;
       ctx.beginPath();
       ctx.roundRect(zx0, zy0, zw, zh, 16);
       ctx.fill();
@@ -752,7 +751,7 @@ async function eraseTextFromImage(rawBase64, textBlocks, cardBgColor) {
         const w = Math.min(img.width - x0, Math.ceil(bw));
         const h = Math.min(img.height - y0, Math.ceil(bh));
 
-        ctx.fillStyle = basePaperColor;
+        ctx.fillStyle = paperColor;
         ctx.beginPath();
         ctx.roundRect(x0, y0, w, h, 8);
         ctx.fill();
