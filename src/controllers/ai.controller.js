@@ -676,56 +676,105 @@ async function eraseTextFromImage(rawBase64, textBlocks, cardBgColor) {
     const ctx = canvas.getContext('2d');
     ctx.drawImage(img, 0, 0);
 
+    if (!textBlocks || textBlocks.length === 0) {
+      return `data:image/jpeg;base64,${imgBuffer.toString('base64')}`;
+    }
+
+    // Step 1: Inpaint each individual text block with generous bounds and directional gradient
     for (const block of textBlocks) {
       const cx = (block.x || 0.5) * img.width;
       const cy = (block.y || 0.5) * img.height;
-      const bw = Math.min(img.width * 0.98, (block.width || 0.6) * img.width * 1.35);
-      const bh = Math.min(img.height * 0.45, (block.height || 0.08) * img.height * 1.45);
-      const x0 = Math.max(0, cx - bw / 2);
-      const y0 = Math.max(0, cy - bh / 2);
+      const bw = Math.min(img.width * 0.96, Math.max(img.width * 0.15, (block.width || 0.5) * img.width * 1.25));
+      const bh = Math.min(img.height * 0.35, Math.max(img.height * 0.03, (block.height || 0.05) * img.height * 1.5));
+      const x0 = Math.max(0, Math.floor(cx - bw / 2));
+      const y0 = Math.max(0, Math.floor(cy - bh / 2));
+      const x1 = Math.min(img.width, Math.ceil(cx + bw / 2));
+      const y1 = Math.min(img.height, Math.ceil(cy + bh / 2));
 
-      // Sample perimeter colors around the text block
-      let rSum = 0, gSum = 0, bSum = 0, count = 0;
-      // Top edge
-      for (let px = x0; px < x0 + bw; px += 4) {
-        const sy = Math.max(0, Math.floor(y0 - 4));
-        const data = ctx.getImageData(Math.floor(px), sy, 1, 1).data;
-        rSum += data[0]; gSum += data[1]; bSum += data[2]; count++;
-      }
-      // Bottom edge
-      for (let px = x0; px < x0 + bw; px += 4) {
-        const sy = Math.min(img.height - 1, Math.floor(y0 + bh + 4));
-        const data = ctx.getImageData(Math.floor(px), sy, 1, 1).data;
-        rSum += data[0]; gSum += data[1]; bSum += data[2]; count++;
-      }
-      // Left edge
-      for (let py = y0; py < y0 + bh; py += 4) {
-        const sx = Math.max(0, Math.floor(x0 - 4));
-        const data = ctx.getImageData(sx, Math.floor(py), 1, 1).data;
-        rSum += data[0]; gSum += data[1]; bSum += data[2]; count++;
-      }
-      // Right edge
-      for (let py = y0; py < y0 + bh; py += 4) {
-        const sx = Math.min(img.width - 1, Math.floor(x0 + bw + 4));
-        const data = ctx.getImageData(sx, Math.floor(py), 1, 1).data;
-        rSum += data[0]; gSum += data[1]; bSum += data[2]; count++;
+      // Sample top edge
+      let topR = 0, topG = 0, topB = 0, topN = 0;
+      const sYTop = Math.max(0, y0 - 4);
+      for (let px = x0; px < x1; px += 3) {
+        const d = ctx.getImageData(px, sYTop, 1, 1).data;
+        topR += d[0]; topG += d[1]; topB += d[2]; topN++;
       }
 
-      let fillStyle = cardBgColor || '#FBF8F2';
-      if (count > 0) {
-        const avgR = Math.round(rSum / count);
-        const avgG = Math.round(gSum / count);
-        const avgB = Math.round(bSum / count);
-        fillStyle = `rgb(${avgR}, ${avgG}, ${avgB})`;
+      // Sample bottom edge
+      let botR = 0, botG = 0, botB = 0, botN = 0;
+      const sYBot = Math.min(img.height - 1, y1 + 4);
+      for (let px = x0; px < x1; px += 3) {
+        const d = ctx.getImageData(px, sYBot, 1, 1).data;
+        botR += d[0]; botG += d[1]; botB += d[2]; botN++;
       }
 
-      ctx.fillStyle = fillStyle;
+      const tR = topN > 0 ? Math.round(topR / topN) : 251;
+      const tG = topN > 0 ? Math.round(topG / topN) : 248;
+      const tB = topN > 0 ? Math.round(topB / topN) : 242;
+
+      const bR = botN > 0 ? Math.round(botR / botN) : 251;
+      const bG = botN > 0 ? Math.round(botG / botN) : 248;
+      const bB = botN > 0 ? Math.round(botB / botN) : 242;
+
+      const grad = ctx.createLinearGradient(0, y0, 0, y1);
+      grad.addColorStop(0, `rgb(${tR}, ${tG}, ${tB})`);
+      grad.addColorStop(1, `rgb(${bR}, ${bG}, ${bB})`);
+
+      ctx.fillStyle = grad;
       ctx.beginPath();
-      ctx.roundRect(x0, y0, bw, bh, 6);
+      ctx.roundRect(x0, y0, x1 - x0, y1 - y0, 8);
       ctx.fill();
     }
 
-    const cleanBuffer = canvas.toBuffer('image/jpeg', 92);
+    // Step 2: For dense central text cards (>= 3 text blocks), seamlessly unify the central text zone
+    if (textBlocks.length >= 3) {
+      let minX = 1, maxX = 0, minY = 1, maxY = 0;
+      for (const b of textBlocks) {
+        const hw = (b.width || 0.5) / 2;
+        const hh = (b.height || 0.05) / 2;
+        minX = Math.min(minX, Math.max(0.04, b.x - hw));
+        maxX = Math.max(maxX, Math.min(0.96, b.x + hw));
+        minY = Math.min(minY, Math.max(0.06, b.y - hh));
+        maxY = Math.max(maxY, Math.min(0.94, b.y + hh));
+      }
+
+      const zx0 = Math.max(0, Math.floor((minX - 0.02) * img.width));
+      const zy0 = Math.max(0, Math.floor((minY - 0.01) * img.height));
+      const zx1 = Math.min(img.width, Math.ceil((maxX + 0.02) * img.width));
+      const zy1 = Math.min(img.height, Math.ceil((maxY + 0.01) * img.height));
+
+      let tR = 0, tG = 0, tB = 0, tN = 0;
+      const sYTop = Math.max(0, zy0 - 5);
+      for (let px = zx0; px < zx1; px += 3) {
+        const d = ctx.getImageData(px, sYTop, 1, 1).data;
+        tR += d[0]; tG += d[1]; tB += d[2]; tN++;
+      }
+
+      let bR = 0, bG = 0, bB = 0, bN = 0;
+      const sYBot = Math.min(img.height - 1, zy1 + 5);
+      for (let px = zx0; px < zx1; px += 3) {
+        const d = ctx.getImageData(px, sYBot, 1, 1).data;
+        bR += d[0]; bG += d[1]; bB += d[2]; bN++;
+      }
+
+      const avgTR = tN > 0 ? Math.round(tR / tN) : 251;
+      const avgTG = tN > 0 ? Math.round(tG / tN) : 248;
+      const avgTB = tN > 0 ? Math.round(tB / tN) : 242;
+
+      const avgBR = bN > 0 ? Math.round(bR / bN) : 251;
+      const avgBG = bN > 0 ? Math.round(bG / bN) : 248;
+      const avgBB = bN > 0 ? Math.round(bB / bN) : 242;
+
+      const unifiedGrad = ctx.createLinearGradient(0, zy0, 0, zy1);
+      unifiedGrad.addColorStop(0, `rgb(${avgTR}, ${avgTG}, ${avgTB})`);
+      unifiedGrad.addColorStop(1, `rgb(${avgBR}, ${avgBG}, ${avgBB})`);
+
+      ctx.fillStyle = unifiedGrad;
+      ctx.beginPath();
+      ctx.roundRect(zx0, zy0, zx1 - zx0, zy1 - zy0, 12);
+      ctx.fill();
+    }
+
+    const cleanBuffer = canvas.toBuffer('image/jpeg', 95);
     return `data:image/jpeg;base64,${cleanBuffer.toString('base64')}`;
   } catch (err) {
     console.error('eraseTextFromImage helper error:', err);
