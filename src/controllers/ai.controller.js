@@ -607,18 +607,25 @@ const scanInvitationImage = async (req, res) => {
       }
     }
 
-    const prompt = `You are an expert OCR & invitation typography designer. Analyze this invitation card image carefully and extract all event information and text blocks.
+    const prompt = `You are an expert OCR & invitation typography designer. Analyze this invitation card image carefully and extract all event information and exact text blocks.
 
-IMPORTANT COORDINATE & TYPOGRAPHY RULES:
-1. Normalize all coordinates between 0.0 and 1.0 (top-left is 0,0; bottom-right is 1,1).
-2. For textBlocks: x and y are CENTER coordinates as fractions (0.0 to 1.0).
-3. Group related multi-word lines together (e.g. Combine Day + Date + Time into one clean line: "Sunday, February 15, 2026 at 11 AM", RSVP details as one line: "Kindly RSVP - 7905262129").
-4. Ensure every text block has a distinct, well-spaced vertical 'y' position so they never overlap.
-5. width and height should be generous bounding box dimensions as fractions.
-6. fontSize estimate: large headings/titles ~28-44, names ~22-30, subtext/dates ~14-18, small text ~12-14.
-7. fontFamily: headings/titles/names -> "Georgia", body/dates/details/venue/rsvp -> "Inter".
-8. cardBgColor: exact hex color of the background paper where text sits (e.g. '#FAF4E8', '#FBF8F3', '#FFFFFF').
-9. cardTextColor: exact hex color of main text (e.g. '#BE7832', '#B45309', '#1E293B').
+EXACT TYPOGRAPHY, POSITION & COLOR RULES:
+1. Normalize all coordinates between 0.0 and 1.0 (0,0 is top-left, 1,1 is bottom-right).
+2. For textBlocks: x is horizontal center (0.0 to 1.0), y is vertical center (0.0 to 1.0) where the text sits.
+3. Group related multi-word lines together into clean lines (e.g. "Sunday, February 15, 2026 at 11 AM", "Kindly RSVP - 7905262129").
+4. Preserve vertical order from top to bottom. Ensure adjacent lines have at least 0.05 to 0.08 difference in 'y' so they NEVER overlap or collide.
+5. width and height: generous bounding box dimensions as fractions (e.g. width: 0.65, height: 0.04).
+6. fontSize (in points for mobile preview):
+   - Huge title / anniversary / numbers: 20 to 24
+   - Couple / Celebrant names: 16 to 20
+   - Subtitles / Headings / Dates / Venue: 12 to 14
+   - Small details / Attire / RSVP: 10 to 12
+7. fontFamily (MATCH the visual style on the card exactly):
+   - Cursive / Script / Calligraphy / Swashes -> "Great Vibes"
+   - Elegant Roman Caps / Classic Luxury Serif -> "Cinzel" or "Playfair Display" or "Georgia"
+   - Clean Modern Sans-Serif / Small Text -> "Inter" or "Montserrat"
+8. color: Extract the EXACT HEX color of the text strokes for each line (e.g. gold '#B4823E', dark brown '#8B4513', maroon '#800020', navy '#1E293B').
+9. cardBgColor: exact hex color of the background paper (e.g. '#FAF4E8', '#FFF8EE', '#FFFFFF').
 10. Return ONLY valid JSON, no markdown, no code fences.
 
 Return a JSON object:
@@ -633,7 +640,7 @@ Return a JSON object:
   "description": "Tagline or secondary text",
   "guestOfHonor": "Name of person/couple being celebrated",
   "cardBgColor": "#FAF4E8",
-  "cardTextColor": "#BE7832",
+  "cardTextColor": "#8B4513",
   "textBlocks": [
     {
       "text": "clean line of text",
@@ -642,13 +649,13 @@ Return a JSON object:
       "y": 0.35,
       "width": 0.65,
       "height": 0.04,
-      "fontSize": 26,
-      "fontFamily": "Georgia|Inter",
-      "color": "#BE7832",
+      "fontSize": 18,
+      "fontFamily": "Great Vibes|Cinzel|Playfair Display|Georgia|Inter|Montserrat",
+      "color": "#8B4513",
       "align": "center"
     }
   ]
-}`;
+};`;
 
     const response = await callGeminiWithRetry(client, [
       {
@@ -704,7 +711,7 @@ Return a JSON object:
       y: Math.min(1, Math.max(0, parseFloat(block.y) || 0.5)),
       width: Math.min(1, Math.max(0.05, parseFloat(block.width) || 0.6)),
       height: Math.min(0.4, Math.max(0.04, parseFloat(block.height) || 0.08)),
-      fontSize: Math.min(60, Math.max(10, parseInt(block.fontSize) || 16)),
+      fontSize: Math.min(32, Math.max(10, parseInt(block.fontSize) || 16)),
       fontFamily: block.fontFamily || (['title', 'header', 'subtitle', 'guestOfHonor'].includes(block.role) ? 'Georgia' : 'Inter'),
       color: block.color || parsed.cardTextColor || '#1E293B',
       align: ['left', 'center', 'right'].includes(block.align) ? block.align : 'center',
