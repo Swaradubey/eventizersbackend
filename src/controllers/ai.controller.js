@@ -625,7 +625,7 @@ IMPORTANT RULES:
       parsed.textBlocks = [];
     }
 
-    // Clamp all positions to valid range
+    // Clamp all positions to valid range and preserve fonts/colors
     parsed.textBlocks = parsed.textBlocks.map(block => ({
       text: block.text || '',
       role: block.role || 'other',
@@ -634,8 +634,23 @@ IMPORTANT RULES:
       width: Math.min(1, Math.max(0.05, parseFloat(block.width) || 0.6)),
       height: Math.min(0.4, Math.max(0.04, parseFloat(block.height) || 0.08)),
       fontSize: Math.min(60, Math.max(10, parseInt(block.fontSize) || 16)),
+      fontFamily: block.fontFamily || 'Playfair Display',
+      color: block.color || parsed.cardTextColor || '#1E293B',
       align: ['left', 'center', 'right'].includes(block.align) ? block.align : 'center',
     }));
+
+    // Erase text from the card image using smart sampled inpainting
+    try {
+      const blocksToErase = parsed.textBlocks.length > 0
+        ? parsed.textBlocks
+        : [{ x: 0.5, y: 0.55, width: 0.88, height: 0.54 }];
+      const cleaned = await eraseTextFromImage(rawBase64, blocksToErase, parsed.cardBgColor);
+      if (cleaned) {
+        parsed.cleanedImageBase64 = cleaned;
+      }
+    } catch (inpaintErr) {
+      console.error('Inpainting error:', inpaintErr.message);
+    }
 
     return res.status(200).json(parsed);
   } catch (error) {
@@ -647,6 +662,76 @@ IMPORTANT RULES:
     return res.status(500).json({ error: error.message || 'Failed to scan invitation image.' });
   }
 };
+
+/**
+ * Erases detected text blocks from an image buffer using perimeter pixel sampling
+ * and smooth inpainting, returning a clean background image buffer.
+ */
+async function eraseTextFromImage(rawBase64, textBlocks, cardBgColor) {
+  try {
+    const { createCanvas, loadImage } = require('@napi-rs/canvas');
+    const imgBuffer = Buffer.from(rawBase64, 'base64');
+    const img = await loadImage(imgBuffer);
+    const canvas = createCanvas(img.width, img.height);
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+
+    for (const block of textBlocks) {
+      const cx = (block.x || 0.5) * img.width;
+      const cy = (block.y || 0.5) * img.height;
+      const bw = Math.min(img.width * 0.98, (block.width || 0.6) * img.width * 1.35);
+      const bh = Math.min(img.height * 0.45, (block.height || 0.08) * img.height * 1.45);
+      const x0 = Math.max(0, cx - bw / 2);
+      const y0 = Math.max(0, cy - bh / 2);
+
+      // Sample perimeter colors around the text block
+      let rSum = 0, gSum = 0, bSum = 0, count = 0;
+      // Top edge
+      for (let px = x0; px < x0 + bw; px += 4) {
+        const sy = Math.max(0, Math.floor(y0 - 4));
+        const data = ctx.getImageData(Math.floor(px), sy, 1, 1).data;
+        rSum += data[0]; gSum += data[1]; bSum += data[2]; count++;
+      }
+      // Bottom edge
+      for (let px = x0; px < x0 + bw; px += 4) {
+        const sy = Math.min(img.height - 1, Math.floor(y0 + bh + 4));
+        const data = ctx.getImageData(Math.floor(px), sy, 1, 1).data;
+        rSum += data[0]; gSum += data[1]; bSum += data[2]; count++;
+      }
+      // Left edge
+      for (let py = y0; py < y0 + bh; py += 4) {
+        const sx = Math.max(0, Math.floor(x0 - 4));
+        const data = ctx.getImageData(sx, Math.floor(py), 1, 1).data;
+        rSum += data[0]; gSum += data[1]; bSum += data[2]; count++;
+      }
+      // Right edge
+      for (let py = y0; py < y0 + bh; py += 4) {
+        const sx = Math.min(img.width - 1, Math.floor(x0 + bw + 4));
+        const data = ctx.getImageData(sx, Math.floor(py), 1, 1).data;
+        rSum += data[0]; gSum += data[1]; bSum += data[2]; count++;
+      }
+
+      let fillStyle = cardBgColor || '#FBF8F2';
+      if (count > 0) {
+        const avgR = Math.round(rSum / count);
+        const avgG = Math.round(gSum / count);
+        const avgB = Math.round(bSum / count);
+        fillStyle = `rgb(${avgR}, ${avgG}, ${avgB})`;
+      }
+
+      ctx.fillStyle = fillStyle;
+      ctx.beginPath();
+      ctx.roundRect(x0, y0, bw, bh, 6);
+      ctx.fill();
+    }
+
+    const cleanBuffer = canvas.toBuffer('image/jpeg', 92);
+    return `data:image/jpeg;base64,${cleanBuffer.toString('base64')}`;
+  } catch (err) {
+    console.error('eraseTextFromImage helper error:', err);
+    return null;
+  }
+}
 
 module.exports = {
   generateEventWithAI,
