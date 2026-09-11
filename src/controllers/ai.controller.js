@@ -535,49 +535,48 @@ const scanInvitationImage = async (req, res) => {
       }
     }
 
-    const prompt = `You are an expert at reading invitation cards. Analyze this invitation card image carefully and extract ALL text blocks with their positions and event information.
+    const prompt = `You are an expert OCR & invitation typography designer. Analyze this invitation card image carefully and extract all event information and text blocks.
 
-The image dimensions are normalized to 1.0 x 1.0 (top-left is 0,0; bottom-right is 1,1).
+IMPORTANT COORDINATE & TYPOGRAPHY RULES:
+1. Normalize all coordinates between 0.0 and 1.0 (top-left is 0,0; bottom-right is 1,1).
+2. For textBlocks: x and y are CENTER coordinates as fractions (0.0 to 1.0).
+3. Group related multi-word lines together (e.g. Combine Day + Date + Time into one clean line: "Sunday, February 15, 2026 at 11 AM", RSVP details as one line: "Kindly RSVP - 7905262129").
+4. Ensure every text block has a distinct, well-spaced vertical 'y' position so they never overlap.
+5. width and height should be generous bounding box dimensions as fractions.
+6. fontSize estimate: large cursive/headings ~28-44, names ~22-30, subtext/dates ~14-18, small text ~12-14.
+7. fontFamily: cursive/script -> "Great Vibes", elegant serif -> "Playfair Display", modern clean -> "Montserrat".
+8. cardBgColor: exact hex color of the background paper where text sits (e.g. '#FAF4E8', '#FBF8F3', '#FFFFFF').
+9. cardTextColor: exact hex color of main text (e.g. '#BE7832', '#B45309', '#1E293B').
+10. Return ONLY valid JSON, no markdown, no code fences.
 
-Return a JSON object with these fields (use null for fields you cannot determine):
+Return a JSON object:
 {
-  "title": "The main event title or heading (e.g., 'Wedding Ceremony', 'Bridal Shower')",
-  "eventType": "Type of event (e.g., 'wedding', 'birthday', 'corporate', 'baby_shower', 'bridal_shower')",
-  "date": "Event date in YYYY-MM-DD format if found",
-  "time": "Event time in HH:MM format (24-hour) if found",
+  "title": "Main title / celebration heading",
+  "eventType": "Type of event (wedding, anniversary, birthday, etc.)",
+  "date": "YYYY-MM-DD",
+  "time": "HH:MM",
   "venue": "Venue or location name",
   "address": "Full address if visible",
-  "hostName": "Name of the host or person organizing",
-  "description": "Any additional descriptive text on the card",
-  "guestOfHonor": "Name of the person being celebrated (e.g. Silvia Stewart)",
-  "cardBgColor": "Hex color of the card paper/background where text sits (e.g. '#FBF8F3', '#FAF5EE', '#FFFFFF', '#1E293B')",
-  "cardTextColor": "Main text hex color (e.g. '#BE7832', '#1E293B', '#D4AF37')",
+  "hostName": "Host name(s)",
+  "description": "Tagline or secondary text",
+  "guestOfHonor": "Name of person/couple being celebrated",
+  "cardBgColor": "#FAF4E8",
+  "cardTextColor": "#BE7832",
   "textBlocks": [
     {
-      "text": "exact text found in this block",
-      "role": "one of: title|subtitle|guestOfHonor|date|time|venue|address|hostName|description|rsvp|other",
+      "text": "clean line of text",
+      "role": "title|subtitle|guestOfHonor|date|time|venue|address|hostName|description|rsvp|other",
       "x": 0.5,
       "y": 0.35,
-      "width": 0.8,
-      "height": 0.09,
-      "fontSize": 24,
-      "fontFamily": "one of: Great Vibes|Playfair Display|Montserrat|Cinzel|Dancing Script|Inter",
+      "width": 0.65,
+      "height": 0.04,
+      "fontSize": 26,
+      "fontFamily": "Great Vibes|Playfair Display|Montserrat",
       "color": "#BE7832",
       "align": "center"
     }
   ]
-}
-
-IMPORTANT RULES:
-- Return ONLY valid JSON, no markdown, no code fences, no explanation.
-- For textBlocks: x and y are the CENTER coordinates of the text block as fractions (0.0 to 1.0) of image width/height.
-- width and height are the block bounding box dimensions as fractions (make width slightly generous so it covers the entire text).
-- fontSize is an estimate: large cursive/headings ~28-44, main names ~24-32, subtext/dates ~12-16, small address ~10-12.
-- fontFamily should match the visual style (cursive/script -> "Great Vibes", elegant serif -> "Playfair Display", modern clean -> "Montserrat").
-- color: detect the exact hex color of the text (e.g. terracotta/brown is '#BE7832', navy is '#1E3A8A', charcoal is '#1E293B').
-- cardBgColor: carefully detect the color of the background paper where the text is placed (e.g. '#FAF5EE' or '#FFFFFF').
-- Include EVERY visible text block in the textBlocks array (minimum 2, maximum 12 blocks).
-- If a date is written as "October 14th at 2 PM", convert date to "2026-10-14" and time to "14:00".`;
+}`;
 
     const response = await callGeminiWithRetry(client, [
       {
@@ -716,38 +715,48 @@ async function eraseTextFromImage(rawBase64, textBlocks, cardBgColor) {
     }
     const basePaperColor = cardBgColor && cardBgColor.startsWith('#') ? cardBgColor : `rgb(${fillR}, ${fillG}, ${fillB})`;
 
-    // 2. Erase each text block cleanly with generous bounds to cover all glyphs & swashes
-    for (const block of textBlocks) {
-      const cx = (block.x || 0.5) * img.width;
-      const cy = (block.y || 0.5) * img.height;
-      
-      const bw = Math.min(img.width * 0.94, Math.max(img.width * 0.15, (block.width || 0.5) * img.width * 1.35));
-      const bh = Math.min(img.height * 0.25, Math.max(img.height * 0.03, (block.height || 0.04) * img.height * 1.6));
-      const x0 = Math.max(0, Math.floor(cx - bw / 2));
-      const y0 = Math.max(0, Math.floor(cy - bh / 2));
-      const w = Math.min(img.width - x0, Math.ceil(bw));
-      const h = Math.min(img.height - y0, Math.ceil(bh));
-
-      let localR = 0, localG = 0, localB = 0, localCount = 0;
-      for (let px = x0; px < x0 + w; px += 4) {
-        for (const py of [Math.max(0, y0 - 3), Math.min(img.height - 1, y0 + h + 3)]) {
-          const d = ctx.getImageData(px, py, 1, 1).data;
-          const b = (d[0] * 299 + d[1] * 587 + d[2] * 114) / 1000;
-          if (b > 150) {
-            localR += d[0]; localG += d[1]; localB += d[2]; localCount++;
-          }
-        }
+    // 2. Compute unified text envelope to erase all text seamlessly without band-aids
+    if (textBlocks.length >= 3) {
+      let minX = 1, maxX = 0, minY = 1, maxY = 0;
+      for (const b of textBlocks) {
+        const hw = (b.width || 0.5) / 2;
+        const hh = (b.height || 0.04) / 2;
+        minX = Math.min(minX, Math.max(0.08, (b.x || 0.5) - hw));
+        maxX = Math.max(maxX, Math.min(0.92, (b.x || 0.5) + hw));
+        minY = Math.min(minY, Math.max(0.12, (b.y || 0.5) - hh));
+        maxY = Math.max(maxY, Math.min(0.88, (b.y || 0.5) + hh));
       }
 
-      let blockFill = basePaperColor;
-      if (localCount > 0) {
-        blockFill = `rgb(${Math.round(localR / localCount)}, ${Math.round(localG / localCount)}, ${Math.round(localB / localCount)})`;
-      }
+      const padX = 0.04;
+      const padY = 0.025;
+      const zx0 = Math.max(0, Math.floor((minX - padX) * img.width));
+      const zy0 = Math.max(0, Math.floor((minY - padY) * img.height));
+      const zx1 = Math.min(img.width, Math.ceil((maxX + padX) * img.width));
+      const zy1 = Math.min(img.height, Math.ceil((maxY + padY) * img.height));
+      const zw = zx1 - zx0;
+      const zh = zy1 - zy0;
 
-      ctx.fillStyle = blockFill;
+      ctx.fillStyle = basePaperColor;
       ctx.beginPath();
-      ctx.roundRect(x0, y0, w, h, 6);
+      ctx.roundRect(zx0, zy0, zw, zh, 16);
       ctx.fill();
+    } else {
+      // For isolated single blocks, inpaint individually
+      for (const block of textBlocks) {
+        const cx = (block.x || 0.5) * img.width;
+        const cy = (block.y || 0.5) * img.height;
+        const bw = Math.min(img.width * 0.94, Math.max(img.width * 0.15, (block.width || 0.5) * img.width * 1.35));
+        const bh = Math.min(img.height * 0.25, Math.max(img.height * 0.03, (block.height || 0.04) * img.height * 1.6));
+        const x0 = Math.max(0, Math.floor(cx - bw / 2));
+        const y0 = Math.max(0, Math.floor(cy - bh / 2));
+        const w = Math.min(img.width - x0, Math.ceil(bw));
+        const h = Math.min(img.height - y0, Math.ceil(bh));
+
+        ctx.fillStyle = basePaperColor;
+        ctx.beginPath();
+        ctx.roundRect(x0, y0, w, h, 8);
+        ctx.fill();
+      }
     }
 
     const cleanBuffer = canvas.toBuffer('image/jpeg', 95);
