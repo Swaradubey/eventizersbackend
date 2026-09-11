@@ -668,8 +668,37 @@ Return a JSON object:
  */
 async function eraseTextFromImage(rawBase64, textBlocks, cardBgColor) {
   try {
-    const { createCanvas, loadImage } = require('@napi-rs/canvas');
     const imgBuffer = Buffer.from(rawBase64, 'base64');
+
+    // 1. If Clipdrop API Key is provided, use state-of-the-art Deep Inpainting
+    if (process.env.CLIPDROP_API_KEY) {
+      try {
+        const formData = new FormData();
+        const blob = new Blob([imgBuffer], { type: 'image/jpeg' });
+        formData.append('image_file', blob, 'card.jpg');
+
+        const clipRes = await fetch('https://clipdrop-api.co/text-removal/v1', {
+          method: 'POST',
+          headers: {
+            'x-api-key': process.env.CLIPDROP_API_KEY,
+          },
+          body: formData,
+        });
+
+        if (clipRes.ok) {
+          const cleanArrayBuf = await clipRes.arrayBuffer();
+          const cleanBase64 = Buffer.from(cleanArrayBuf).toString('base64');
+          return `data:image/jpeg;base64,${cleanBase64}`;
+        } else {
+          console.warn('Clipdrop API returned status:', clipRes.status);
+        }
+      } catch (clipErr) {
+        console.warn('Clipdrop API call failed, falling back to precision inpainting:', clipErr.message);
+      }
+    }
+
+    // 2. High-Precision Per-Line Adaptive Inpainter (Leaves all artwork, lotuses & arches 100% intact)
+    const { createCanvas, loadImage } = require('@napi-rs/canvas');
     const img = await loadImage(imgBuffer);
     const canvas = createCanvas(img.width, img.height);
     const ctx = canvas.getContext('2d');
@@ -679,83 +708,42 @@ async function eraseTextFromImage(rawBase64, textBlocks, cardBgColor) {
       return `data:image/jpeg;base64,${imgBuffer.toString('base64')}`;
     }
 
-    // 1. Determine the true background paper color by sampling pixels across the card interior
-    const samples = [];
-    for (let xf = 0.22; xf <= 0.78; xf += 0.04) {
-      for (let yf = 0.15; yf <= 0.85; yf += 0.04) {
-        const px = Math.floor(xf * img.width);
-        const py = Math.floor(yf * img.height);
-        if (px >= 0 && px < img.width && py >= 0 && py < img.height) {
-          const d = ctx.getImageData(px, py, 1, 1).data;
-          const r = d[0], g = d[1], b = d[2];
-          const brightness = (r * 299 + g * 587 + b * 114) / 1000;
-          const maxC = Math.max(r, g, b);
-          const minC = Math.min(r, g, b);
-          const sat = maxC === 0 ? 0 : (maxC - minC) / maxC;
-          // Filter out dark text (<165) and highly saturated artwork (>0.30)
-          if (brightness > 165 && sat < 0.30) {
-            samples.push({ r, g, b, brightness });
+    for (const block of textBlocks) {
+      const cx = (block.x || 0.5) * img.width;
+      const cy = (block.y || 0.5) * img.height;
+      const bw = Math.min(img.width * 0.92, Math.max(img.width * 0.12, (block.width || 0.5) * img.width * 1.08));
+      const bh = Math.min(img.height * 0.15, Math.max(img.height * 0.025, (block.height || 0.035) * img.height * 1.18));
+      const x0 = Math.max(0, Math.floor(cx - bw / 2));
+      const y0 = Math.max(0, Math.floor(cy - bh / 2));
+      const w = Math.min(img.width - x0, Math.ceil(bw));
+      const h = Math.min(img.height - y0, Math.ceil(bh));
+
+      // Sample local background pixels directly above and below this line (outside the letters)
+      let rSum = 0, gSum = 0, bSum = 0, count = 0;
+      for (let sampleX = x0; sampleX <= x0 + w; sampleX += 6) {
+        const topY = Math.max(0, y0 - 3);
+        const botY = Math.min(img.height - 1, y0 + h + 3);
+        [topY, botY].forEach(sy => {
+          const d = ctx.getImageData(sampleX, sy, 1, 1).data;
+          const bri = (d[0] * 299 + d[1] * 587 + d[2] * 114) / 1000;
+          if (bri > 150) {
+            rSum += d[0]; gSum += d[1]; bSum += d[2]; count++;
           }
-        }
-      }
-    }
-
-    let fillR = 250, fillG = 242, fillB = 230;
-    if (samples.length > 0) {
-      fillR = Math.round(samples.reduce((s, p) => s + p.r, 0) / samples.length);
-      fillG = Math.round(samples.reduce((s, p) => s + p.g, 0) / samples.length);
-      fillB = Math.round(samples.reduce((s, p) => s + p.b, 0) / samples.length);
-    }
-    const paperColor = `rgb(${fillR}, ${fillG}, ${fillB})`;
-
-    // 2. Compute unified text envelope to erase all text seamlessly without band-aids
-    if (textBlocks.length >= 3) {
-      let minX = 1, maxX = 0, minY = 1, maxY = 0;
-      for (const b of textBlocks) {
-        const hw = (b.width || 0.5) / 2;
-        const hh = (b.height || 0.04) / 2;
-        minX = Math.min(minX, Math.max(0.08, (b.x || 0.5) - hw));
-        maxX = Math.max(maxX, Math.min(0.92, (b.x || 0.5) + hw));
-        minY = Math.min(minY, Math.max(0.12, (b.y || 0.5) - hh));
-        maxY = Math.max(maxY, Math.min(0.88, (b.y || 0.5) + hh));
+        });
       }
 
-      // Generous padding to cover 100% of printed text from top to bottom
-      const padX = 0.05;
-      const padY = 0.04;
-      let zx0 = Math.max(0, Math.floor((minX - padX) * img.width));
-      let zy0 = Math.max(0, Math.floor((minY - padY) * img.height));
-      let zx1 = Math.min(img.width, Math.ceil((maxX + padX) * img.width));
-      let zy1 = Math.min(img.height, Math.ceil((maxY + padY) * img.height));
+      let fillR = 250, fillG = 242, fillB = 230;
+      if (count > 0) {
+        fillR = Math.round(rSum / count);
+        fillG = Math.round(gSum / count);
+        fillB = Math.round(bSum / count);
+      }
 
-      // Guard against peeking top/bottom text if detected blocks are within inner 75%
-      if (minY <= 0.35) zy0 = Math.min(zy0, Math.floor(0.165 * img.height));
-      if (maxY >= 0.70) zy1 = Math.max(zy1, Math.ceil(0.835 * img.height));
-
-      const zw = zx1 - zx0;
-      const zh = zy1 - zy0;
-
-      ctx.fillStyle = paperColor;
+      // Inpaint each line with soft rounded corners matching its exact local paper tone
+      ctx.fillStyle = `rgb(${fillR}, ${fillG}, ${fillB})`;
       ctx.beginPath();
-      ctx.roundRect(zx0, zy0, zw, zh, 16);
+      ctx.roundRect(x0, y0, w, h, 6);
       ctx.fill();
-    } else {
-      // For isolated single blocks, inpaint individually
-      for (const block of textBlocks) {
-        const cx = (block.x || 0.5) * img.width;
-        const cy = (block.y || 0.5) * img.height;
-        const bw = Math.min(img.width * 0.94, Math.max(img.width * 0.15, (block.width || 0.5) * img.width * 1.35));
-        const bh = Math.min(img.height * 0.25, Math.max(img.height * 0.03, (block.height || 0.04) * img.height * 1.6));
-        const x0 = Math.max(0, Math.floor(cx - bw / 2));
-        const y0 = Math.max(0, Math.floor(cy - bh / 2));
-        const w = Math.min(img.width - x0, Math.ceil(bw));
-        const h = Math.min(img.height - y0, Math.ceil(bh));
-
-        ctx.fillStyle = paperColor;
-        ctx.beginPath();
-        ctx.roundRect(x0, y0, w, h, 8);
-        ctx.fill();
-      }
     }
 
     const cleanBuffer = canvas.toBuffer('image/jpeg', 95);
