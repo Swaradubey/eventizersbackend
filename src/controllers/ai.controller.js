@@ -202,7 +202,24 @@ Match this exact JSON schema:
   "activities": ["string (3-5 entertainment or activity ideas)"],
   "checklist": ["string (3-5 setup and planning tasks)"],
   "estimatedBudget": "string (estimated budget range, e.g. '$3,000 - $6,000')",
-  "guests": []
+  "guests": [],
+  "stationeryDesign": {
+    "backdropColor": "hex (e.g. '#FFF9F5', '#141416', '#0F172A', '#FBF5E8')",
+    "envelopeColor": "hex (e.g. '#FF7043', '#D87A80', '#0F2A4A', '#C85A3B', '#064E3B')",
+    "envelopeLiner": "string (must be one of: 'confetti_stars', 'gold_foil', 'botanical_leaves', 'tropical_palm', 'rose_gold_foil', 'damask', 'yellow_stripe', 'sage_pinstripe', 'plaid', 'gold_art_deco')",
+    "stamp": "string (must be one of: 'Gold Wax Seal', 'Love Heart', 'Botanical Herb', 'None')",
+    "cardBgColor": "hex (e.g. '#FFFDF9', '#0D0D10', '#FFFFFF')",
+    "cardBorderColor": "hex (e.g. '#FF7043', '#D4AF37', '#D87A80', '#1E3A8A')",
+    "artworkTheme": "string (must be one of: 'birthday_confetti', 'floral_arch', 'art_deco', 'corporate_summit', 'founders_connect', 'dinner_sunset', 'hibiscus_blooms', 'chicory_whispers', 'lovely_blossoms', 'elegant_lace', 'painted_petals', 'floral_elegance', 'limoncello')",
+    "textElements": [
+      { "id": "header", "role": "header", "text": "YOU ARE CORDIALLY INVITED TO CELEBRATE", "y": 0.22, "fontSize": 12, "fontFamily": "Montserrat", "color": "#FF7043" },
+      { "id": "title", "role": "title", "text": "Event Title", "y": 0.38, "fontSize": 28, "fontFamily": "Great Vibes", "color": "#1E293B" },
+      { "id": "details", "role": "details", "text": "Warm invitation details or subtitle", "y": 0.48, "fontSize": 12, "fontFamily": "Playfair Display", "color": "#475569" },
+      { "id": "date", "role": "date", "text": "Saturday, October 24 at 4:00 PM", "y": 0.60, "fontSize": 14, "fontFamily": "Montserrat", "color": "#1E293B" },
+      { "id": "venue", "role": "venue", "text": "Grand Ballroom, Mumbai", "y": 0.72, "fontSize": 13, "fontFamily": "Playfair Display", "color": "#475569" },
+      { "id": "rsvp", "role": "rsvp", "text": "Kindly RSVP by Oct 18", "y": 0.84, "fontSize": 11, "fontFamily": "Montserrat", "color": "#94A3B8" }
+    ]
+  }
 }
 `;
 
@@ -428,8 +445,27 @@ Match this exact JSON schema:
       console.warn("Could not auto-create design settings:", desErr.message);
     }
 
-    // Standardized Redirect Destination
-    const redirectUrl = `/dashboard/invitations?eventId=${newEvent.id}`;
+    // 10. Normalize dynamic 4-layer stationery design
+    const rawSD = aiData.stationeryDesign || {};
+    const normalizedStationery = {
+      backdropColor: rawSD.backdropColor || backgroundColor || '#FFF9F5',
+      envelopeColor: rawSD.envelopeColor || accentColor || '#FF7043',
+      envelopeLiner: rawSD.envelopeLiner || (finalEventType.toLowerCase().includes('birthday') ? 'confetti_stars' : 'gold_foil'),
+      stamp: rawSD.stamp || 'Gold Wax Seal',
+      cardBgColor: rawSD.cardBgColor || '#FFFDF9',
+      cardBorderColor: rawSD.cardBorderColor || accentColor || '#FF7043',
+      artworkTheme: rawSD.artworkTheme || (finalEventType.toLowerCase().includes('birthday') ? 'birthday_confetti' : 'floral_arch'),
+      textElements: Array.isArray(rawSD.textElements) && rawSD.textElements.length > 0
+        ? rawSD.textElements
+        : [
+            { id: 'header', role: 'header', text: 'YOU ARE CORDIALLY INVITED TO CELEBRATE', y: 0.22, fontSize: 12, fontFamily: 'Montserrat', color: accentColor },
+            { id: 'title', role: 'title', text: finalTitle, y: 0.38, fontSize: 28, fontFamily: 'Great Vibes', color: textColor },
+            { id: 'details', role: 'details', text: aiData.invitationText || aiData.description || 'Join us for a wonderful celebration!', y: 0.48, fontSize: 12, fontFamily: 'Playfair Display', color: '#475569' },
+            { id: 'date', role: 'date', text: `${finalDate} at ${finalStartTime}`, y: 0.60, fontSize: 14, fontFamily: 'Montserrat', color: textColor },
+            { id: 'venue', role: 'venue', text: finalVenue, y: 0.72, fontSize: 13, fontFamily: 'Playfair Display', color: '#475569' },
+            { id: 'rsvp', role: 'rsvp', text: 'Kindly RSVP by upcoming week', y: 0.84, fontSize: 11, fontFamily: 'Montserrat', color: '#94A3B8' }
+          ]
+    };
 
     return res.status(201).json({
       success: true,
@@ -453,6 +489,7 @@ Match this exact JSON schema:
       accentColor: accentColor,
       backgroundColor: backgroundColor,
       textColor: textColor,
+      stationeryDesign: normalizedStationery,
     });
   } catch (error) {
     console.error('AI Generation Error / Gemini failure:', error);
