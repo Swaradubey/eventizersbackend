@@ -680,97 +680,73 @@ async function eraseTextFromImage(rawBase64, textBlocks, cardBgColor) {
       return `data:image/jpeg;base64,${imgBuffer.toString('base64')}`;
     }
 
-    // Step 1: Inpaint each individual text block with generous bounds and directional gradient
+    // 1. Determine the true background paper color by sampling clean central areas
+    let rSum = 0, gSum = 0, bSum = 0, validSamples = 0;
+    const testPoints = [
+      { x: 0.50, y: 0.22 },
+      { x: 0.45, y: 0.35 },
+      { x: 0.55, y: 0.35 },
+      { x: 0.50, y: 0.45 },
+      { x: 0.45, y: 0.55 },
+      { x: 0.55, y: 0.55 },
+      { x: 0.50, y: 0.65 },
+    ];
+
+    for (const pt of testPoints) {
+      const px = Math.floor(pt.x * img.width);
+      const py = Math.floor(pt.y * img.height);
+      if (px >= 0 && px < img.width && py >= 0 && py < img.height) {
+        const d = ctx.getImageData(px, py, 1, 1).data;
+        const brightness = (d[0] * 299 + d[1] * 587 + d[2] * 114) / 1000;
+        // Accept only bright/paper-like tones (ignore dark text/decorations)
+        if (brightness > 160) {
+          rSum += d[0];
+          gSum += d[1];
+          bSum += d[2];
+          validSamples++;
+        }
+      }
+    }
+
+    let fillR = 254, fillG = 250, fillB = 239;
+    if (validSamples > 0) {
+      fillR = Math.round(rSum / validSamples);
+      fillG = Math.round(gSum / validSamples);
+      fillB = Math.round(bSum / validSamples);
+    }
+    const basePaperColor = cardBgColor && cardBgColor.startsWith('#') ? cardBgColor : `rgb(${fillR}, ${fillG}, ${fillB})`;
+
+    // 2. Erase each text block cleanly with generous bounds to cover all glyphs & swashes
     for (const block of textBlocks) {
       const cx = (block.x || 0.5) * img.width;
       const cy = (block.y || 0.5) * img.height;
-      const bw = Math.min(img.width * 0.96, Math.max(img.width * 0.15, (block.width || 0.5) * img.width * 1.25));
-      const bh = Math.min(img.height * 0.35, Math.max(img.height * 0.03, (block.height || 0.05) * img.height * 1.5));
+      
+      const bw = Math.min(img.width * 0.94, Math.max(img.width * 0.15, (block.width || 0.5) * img.width * 1.35));
+      const bh = Math.min(img.height * 0.25, Math.max(img.height * 0.03, (block.height || 0.04) * img.height * 1.6));
       const x0 = Math.max(0, Math.floor(cx - bw / 2));
       const y0 = Math.max(0, Math.floor(cy - bh / 2));
-      const x1 = Math.min(img.width, Math.ceil(cx + bw / 2));
-      const y1 = Math.min(img.height, Math.ceil(cy + bh / 2));
+      const w = Math.min(img.width - x0, Math.ceil(bw));
+      const h = Math.min(img.height - y0, Math.ceil(bh));
 
-      // Sample top edge
-      let topR = 0, topG = 0, topB = 0, topN = 0;
-      const sYTop = Math.max(0, y0 - 4);
-      for (let px = x0; px < x1; px += 3) {
-        const d = ctx.getImageData(px, sYTop, 1, 1).data;
-        topR += d[0]; topG += d[1]; topB += d[2]; topN++;
+      let localR = 0, localG = 0, localB = 0, localCount = 0;
+      for (let px = x0; px < x0 + w; px += 4) {
+        for (const py of [Math.max(0, y0 - 3), Math.min(img.height - 1, y0 + h + 3)]) {
+          const d = ctx.getImageData(px, py, 1, 1).data;
+          const b = (d[0] * 299 + d[1] * 587 + d[2] * 114) / 1000;
+          if (b > 150) {
+            localR += d[0]; localG += d[1]; localB += d[2]; localCount++;
+          }
+        }
       }
 
-      // Sample bottom edge
-      let botR = 0, botG = 0, botB = 0, botN = 0;
-      const sYBot = Math.min(img.height - 1, y1 + 4);
-      for (let px = x0; px < x1; px += 3) {
-        const d = ctx.getImageData(px, sYBot, 1, 1).data;
-        botR += d[0]; botG += d[1]; botB += d[2]; botN++;
+      let blockFill = basePaperColor;
+      if (localCount > 0) {
+        blockFill = `rgb(${Math.round(localR / localCount)}, ${Math.round(localG / localCount)}, ${Math.round(localB / localCount)})`;
       }
 
-      const tR = topN > 0 ? Math.round(topR / topN) : 251;
-      const tG = topN > 0 ? Math.round(topG / topN) : 248;
-      const tB = topN > 0 ? Math.round(topB / topN) : 242;
-
-      const bR = botN > 0 ? Math.round(botR / botN) : 251;
-      const bG = botN > 0 ? Math.round(botG / botN) : 248;
-      const bB = botN > 0 ? Math.round(botB / botN) : 242;
-
-      const grad = ctx.createLinearGradient(0, y0, 0, y1);
-      grad.addColorStop(0, `rgb(${tR}, ${tG}, ${tB})`);
-      grad.addColorStop(1, `rgb(${bR}, ${bG}, ${bB})`);
-
-      ctx.fillStyle = grad;
+      ctx.fillStyle = blockFill;
       ctx.beginPath();
-      ctx.roundRect(x0, y0, x1 - x0, y1 - y0, 8);
-      ctx.fill();
-    }
-
-    // Step 2: For dense central text cards (>= 3 text blocks), seamlessly unify the central text zone
-    if (textBlocks.length >= 3) {
-      let minX = 1, maxX = 0, minY = 1, maxY = 0;
-      for (const b of textBlocks) {
-        const hw = (b.width || 0.5) / 2;
-        const hh = (b.height || 0.05) / 2;
-        minX = Math.min(minX, Math.max(0.04, b.x - hw));
-        maxX = Math.max(maxX, Math.min(0.96, b.x + hw));
-        minY = Math.min(minY, Math.max(0.06, b.y - hh));
-        maxY = Math.max(maxY, Math.min(0.94, b.y + hh));
-      }
-
-      const zx0 = Math.max(0, Math.floor((minX - 0.02) * img.width));
-      const zy0 = Math.max(0, Math.floor((minY - 0.01) * img.height));
-      const zx1 = Math.min(img.width, Math.ceil((maxX + 0.02) * img.width));
-      const zy1 = Math.min(img.height, Math.ceil((maxY + 0.01) * img.height));
-
-      let tR = 0, tG = 0, tB = 0, tN = 0;
-      const sYTop = Math.max(0, zy0 - 5);
-      for (let px = zx0; px < zx1; px += 3) {
-        const d = ctx.getImageData(px, sYTop, 1, 1).data;
-        tR += d[0]; tG += d[1]; tB += d[2]; tN++;
-      }
-
-      let bR = 0, bG = 0, bB = 0, bN = 0;
-      const sYBot = Math.min(img.height - 1, zy1 + 5);
-      for (let px = zx0; px < zx1; px += 3) {
-        const d = ctx.getImageData(px, sYBot, 1, 1).data;
-        bR += d[0]; bG += d[1]; bB += d[2]; bN++;
-      }
-
-      const avgTR = tN > 0 ? Math.round(tR / tN) : 251;
-      const avgTG = tN > 0 ? Math.round(tG / tN) : 248;
-      const avgTB = tN > 0 ? Math.round(tB / tN) : 242;
-
-      const avgBR = bN > 0 ? Math.round(bR / bN) : 251;
-      const avgBG = bN > 0 ? Math.round(bG / bN) : 248;
-      const avgBB = bN > 0 ? Math.round(bB / bN) : 242;
-
-      const unifiedGrad = ctx.createLinearGradient(0, zy0, 0, zy1);
-      unifiedGrad.addColorStop(0, `rgb(${avgTR}, ${avgTG}, ${avgTB})`);
-      unifiedGrad.addColorStop(1, `rgb(${avgBR}, ${avgBG}, ${avgBB})`);
-
-      ctx.fillStyle = unifiedGrad;
-      ctx.beginPath();
-      ctx.roundRect(zx0, zy0, zx1 - zx0, zy1 - zy0, 12);
+      ctx.roundRect(x0, y0, w, h, 6);
       ctx.fill();
     }
 
