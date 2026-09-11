@@ -700,43 +700,97 @@ Return a JSON object:
 };
 
 /**
- * Erases detected text blocks from an image buffer using perimeter pixel sampling
- * and smooth inpainting, returning a clean background image buffer.
+ * Erases detected text blocks from an image buffer using Replicate LaMa Inpainting,
+ * with adaptive local inpainting as an instant fallback.
  */
 async function eraseTextFromImage(rawBase64, textBlocks, cardBgColor) {
   try {
+    const { createCanvas, loadImage } = require('@napi-rs/canvas');
     const imgBuffer = Buffer.from(rawBase64, 'base64');
+    const img = await loadImage(imgBuffer);
 
-    // 1. If Clipdrop API Key is provided, use state-of-the-art Deep Inpainting
-    if (process.env.CLIPDROP_API_KEY) {
+    // 1. If Replicate API Token is configured, use LaMa (Large Mask Inpainting) on GPU
+    const replicateToken = process.env.REPLICATE_API_TOKEN;
+    if (replicateToken && replicateToken !== 'your_replicate_api_token') {
       try {
-        const formData = new FormData();
-        const blob = new Blob([imgBuffer], { type: 'image/jpeg' });
-        formData.append('image_file', blob, 'card.jpg');
+        console.log('Using Replicate LaMa model for high-resolution card inpainting...');
+        const Replicate = require('replicate');
+        const replicate = new Replicate({ auth: replicateToken });
 
-        const clipRes = await fetch('https://clipdrop-api.co/text-removal/v1', {
-          method: 'POST',
-          headers: {
-            'x-api-key': process.env.CLIPDROP_API_KEY,
-          },
-          body: formData,
-        });
+        // Generate binary mask (Black background = preserve artwork, Solid White = erase text)
+        const maskCanvas = createCanvas(img.width, img.height);
+        const maskCtx = maskCanvas.getContext('2d');
+        maskCtx.fillStyle = '#000000';
+        maskCtx.fillRect(0, 0, img.width, img.height);
 
-        if (clipRes.ok) {
-          const cleanArrayBuf = await clipRes.arrayBuffer();
-          const cleanBase64 = Buffer.from(cleanArrayBuf).toString('base64');
-          return `data:image/jpeg;base64,${cleanBase64}`;
-        } else {
-          console.warn('Clipdrop API returned status:', clipRes.status);
+        maskCtx.fillStyle = '#FFFFFF';
+        const blocks = (textBlocks && textBlocks.length > 0)
+          ? textBlocks
+          : [{ x: 0.5, y: 0.55, width: 0.85, height: 0.55 }];
+
+        for (const block of blocks) {
+          const cx = (block.x || 0.5) * img.width;
+          const cy = (block.y || 0.5) * img.height;
+          // Add generous padding around text to fully capture font ascenders/descenders & swashes
+          const bw = Math.min(img.width * 0.94, Math.max(img.width * 0.15, (block.width || 0.5) * img.width * 1.14));
+          const bh = Math.min(img.height * 0.20, Math.max(img.height * 0.035, (block.height || 0.04) * img.height * 1.35));
+          const x0 = Math.max(0, Math.floor(cx - bw / 2));
+          const y0 = Math.max(0, Math.floor(cy - bh / 2));
+          const w = Math.min(img.width - x0, Math.ceil(bw));
+          const h = Math.min(img.height - y0, Math.ceil(bh));
+
+          maskCtx.fillRect(x0, y0, w, h);
         }
-      } catch (clipErr) {
-        console.warn('Clipdrop API call failed, falling back to precision inpainting:', clipErr.message);
+
+        const maskDataUri = `data:image/png;base64,${maskCanvas.toBuffer('image/png').toString('base64')}`;
+        const imgDataUri = `data:image/jpeg;base64,${rawBase64}`;
+
+        const output = await replicate.run(
+          'allenhooo/lama:cdac78a1bec5b23c07fd29692fb70baa513ea403a39e643c48ec5edadb15fe72',
+          {
+            input: {
+              image: imgDataUri,
+              mask: maskDataUri,
+            },
+          }
+        );
+
+        let cleanBuf = null;
+        if (typeof output === 'string') {
+          if (output.startsWith('http://') || output.startsWith('https://')) {
+            const fetchRes = await fetch(output);
+            cleanBuf = Buffer.from(await fetchRes.arrayBuffer());
+          } else {
+            cleanBuf = Buffer.from(output, 'base64');
+          }
+        } else if (output && typeof output.getReader === 'function') {
+          const reader = output.getReader();
+          const chunks = [];
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            chunks.push(value);
+          }
+          cleanBuf = Buffer.concat(chunks);
+        } else if (output && typeof output.blob === 'function') {
+          const blob = await output.blob();
+          cleanBuf = Buffer.from(await blob.arrayBuffer());
+        } else if (output && (typeof output.url === 'function' || output.url)) {
+          const u = typeof output.url === 'function' ? output.url() : output.url;
+          const fetchRes = await fetch(u);
+          cleanBuf = Buffer.from(await fetchRes.arrayBuffer());
+        }
+
+        if (cleanBuf && cleanBuf.length > 0) {
+          console.log(`Replicate LaMa inpainting complete! Output size: ${cleanBuf.length} bytes`);
+          return `data:image/jpeg;base64,${cleanBuf.toString('base64')}`;
+        }
+      } catch (repErr) {
+        console.warn('Replicate LaMa inpainting failed, falling back to local inpainting:', repErr.message);
       }
     }
 
-    // 2. High-Precision Per-Line Adaptive Inpainter (Leaves all artwork, lotuses & arches 100% intact)
-    const { createCanvas, loadImage } = require('@napi-rs/canvas');
-    const img = await loadImage(imgBuffer);
+    // 2. Fallback: High-Precision Per-Line Adaptive Inpainter (Leaves all artwork & borders intact)
     const canvas = createCanvas(img.width, img.height);
     const ctx = canvas.getContext('2d');
     ctx.drawImage(img, 0, 0);
@@ -755,7 +809,7 @@ async function eraseTextFromImage(rawBase64, textBlocks, cardBgColor) {
       const w = Math.min(img.width - x0, Math.ceil(bw));
       const h = Math.min(img.height - y0, Math.ceil(bh));
 
-      // Sample local background pixels directly above and below this line (outside the letters)
+      // Sample local background pixels directly above and below this line
       let rSum = 0, gSum = 0, bSum = 0, count = 0;
       for (let sampleX = x0; sampleX <= x0 + w; sampleX += 6) {
         const topY = Math.max(0, y0 - 3);
@@ -776,7 +830,6 @@ async function eraseTextFromImage(rawBase64, textBlocks, cardBgColor) {
         fillB = Math.round(bSum / count);
       }
 
-      // Inpaint each line with soft rounded corners matching its exact local paper tone
       ctx.fillStyle = `rgb(${fillR}, ${fillG}, ${fillB})`;
       ctx.beginPath();
       ctx.roundRect(x0, y0, w, h, 6);
