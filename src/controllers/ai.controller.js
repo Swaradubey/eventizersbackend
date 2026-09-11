@@ -513,13 +513,26 @@ const scanInvitationImage = async (req, res) => {
 
     const client = getAiClient();
 
-    // Strip the data URI prefix if present
+    // Handle HTTP / HTTPS URLs or Base64 Data URI
     let rawBase64 = imageBase64;
     let mimeType = 'image/png';
-    const dataUriMatch = imageBase64.match(/^data:(image\/\w+);base64,(.+)$/);
-    if (dataUriMatch) {
-      mimeType = dataUriMatch[1];
-      rawBase64 = dataUriMatch[2];
+
+    if (imageBase64.startsWith('http://') || imageBase64.startsWith('https://')) {
+      try {
+        const fetchRes = await fetch(imageBase64);
+        const arrayBuf = await fetchRes.arrayBuffer();
+        rawBase64 = Buffer.from(arrayBuf).toString('base64');
+        const cType = fetchRes.headers.get('content-type');
+        if (cType) mimeType = cType.split(';')[0];
+      } catch (fetchErr) {
+        console.error('Failed to fetch image URL for OCR:', fetchErr.message);
+      }
+    } else {
+      const dataUriMatch = imageBase64.match(/^data:(image\/\w+);base64,(.+)$/);
+      if (dataUriMatch) {
+        mimeType = dataUriMatch[1];
+        rawBase64 = dataUriMatch[2];
+      }
     }
 
     const prompt = `You are an expert at reading invitation cards. Analyze this invitation card image carefully and extract ALL text blocks with their positions and event information.
@@ -528,24 +541,28 @@ The image dimensions are normalized to 1.0 x 1.0 (top-left is 0,0; bottom-right 
 
 Return a JSON object with these fields (use null for fields you cannot determine):
 {
-  "title": "The main event title or heading (e.g., 'Wedding Ceremony', 'Birthday Party')",
-  "eventType": "Type of event (e.g., 'wedding', 'birthday', 'corporate', 'baby_shower')",
+  "title": "The main event title or heading (e.g., 'Wedding Ceremony', 'Bridal Shower')",
+  "eventType": "Type of event (e.g., 'wedding', 'birthday', 'corporate', 'baby_shower', 'bridal_shower')",
   "date": "Event date in YYYY-MM-DD format if found",
   "time": "Event time in HH:MM format (24-hour) if found",
   "venue": "Venue or location name",
   "address": "Full address if visible",
   "hostName": "Name of the host or person organizing",
   "description": "Any additional descriptive text on the card",
-  "guestOfHonor": "Name of the person being celebrated",
+  "guestOfHonor": "Name of the person being celebrated (e.g. Silvia Stewart)",
+  "cardBgColor": "Hex color of the card paper/background where text sits (e.g. '#FBF8F3', '#FAF5EE', '#FFFFFF', '#1E293B')",
+  "cardTextColor": "Main text hex color (e.g. '#BE7832', '#1E293B', '#D4AF37')",
   "textBlocks": [
     {
       "text": "exact text found in this block",
       "role": "one of: title|subtitle|guestOfHonor|date|time|venue|address|hostName|description|rsvp|other",
       "x": 0.5,
-      "y": 0.15,
-      "width": 0.7,
-      "height": 0.08,
-      "fontSize": 28,
+      "y": 0.35,
+      "width": 0.8,
+      "height": 0.09,
+      "fontSize": 24,
+      "fontFamily": "one of: Great Vibes|Playfair Display|Montserrat|Cinzel|Dancing Script|Inter",
+      "color": "#BE7832",
       "align": "center"
     }
   ]
@@ -553,14 +570,14 @@ Return a JSON object with these fields (use null for fields you cannot determine
 
 IMPORTANT RULES:
 - Return ONLY valid JSON, no markdown, no code fences, no explanation.
-- For textBlocks: x and y are the CENTER of the text block as fractions (0.0 to 1.0) of image width/height.
-- width and height are the block dimensions as fractions of image size.
-- fontSize is an estimate: large headings ~28-48, normal text ~12-18, small text ~10-12.
-- align is "left", "center", or "right".
+- For textBlocks: x and y are the CENTER coordinates of the text block as fractions (0.0 to 1.0) of image width/height.
+- width and height are the block bounding box dimensions as fractions (make width slightly generous so it covers the entire text).
+- fontSize is an estimate: large cursive/headings ~28-44, main names ~24-32, subtext/dates ~12-16, small address ~10-12.
+- fontFamily should match the visual style (cursive/script -> "Great Vibes", elegant serif -> "Playfair Display", modern clean -> "Montserrat").
+- color: detect the exact hex color of the text (e.g. terracotta/brown is '#BE7832', navy is '#1E3A8A', charcoal is '#1E293B').
+- cardBgColor: carefully detect the color of the background paper where the text is placed (e.g. '#FAF5EE' or '#FFFFFF').
 - Include EVERY visible text block in the textBlocks array (minimum 2, maximum 12 blocks).
-- If a date is written as "March 15, 2025", convert it to "2025-03-15".
-- If time is written as "6:00 PM", convert to "18:00".
-- Estimate positions carefully by looking at where each text block appears vertically and horizontally in the image.`;
+- If a date is written as "October 14th at 2 PM", convert date to "2026-10-14" and time to "14:00".`;
 
     const response = await callGeminiWithRetry(client, [
       {
