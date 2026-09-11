@@ -310,12 +310,17 @@ async function renderInvitationCardPng({ invitation = {}, event = {}, templateCo
     templateConfig?.card?.artworkUrl,
     templateConfig?.imageUrl,
     invitation.imageUrl,
+    invitation.coverImage,
+    typeof invitation.cardBg?.value === "string" ? invitation.cardBg.value : null,
+    typeof invitation.background?.value === "string" ? invitation.background.value : null,
     event.coverImage,
+    event.imageUrl,
     event.selectedTemplateId ? `/assets/templates/${event.selectedTemplateId}.svg` : null,
+    invitation.templateId ? `/assets/templates/${invitation.templateId}.svg` : null,
   ];
 
   for (const cand of candidateArtworks) {
-    if (cand && typeof cand === "string") {
+    if (cand && typeof cand === "string" && !cand.startsWith("#") && !cand.startsWith("data:")) {
       const resolved = resolveAssetPath(cand);
       if (resolved) {
         artworkPath = resolved;
@@ -344,8 +349,8 @@ async function renderInvitationCardPng({ invitation = {}, event = {}, templateCo
       // Clip inside card rounded rectangle
       drawRoundedRect(ctx, cardX + 6, cardY + 6, cardWidth - 12, cardHeight - 12, cardRadius - 2);
       ctx.clip();
-      // Subtle transparency so text remains highly readable and vibrant
-      ctx.globalAlpha = 0.32;
+      // Render crisp decorative frame / floral border
+      ctx.globalAlpha = 0.85;
       ctx.drawImage(artImg, cardX, cardY, cardWidth, cardHeight);
       ctx.restore();
     } catch (artErr) {
@@ -353,117 +358,200 @@ async function renderInvitationCardPng({ invitation = {}, event = {}, templateCo
     }
   }
 
-  // ─── 5. DYNAMIC LIVE TYPOGRAPHY OVERLAY ───
-  ctx.save();
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
+  // ─── 5. DYNAMIC TYPOGRAPHY OVERLAY (CUSTOM DESIGNER LAYERS OR FALLBACK) ───
+  const customLayers =
+    (Array.isArray(invitation.textElements) && invitation.textElements.length > 0 && invitation.textElements) ||
+    (Array.isArray(invitation.textLayers) && invitation.textLayers.length > 0 && invitation.textLayers) ||
+    null;
 
-  const centerX = CANVAS_WIDTH / 2;
+  if (customLayers && customLayers.length > 0) {
+    ctx.save();
+    for (const layer of customLayers) {
+      if (!layer || !layer.text) continue;
+      const layerText = String(layer.text).trim();
+      if (!layerText) continue;
 
-  // A) Top Header Badge (14% from card top)
-  const headerY = cardY + 80;
-  ctx.font = "bold 15px 'Montserrat', 'Inter', 'Segoe UI', sans-serif";
-  ctx.fillStyle = accentColor;
-  const headerText = "YOU'RE CORDIALLY INVITED";
-  ctx.fillText(headerText, centerX, headerY);
+      const layerX = layer.x !== undefined ? layer.x : (layer.left !== undefined ? layer.left : 50);
+      const layerY = layer.y !== undefined ? layer.y : (layer.top !== undefined ? layer.top : 50);
 
-  // Decorative top flourish under header
-  ctx.strokeStyle = accentColor;
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(centerX - 60, headerY + 16);
-  ctx.lineTo(centerX + 60, headerY + 16);
-  ctx.stroke();
+      // Map percentage (0-100%) to card coordinate space
+      const textX = cardX + (layerX / 100) * cardWidth;
+      const textY = cardY + (layerY / 100) * cardHeight;
 
-  // B) Host Name / Presentation (23% from card top)
-  let currentY = headerY + 60;
-  if (hostName) {
-    ctx.font = "italic 20px 'Playfair Display', Georgia, 'Times New Roman', serif";
-    ctx.fillStyle = secondaryColor;
-    ctx.fillText(`Hosted by ${hostName}`, centerX, currentY);
-    currentY += 40;
-  }
+      const align = layer.textAlign || layer.align || "center";
+      ctx.textAlign = align;
+      ctx.textBaseline = "middle";
 
-  // C) Prominent Event Title (34% - 48% from card top)
-  currentY = Math.max(currentY, cardY + 230);
-  ctx.fillStyle = textColor;
+      const baseSize = layer.fontSize || 20;
+      // Scale from web designer canvas (approx 500px width) to high-res card width (620px)
+      const scaledSize = Math.max(12, Math.round(baseSize * 1.24));
 
-  // Dynamically calculate title font size based on text length
-  let titleFontSize = 42;
-  if (title.length > 40) {
-    titleFontSize = 30;
-  } else if (title.length > 25) {
-    titleFontSize = 36;
-  }
+      const fontWeight = layer.fontWeight || (baseSize > 28 ? "bold" : "normal");
+      const rawFamily = layer.fontFamily || "serif";
+      let cleanFamily = "serif";
+      if (rawFamily.includes("Playfair")) cleanFamily = "'Playfair Display', Georgia, 'Times New Roman', serif";
+      else if (rawFamily.includes("Montserrat")) cleanFamily = "'Montserrat', 'Inter', sans-serif";
+      else if (rawFamily.includes("Inter") || rawFamily.includes("sans-serif")) cleanFamily = "'Inter', 'Segoe UI', Arial, sans-serif";
+      else cleanFamily = rawFamily;
 
-  ctx.font = `bold ${titleFontSize}px 'Playfair Display', Georgia, 'Times New Roman', serif`;
-  const titleLines = wrapText(ctx, title, cardWidth - 120);
-  const titleLineHeight = titleFontSize * 1.25;
+      ctx.font = `${fontWeight} ${scaledSize}px ${cleanFamily}`;
 
-  for (let i = 0; i < titleLines.length; i++) {
-    ctx.fillText(titleLines[i], centerX, currentY + i * titleLineHeight);
-  }
-  currentY += titleLines.length * titleLineHeight + 10;
+      // Handle text casing
+      let displayText = layerText;
+      if (layer.casing === "uppercase") displayText = displayText.toUpperCase();
+      else if (layer.casing === "lowercase") displayText = displayText.toLowerCase();
+      else if (layer.casing === "capitalize") {
+        displayText = displayText.replace(/\b\w/g, (c) => c.toUpperCase());
+      }
 
-  // D) Subtitle or Description (if present)
-  if (subtitle) {
-    ctx.font = "500 18px 'Inter', 'Segoe UI', Arial, sans-serif";
-    ctx.fillStyle = secondaryColor;
-    const subLines = wrapText(ctx, subtitle, cardWidth - 140);
-    for (const line of subLines) {
-      ctx.fillText(line, centerX, currentY);
-      currentY += 26;
+      // Handle Foil effect if configured
+      if (layer.isFoil || layer.foilGradient) {
+        const foilGrad = ctx.createLinearGradient(textX - 120, textY - 20, textX + 120, textY + 20);
+        if (layer.isFoil === "rose-gold") {
+          foilGrad.addColorStop(0, "#B76E79");
+          foilGrad.addColorStop(0.5, "#ECC5C8");
+          foilGrad.addColorStop(1, "#B76E79");
+        } else if (layer.isFoil === "silver") {
+          foilGrad.addColorStop(0, "#C0C0C0");
+          foilGrad.addColorStop(0.5, "#FFFFFF");
+          foilGrad.addColorStop(1, "#A8A8A8");
+        } else {
+          // Gold foil
+          foilGrad.addColorStop(0, "#D4AF37");
+          foilGrad.addColorStop(0.4, "#FDF2B8");
+          foilGrad.addColorStop(0.7, "#AA771C");
+          foilGrad.addColorStop(1, "#D4AF37");
+        }
+        ctx.fillStyle = foilGrad;
+      } else {
+        ctx.fillStyle = layer.color || textColor;
+      }
+
+      const maxLineWidth = Math.max(100, cardWidth - 80);
+      const lines = wrapText(ctx, displayText, maxLineWidth);
+      const lineHeight = scaledSize * (layer.lineHeight || 1.25);
+      const totalTextHeight = lines.length * lineHeight;
+      const startY = textY - (totalTextHeight / 2) + (lineHeight / 2);
+
+      for (let i = 0; i < lines.length; i++) {
+        ctx.fillText(lines[i], textX, startY + i * lineHeight);
+      }
     }
-    currentY += 10;
-  }
+    ctx.restore();
+  } else {
+    // ── FALLBACK STRUCTURED LAYOUT (WHEN NO CUSTOM LAYERS PROVIDED) ──
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
 
-  // E) Ornamental Divider (custom vector diamond + gold wings)
-  currentY = Math.max(currentY + 10, cardY + 490);
-  drawOrnamentalDivider(ctx, centerX, currentY, accentColor);
+    const centerX = CANVAS_WIDTH / 2;
 
-  // F) Event Date & Time Block (58% - 68% from card top)
-  currentY += 50;
-  if (eventDate) {
-    ctx.font = "bold 24px 'Montserrat', 'Inter', 'Segoe UI', sans-serif";
-    ctx.fillStyle = textColor;
-    ctx.fillText(eventDate.toUpperCase(), centerX, currentY);
-    currentY += 34;
-  }
-
-  if (eventTime) {
-    ctx.font = "600 20px 'Montserrat', 'Inter', 'Segoe UI', sans-serif";
+    // A) Top Header Badge (14% from card top)
+    const headerY = cardY + 80;
+    ctx.font = "bold 15px 'Montserrat', 'Inter', 'Segoe UI', sans-serif";
     ctx.fillStyle = accentColor;
-    ctx.fillText(eventTime.toUpperCase(), centerX, currentY);
-    currentY += 45;
-  }
+    const headerText = "YOU'RE CORDIALLY INVITED";
+    ctx.fillText(headerText, centerX, headerY);
 
-  // G) Venue & Address Block (74% - 84% from card top)
-  currentY = Math.max(currentY, cardY + 680);
-  if (venue) {
-    ctx.font = "bold 22px 'Playfair Display', Georgia, 'Times New Roman', serif";
+    // Decorative top flourish under header
+    ctx.strokeStyle = accentColor;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(centerX - 60, headerY + 16);
+    ctx.lineTo(centerX + 60, headerY + 16);
+    ctx.stroke();
+
+    // B) Host Name / Presentation (23% from card top)
+    let currentY = headerY + 60;
+    if (hostName) {
+      ctx.font = "italic 20px 'Playfair Display', Georgia, 'Times New Roman', serif";
+      ctx.fillStyle = secondaryColor;
+      ctx.fillText(`Hosted by ${hostName}`, centerX, currentY);
+      currentY += 40;
+    }
+
+    // C) Prominent Event Title (34% - 48% from card top)
+    currentY = Math.max(currentY, cardY + 230);
     ctx.fillStyle = textColor;
-    const venueLines = wrapText(ctx, venue, cardWidth - 140);
-    for (const vl of venueLines) {
-      ctx.fillText(vl, centerX, currentY);
-      currentY += 28;
-    }
-  }
 
-  if (address) {
-    ctx.font = "16px 'Inter', 'Segoe UI', Arial, sans-serif";
-    ctx.fillStyle = secondaryColor;
-    const addrLines = wrapText(ctx, address, cardWidth - 160);
-    for (const al of addrLines) {
-      ctx.fillText(al, centerX, currentY);
-      currentY += 24;
+    let titleFontSize = 42;
+    if (title.length > 40) {
+      titleFontSize = 30;
+    } else if (title.length > 25) {
+      titleFontSize = 36;
     }
-  }
 
-  // H) Bottom RSVP Callout (92% from card top)
-  const bottomY = cardY + cardHeight - 55;
-  ctx.font = "bold 13px 'Montserrat', 'Inter', 'Segoe UI', sans-serif";
-  ctx.fillStyle = accentColor;
-  ctx.fillText("PLEASE VIEW DETAILS & RSVP BELOW", centerX, bottomY);
+    ctx.font = `bold ${titleFontSize}px 'Playfair Display', Georgia, 'Times New Roman', serif`;
+    const titleLines = wrapText(ctx, title, cardWidth - 120);
+    const titleLineHeight = titleFontSize * 1.25;
+
+    for (let i = 0; i < titleLines.length; i++) {
+      ctx.fillText(titleLines[i], centerX, currentY + i * titleLineHeight);
+    }
+    currentY += titleLines.length * titleLineHeight + 10;
+
+    // D) Subtitle or Description (if present)
+    if (subtitle) {
+      ctx.font = "500 18px 'Inter', 'Segoe UI', Arial, sans-serif";
+      ctx.fillStyle = secondaryColor;
+      const subLines = wrapText(ctx, subtitle, cardWidth - 140);
+      for (const line of subLines) {
+        ctx.fillText(line, centerX, currentY);
+        currentY += 26;
+      }
+      currentY += 10;
+    }
+
+    // E) Ornamental Divider
+    currentY = Math.max(currentY + 10, cardY + 490);
+    drawOrnamentalDivider(ctx, centerX, currentY, accentColor);
+
+    // F) Event Date & Time Block (58% - 68% from card top)
+    currentY += 50;
+    if (eventDate) {
+      ctx.font = "bold 24px 'Montserrat', 'Inter', 'Segoe UI', sans-serif";
+      ctx.fillStyle = textColor;
+      ctx.fillText(eventDate.toUpperCase(), centerX, currentY);
+      currentY += 34;
+    }
+
+    if (eventTime) {
+      ctx.font = "600 20px 'Montserrat', 'Inter', 'Segoe UI', sans-serif";
+      ctx.fillStyle = accentColor;
+      ctx.fillText(eventTime.toUpperCase(), centerX, currentY);
+      currentY += 45;
+    }
+
+    // G) Venue & Address Block (74% - 84% from card top)
+    currentY = Math.max(currentY, cardY + 680);
+    if (venue) {
+      ctx.font = "bold 22px 'Playfair Display', Georgia, 'Times New Roman', serif";
+      ctx.fillStyle = textColor;
+      const venueLines = wrapText(ctx, venue, cardWidth - 140);
+      for (const vl of venueLines) {
+        ctx.fillText(vl, centerX, currentY);
+        currentY += 28;
+      }
+    }
+
+    if (address) {
+      ctx.font = "16px 'Inter', 'Segoe UI', Arial, sans-serif";
+      ctx.fillStyle = secondaryColor;
+      const addrLines = wrapText(ctx, address, cardWidth - 160);
+      for (const al of addrLines) {
+        ctx.fillText(al, centerX, currentY);
+        currentY += 24;
+      }
+    }
+
+    // H) Bottom RSVP Callout (92% from card top)
+    const bottomY = cardY + cardHeight - 55;
+    ctx.font = "bold 13px 'Montserrat', 'Inter', 'Segoe UI', sans-serif";
+    ctx.fillStyle = accentColor;
+    ctx.fillText("PLEASE VIEW DETAILS & RSVP BELOW", centerX, bottomY);
+
+    ctx.restore();
+  }
 
   ctx.restore();
 

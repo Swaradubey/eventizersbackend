@@ -3,6 +3,7 @@ const eventService = require("../services/event.service");
 const guestService = require("../services/guest.service");
 const emailService = require("../services/email.service");
 const { saveBase64Image } = require("../utils/fileStorage");
+const prisma = require("../config/prisma");
 
 // Helper to validate and sanitize colors (hex, rgb/rgba, hsl/hsla, gradients, named colors)
 const isValidHexColor = (color) => {
@@ -253,6 +254,16 @@ const createInvitation = async (req, res) => {
         },
         userId
       );
+      if (cleanImageUrl) {
+        try {
+          await prisma.event.update({
+            where: { id: eventId },
+            data: { coverImage: cleanImageUrl },
+          });
+        } catch (syncErr) {
+          console.warn("Could not sync event coverImage:", syncErr.message);
+        }
+      }
       return res.status(200).json({
         success: true,
         message: "Invitation updated successfully.",
@@ -287,6 +298,17 @@ const createInvitation = async (req, res) => {
       },
       userId
     );
+
+    if (cleanImageUrl) {
+      try {
+        await prisma.event.update({
+          where: { id: eventId },
+          data: { coverImage: cleanImageUrl },
+        });
+      } catch (syncErr) {
+        console.warn("Could not sync event coverImage:", syncErr.message);
+      }
+    }
 
     return res.status(201).json({
       success: true,
@@ -395,6 +417,17 @@ const updateInvitation = async (req, res) => {
       },
       userId
     );
+
+    if (cleanImageUrl && existingInvitation.eventId) {
+      try {
+        await prisma.event.update({
+          where: { id: existingInvitation.eventId },
+          data: { coverImage: cleanImageUrl },
+        });
+      } catch (syncErr) {
+        console.warn("Could not sync event coverImage:", syncErr.message);
+      }
+    }
 
     return res.status(200).json({
       success: true,

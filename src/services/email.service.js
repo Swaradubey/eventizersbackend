@@ -417,7 +417,6 @@ const generateInvitationHtml = ({
     (qrCodeUrl.trim() === "cid:qrcode" || qrCodeUrl.trim().startsWith("cid:") || /^https:\/\//i.test(qrCodeUrl.trim()))
   );
   const safeQrCodeUrl = isValidQrUrl ? qrCodeUrl.trim() : null;
-
   return `
 <!DOCTYPE html>
 <html lang="en" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
@@ -425,6 +424,8 @@ const generateInvitationHtml = ({
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="color-scheme" content="light dark">
+  <meta name="supported-color-schemes" content="light dark">
   <title>${cleanTitle}</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700;800&display=swap');
@@ -460,61 +461,63 @@ const generateInvitationHtml = ({
         font-size: 22px !important;
       }
     }
+    @media (prefers-color-scheme: dark) {
+      .dark-bg { background-color: #0f172a !important; }
+      .dark-container { background-color: #1e293b !important; border-color: #334155 !important; }
+      .dark-text { color: #f8fafc !important; }
+      .dark-secondary { color: #94a3b8 !important; }
+      .dark-box { background-color: #0f172a !important; border-color: #334155 !important; }
+    }
+    [data-ogsc] .dark-bg { background-color: #0f172a !important; }
+    [data-ogsc] .dark-container { background-color: #1e293b !important; }
+    [data-ogsc] .dark-text { color: #f8fafc !important; }
+    [data-ogsc] .dark-secondary { color: #94a3b8 !important; }
   </style>
 </head>
-<body style="margin: 0; padding: 0; width: 100% !important; background-color: ${bodyBg}; font-family: ${fontStack}; color: ${primaryText}; line-height: 1.6;">
-  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="table-layout: fixed; background-color: ${bodyBg}; padding: 32px 12px;">
+<body class="dark-bg" style="margin: 0; padding: 0; width: 100% !important; background-color: ${bodyBg}; font-family: ${fontStack}; color: ${primaryText}; line-height: 1.6;">
+  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" class="dark-bg" style="table-layout: fixed; background-color: ${bodyBg}; padding: 24px 12px;">
     <tr>
       <td align="center">
         <!-- Main Card Container -->
-        <table role="presentation" class="email-container" align="center" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; width: 100%; background-color: ${containerBg}; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08); border: 1px solid ${metaBoxBorder};">
+        <table role="presentation" class="email-container dark-container" align="center" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 580px; width: 100%; background-color: ${containerBg}; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08); border: 1px solid ${metaBoxBorder};">
           
-          <!-- ─── TOP BADGE & CLEAN EVENT TITLE HEADER ─── -->
+          <!-- ─── TOP BADGE & CLEAN GREETING HEADER ─── -->
           <tr>
-            <td style="padding: 28px 24px 10px 24px; text-align: center;">
+            <td style="padding: 24px 24px 10px 24px; text-align: center;">
               <span style="display: inline-block; background-color: ${accent}15; color: ${accent}; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; padding: 6px 16px; border-radius: 30px; border: 1px solid ${accent}30;">
                 You're Cordially Invited
               </span>
-              ${senderName ? `
-              <p style="margin: 8px 0 4px 0; font-size: 13px; color: ${secondaryText}; font-weight: 500;">
-                From <strong style="color: ${primaryText};">${senderName}</strong>
-              </p>
-              ` : ""}
-              <h2 class="mobile-title" style="margin: 12px 0 6px 0; font-size: ${Math.min(28, titleSize || 24)}px; font-weight: ${fontWeight || "700"}; font-family: ${fontStack}; color: ${primaryText}; line-height: 1.3; text-align: center;">
-                ${cleanTitle}
-              </h2>
-              ${subtitle ? `
-              <p style="margin: 0 0 8px 0; font-size: 14px; font-weight: 500; color: ${secondaryText}; text-align: center;">
-                ${subtitle}
-              </p>
-              ` : ""}
               ${greetingText ? `
-              <p style="margin: 8px 0 0 0; font-size: 15px; font-weight: 600; color: ${accent}; text-align: center;">
+              <p class="dark-text" style="margin: 12px 0 0 0; font-size: 16px; font-weight: 600; color: ${primaryText}; text-align: center;">
                 ${greetingText}
+              </p>
+              ` : senderName ? `
+              <p class="dark-secondary" style="margin: 8px 0 0 0; font-size: 13px; color: ${secondaryText}; font-weight: 500;">
+                From <strong class="dark-text" style="color: ${primaryText};">${senderName}</strong>
               </p>
               ` : ""}
             </td>
           </tr>
 
-          <!-- ─── 1. FULL INVITATION SNAPSHOT CARD / BANNER CARD ─── -->
+          <!-- ─── 1. FULL INVITATION SNAPSHOT CARD (SINGLE HIGH-RES FLAT IMAGE) ─── -->
           ${imageUrl ? `
           <tr>
-            <td align="center" style="padding: 12px 16px 20px 16px;">
+            <td align="center" style="padding: 6px 16px 20px 16px;">
               <!--[if mso]>
-              <table role="presentation" align="center" border="0" cellspacing="0" cellpadding="0" width="520">
+              <table role="presentation" align="center" border="0" cellspacing="0" cellpadding="0" width="500">
               <tr>
-              <td align="center" valign="top" width="520">
+              <td align="center" valign="top" width="500">
               <![endif]-->
-              <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 0 auto; max-width: 520px;">
+              <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 0 auto; max-width: 500px;">
                 <tr>
-                  <td align="center" style="border-radius: 12px; overflow: hidden; background-color: ${cardIsDark ? "#1e293b" : "#f1f5f9"};">
+                  <td align="center" style="border-radius: 8px; overflow: hidden; background-color: ${cardIsDark ? "#0f172a" : "#f8fafc"};">
                     ${previewLink ? `<a href="${previewLink}" target="_blank" style="display: block; text-decoration: none; border: none; outline: none;">` : ""}
                       <img 
                         src="${imageUrl}" 
                         alt="${cleanAltText}" 
                         width="100%" 
                         border="0"
-                        style="display: block; max-width: 520px; width: 100%; height: auto; margin: 0 auto; border-radius: 12px; outline: none; border: none; text-decoration: none; -ms-interpolation-mode: bicubic;" 
+                        style="display: block; max-width: 500px; width: 100%; height: auto; margin: 0 auto; border-radius: 8px; outline: none; border: none; text-decoration: none; -ms-interpolation-mode: bicubic;" 
                       />
                     ${previewLink ? `</a>` : ""}
                   </td>
@@ -527,57 +530,31 @@ const generateInvitationHtml = ({
               <![endif]-->
             </td>
           </tr>
-          ${mainText ? `
-          <tr>
-            <td style="padding: 0 24px 12px 24px; text-align: center;">
-              <p style="margin: 0; font-size: 14px; color: ${secondaryText}; line-height: 1.6;">
-                ${mainText}
-              </p>
-            </td>
-          </tr>
-          ` : ""}
-          ${emailDescription ? `
-          <tr>
-            <td style="padding: 0 24px 12px 24px; text-align: center;">
-              <p style="margin: 0; font-size: 14px; color: ${secondaryText}; line-height: 1.6; font-style: italic;">
-                ${emailDescription}
-              </p>
-            </td>
-          </tr>
-          ` : ""}
-          ${hostName ? `
-          <tr>
-            <td style="padding: 0 24px 12px 24px; text-align: center;">
-              <p style="margin: 0; font-size: 14px; color: ${secondaryText}; line-height: 1.6; font-weight: 600;">
-                Hosted by: ${hostName}
-              </p>
-            </td>
-          </tr>
-          ` : ""}
           ` : `
           <!-- ─── FALLBACK THEMED CARD BANNER (WHEN NO IMAGE IS PROVIDED) ─── -->
           <tr>
             <td style="padding: 12px 24px 16px 24px;">
-              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: ${backgroundColor}; border-radius: 12px; padding: 24px 20px; text-align: ${textAlignment}; border: 1px solid ${metaBoxBorder}; box-shadow: 0 4px 12px rgba(0,0,0,0.04);">
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: ${backgroundColor}; border-radius: 8px; padding: 24px 20px; text-align: ${textAlignment}; border: 1px solid ${metaBoxBorder}; box-shadow: 0 4px 12px rgba(0,0,0,0.04);">
                 <tr>
                   <td align="${textAlignment}">
-                    <h3 style="margin: 0 0 8px 0; font-size: 18px; font-weight: 700; color: ${textColor}; font-family: ${fontStack};">
+                    <h3 style="margin: 0 0 8px 0; font-size: 20px; font-weight: 700; color: ${textColor}; font-family: ${fontStack};">
                       ${cleanTitle}
                     </h3>
+                    ${subtitle ? `
+                    <p style="margin: 0 0 8px 0; font-size: 14px; font-weight: 500; color: ${textColor}; opacity: 0.85;">
+                      ${subtitle}
+                    </p>
+                    ` : ""}
                     ${date ? `
-                    <p style="margin: 0 0 8px 0; font-size: 13px; font-weight: 600; color: ${accent};">
+                    <p style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600; color: ${accent};">
                       📅 ${date}${time ? ` at ${time}` : ""}
                     </p>
                     ` : ""}
-                    ${mainText ? `
-                    <p style="margin: 0; font-size: 14px; color: ${textColor}; opacity: 0.9; line-height: 1.6;">
-                      ${mainText}
+                    ${venue ? `
+                    <p style="margin: 0; font-size: 14px; color: ${textColor};">
+                      📍 ${venue}
                     </p>
-                    ` : `
-                    <p style="margin: 0; font-size: 14px; color: ${secondaryText}; line-height: 1.6;">
-                      You are cordially invited to join us for this special celebration!
-                    </p>
-                    `}
+                    ` : ""}
                   </td>
                 </tr>
               </table>
@@ -588,56 +565,56 @@ const generateInvitationHtml = ({
           <!-- ─── 2. CALL TO ACTION BUTTON ─── -->
           ${previewLink ? `
           <tr>
-            <td align="center" style="padding: 8px 24px 20px 24px;">
+            <td align="center" style="padding: 4px 24px 22px 24px;">
               <table role="presentation" border="0" cellspacing="0" cellpadding="0" align="center" style="margin: 0 auto;">
                 <tr>
                   <td align="center" style="border-radius: ${btnRadius}px; background-color: ${btnColor};">
                     <!--[if mso]>
-                    <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${previewLink}" style="height:50px;v-text-anchor:middle;width:260px;" arcsize="${Math.min(50, Math.round(btnRadius * 4))}%" stroke="f" fillcolor="${btnColor}">
+                    <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${previewLink}" style="height:52px;v-text-anchor:middle;width:280px;" arcsize="${Math.min(50, Math.round(btnRadius * 4))}%" stroke="f" fillcolor="${btnColor}">
                     <w:anchorlock/>
                     <center style="color:#ffffff;font-family:sans-serif;font-size:15px;font-weight:bold;">${safeButtonText}</center>
                     </v:roundrect>
                     <![endif]-->
                     <!--[if !mso]><!-- -->
-                    <a class="cta-button" href="${previewLink}" target="_blank" style="background-color: ${btnColor}; color: #ffffff; font-weight: 700; font-size: 15px; border-radius: ${btnRadius}px; padding: 14px 36px; text-decoration: none; display: inline-block; border: none; letter-spacing: 0.3px; box-shadow: 0 4px 16px ${btnColor}40; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+                    <a class="cta-button" href="${previewLink}" target="_blank" style="background-color: ${btnColor}; color: #ffffff; font-weight: 700; font-size: 15px; border-radius: ${btnRadius}px; padding: 14px 38px; text-decoration: none; display: inline-block; border: none; letter-spacing: 0.3px; box-shadow: 0 4px 16px ${btnColor}40; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
                       ${safeButtonText}
                     </a>
                     <!--<![endif]-->
                   </td>
                 </tr>
               </table>
-              <p style="margin: 10px 0 0 0; font-size: 12px; color: ${secondaryText};">
-                Click above to view full event details, add to calendar, and submit your RSVP.
+              <p class="dark-secondary" style="margin: 10px 0 0 0; font-size: 12px; color: ${secondaryText}; text-align: center;">
+                Click above to view full event details and submit your RSVP online.
               </p>
             </td>
           </tr>
           ` : ""}
 
-          <!-- ─── 3. EVENT DETAILS SUMMARY BOX ─── -->
+          <!-- ─── 3. DYNAMIC EVENT DETAILS TABLE ─── -->
           ${(date || time || venue) ? `
           <tr>
             <td style="padding: 0 24px 20px 24px;">
-              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: ${metaBoxBg}; border-radius: 12px; padding: 16px 20px; border: 1px solid ${metaBoxBorder};">
+              <table role="presentation" class="dark-box" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: ${metaBoxBg}; border-radius: 12px; padding: 18px 20px; border: 1px solid ${metaBoxBorder};">
                 ${date ? `
                 <tr>
-                  <td width="28" style="vertical-align: middle; padding: 5px 0; font-size: 16px;">📅</td>
-                  <td style="font-size: 14px; color: ${primaryText}; padding: 5px 0; vertical-align: middle;">
+                  <td width="28" style="vertical-align: middle; padding: 6px 0; font-size: 16px;">📅</td>
+                  <td class="dark-text" style="font-size: 14px; color: ${primaryText}; padding: 6px 0; vertical-align: middle;">
                     <strong style="color: ${accent}; font-weight: 600;">Date:</strong> <span style="font-weight: 500;">${date}</span>
                   </td>
                 </tr>
                 ` : ""}
                 ${time ? `
                 <tr>
-                  <td width="28" style="vertical-align: middle; padding: 5px 0; font-size: 16px;">⏰</td>
-                  <td style="font-size: 14px; color: ${primaryText}; padding: 5px 0; vertical-align: middle;">
+                  <td width="28" style="vertical-align: middle; padding: 6px 0; font-size: 16px;">⏰</td>
+                  <td class="dark-text" style="font-size: 14px; color: ${primaryText}; padding: 6px 0; vertical-align: middle;">
                     <strong style="color: ${accent}; font-weight: 600;">Time:</strong> <span style="font-weight: 500;">${time}</span>
                   </td>
                 </tr>
                 ` : ""}
                 ${venue ? `
                 <tr>
-                  <td width="28" style="vertical-align: middle; padding: 5px 0; font-size: 16px;">📍</td>
-                  <td style="font-size: 14px; color: ${primaryText}; padding: 5px 0; vertical-align: middle;">
+                  <td width="28" style="vertical-align: middle; padding: 6px 0; font-size: 16px;">📍</td>
+                  <td class="dark-text" style="font-size: 14px; color: ${primaryText}; padding: 6px 0; vertical-align: middle;">
                     <strong style="color: ${accent}; font-weight: 600;">Location:</strong> <span style="font-weight: 500;">${venue}</span>
                   </td>
                 </tr>
@@ -649,14 +626,14 @@ const generateInvitationHtml = ({
                       <tr>
                         ${calendarLinkUrl ? `
                         <td style="padding: 4px 8px 4px 0;">
-                          <a href="${calendarLinkUrl}" target="_blank" style="display: inline-block; font-size: 12px; font-weight: 600; color: ${accent}; text-decoration: none; padding: 6px 12px; border-radius: 6px; background-color: ${accent}15; border: 1px solid ${accent}30;">
+                          <a href="${calendarLinkUrl}" target="_blank" style="display: inline-block; font-size: 12px; font-weight: 600; color: ${accent}; text-decoration: none; padding: 6px 14px; border-radius: 6px; background-color: ${accent}15; border: 1px solid ${accent}30;">
                             📅 Add to Calendar
                           </a>
                         </td>
                         ` : ""}
                         ${mapLinkUrl ? `
                         <td style="padding: 4px 0 4px 0;">
-                          <a href="${mapLinkUrl}" target="_blank" style="display: inline-block; font-size: 12px; font-weight: 600; color: ${accent}; text-decoration: none; padding: 6px 12px; border-radius: 6px; background-color: ${accent}15; border: 1px solid ${accent}30;">
+                          <a href="${mapLinkUrl}" target="_blank" style="display: inline-block; font-size: 12px; font-weight: 600; color: ${accent}; text-decoration: none; padding: 6px 14px; border-radius: 6px; background-color: ${accent}15; border: 1px solid ${accent}30;">
                             📍 Venue Directions
                           </a>
                         </td>
@@ -667,6 +644,36 @@ const generateInvitationHtml = ({
                 </tr>
                 ` : ""}
               </table>
+            </td>
+          </tr>
+          ` : ""}
+
+          ${mainText ? `
+          <tr>
+            <td style="padding: 0 24px 14px 24px; text-align: center;">
+              <p class="dark-secondary" style="margin: 0; font-size: 14px; color: ${secondaryText}; line-height: 1.6;">
+                ${mainText}
+              </p>
+            </td>
+          </tr>
+          ` : ""}
+
+          ${emailDescription ? `
+          <tr>
+            <td style="padding: 0 24px 14px 24px; text-align: center;">
+              <p class="dark-secondary" style="margin: 0; font-size: 14px; color: ${secondaryText}; line-height: 1.6; font-style: italic;">
+                ${emailDescription}
+              </p>
+            </td>
+          </tr>
+          ` : ""}
+
+          ${hostName ? `
+          <tr>
+            <td style="padding: 0 24px 14px 24px; text-align: center;">
+              <p class="dark-secondary" style="margin: 0; font-size: 13px; color: ${secondaryText}; line-height: 1.6; font-weight: 600;">
+                Hosted by: ${hostName}
+              </p>
             </td>
           </tr>
           ` : ""}
@@ -848,6 +855,7 @@ const sendInvitationEmails = async ({
       eventMapImageUrl = await getMapTileUrlForLocation(event?.address || eventVenue);
     } catch (_) {}
   }
+
   const title = invitation?.title || event?.title || "Special Event Invitation";
   const subtitle = invitation?.subtitle || "";
   const mainText = invitation?.mainText || event?.description || "";
@@ -871,67 +879,131 @@ const sendInvitationEmails = async ({
   const invitationTargetId = invitation?.id || invitation?.eventId || event?.id;
   const previewLink = `${baseUrl}/invitation/${invitationTargetId}`;
 
-  // ─── Direct Backend PNG Card Generation (No client-side html2canvas) ───
+  // ─── RESOLVE INVITATION CARD IMAGE SNAPSHOT OR BACKEND RENDER ───
   let invitationCardPngBuffer = null;
   let htmlCardImageSrc = null;
 
-  try {
-    invitationCardPngBuffer = await renderInvitationCardPng({
-      invitation,
-      event,
-      options,
-    });
-    if (invitationCardPngBuffer && invitationCardPngBuffer.length > 0) {
-      console.log(`[EmailService] Generated backend composite PNG card (${(invitationCardPngBuffer.length / 1024).toFixed(1)} KB)`);
+  // 1. Priority: Check if client-side designer provided a Base64 snapshot
+  const rawBase64Candidate =
+    (typeof cardImageBase64 === "string" && cardImageBase64.trim()) ||
+    (typeof snapshot === "string" && (snapshot.startsWith("data:") || snapshot.length > 300) && snapshot.trim()) ||
+    (typeof snapshotUrl === "string" && (snapshotUrl.startsWith("data:") || snapshotUrl.length > 300) && snapshotUrl.trim()) ||
+    (typeof cardSnapshotUrl === "string" && (cardSnapshotUrl.startsWith("data:") || cardSnapshotUrl.length > 300) && cardSnapshotUrl.trim()) ||
+    null;
 
-      // If Cloudinary / cloud storage is configured, attempt uploading to get a public HTTPS URL (Option 2a)
-      try {
-        const { uploadToCloudinary } = require("../utils/fileStorage");
-        if (typeof uploadToCloudinary === "function") {
-          const cloudUrl = await uploadToCloudinary(invitationCardPngBuffer, `invitation_${invitationTargetId}.png`);
-          if (cloudUrl && /^https:\/\//i.test(cloudUrl)) {
-            htmlCardImageSrc = cloudUrl;
-            console.log(`[EmailService] Uploaded backend PNG card to cloud storage: ${cloudUrl}`);
+  if (rawBase64Candidate) {
+    try {
+      const cleanBase64 = rawBase64Candidate.replace(/^data:image\/\w+;base64,/, "");
+      const buf = Buffer.from(cleanBase64, "base64");
+      if (buf && buf.length > 500) {
+        invitationCardPngBuffer = buf;
+        console.log(`[EmailService] Loaded designer card PNG snapshot from client payload (${(buf.length / 1024).toFixed(1)} KB)`);
+
+        // Attempt Cloudinary upload if configured (Option 2a)
+        try {
+          const { uploadToCloudinary } = require("../utils/fileStorage");
+          if (typeof uploadToCloudinary === "function") {
+            const cloudUrl = await uploadToCloudinary(buf, `invitation_${invitationTargetId}.png`);
+            if (cloudUrl && /^https:\/\//i.test(cloudUrl)) {
+              htmlCardImageSrc = cloudUrl;
+              console.log(`[EmailService] Uploaded designer PNG snapshot to cloud storage: ${cloudUrl}`);
+            }
           }
+        } catch (cloudErr) {
+          console.warn("[EmailService] Cloud storage upload skipped:", cloudErr.message);
         }
-      } catch (cloudErr) {
-        console.warn("[EmailService] Cloud storage upload skipped:", cloudErr.message);
-      }
 
-      // Default to inline CID attachment if no cloud URL (Option 2b)
-      if (!htmlCardImageSrc) {
-        htmlCardImageSrc = "cid:invitation_card";
+        // If no cloud URL, use inline CID attachment (Option 2b)
+        if (!htmlCardImageSrc) {
+          htmlCardImageSrc = "cid:invitation_card";
+        }
       }
+    } catch (b64Err) {
+      console.warn("[EmailService] Failed to parse base64 snapshot:", b64Err.message);
     }
-  } catch (renderErr) {
-    console.warn("[EmailService] Failed backend PNG card render, attempting fallback:", renderErr.message);
   }
 
-  // Fallback: If backend rendering failed or public URL is explicitly requested
-  if (!htmlCardImageSrc) {
-    const candidateImages = [
+  // 2. Priority: If no buffer yet, check if snapshotUrl or cardSnapshotUrl points to a local file on disk or valid public URL
+  if (!invitationCardPngBuffer) {
+    const candidateFiles = [
       snapshotUrl,
       cardSnapshotUrl,
       invitation?.imageUrl,
-      invitation?.bannerUrl,
       invitation?.coverImage,
-      invitation?.designData?.previewUrl,
-      invitation?.designData?.imageUrl,
-      event?.imageUrl,
       event?.coverImage,
-      event?.bannerUrl,
-      event?.thumbnailUrl,
-      options?.bannerUrl,
     ];
 
-    for (const candidate of candidateImages) {
-      if (candidate && typeof candidate === "string" && candidate.trim()) {
-        const resolved = resolvePublicImageUrl(candidate, trackBase, baseUrl);
-        if (resolved) {
-          htmlCardImageSrc = resolved;
-          break;
+    for (const cand of candidateFiles) {
+      if (cand && typeof cand === "string" && cand.trim()) {
+        const localPath = findLocalFilePath(cand);
+        if (localPath && fs.existsSync(localPath)) {
+          try {
+            const fileBuf = fs.readFileSync(localPath);
+            if (fileBuf && fileBuf.length > 500) {
+              invitationCardPngBuffer = fileBuf;
+              console.log(`[EmailService] Loaded card image from local file: ${localPath} (${(fileBuf.length / 1024).toFixed(1)} KB)`);
+
+              // Try Cloudinary
+              try {
+                const { uploadToCloudinary } = require("../utils/fileStorage");
+                if (typeof uploadToCloudinary === "function") {
+                  const cloudUrl = await uploadToCloudinary(fileBuf, `invitation_${invitationTargetId}.png`);
+                  if (cloudUrl && /^https:\/\//i.test(cloudUrl)) {
+                    htmlCardImageSrc = cloudUrl;
+                    console.log(`[EmailService] Uploaded local card file to cloud storage: ${cloudUrl}`);
+                  }
+                }
+              } catch (_) {}
+
+              if (!htmlCardImageSrc) {
+                htmlCardImageSrc = "cid:invitation_card";
+              }
+              break;
+            }
+          } catch (readErr) {
+            console.warn("[EmailService] Error reading local card file:", readErr.message);
+          }
+        } else {
+          // Check if candidate is already a direct, valid public HTTPS URL
+          const publicUrl = resolvePublicImageUrl(cand, trackBase, baseUrl);
+          if (publicUrl) {
+            htmlCardImageSrc = publicUrl;
+            break;
+          }
         }
       }
+    }
+  }
+
+  // 3. Priority: Fallback to composite card render via backend cardRenderer service
+  if (!invitationCardPngBuffer && !htmlCardImageSrc) {
+    try {
+      invitationCardPngBuffer = await renderInvitationCardPng({
+        invitation,
+        event,
+        options,
+      });
+      if (invitationCardPngBuffer && invitationCardPngBuffer.length > 0) {
+        console.log(`[EmailService] Generated backend composite PNG card (${(invitationCardPngBuffer.length / 1024).toFixed(1)} KB)`);
+
+        try {
+          const { uploadToCloudinary } = require("../utils/fileStorage");
+          if (typeof uploadToCloudinary === "function") {
+            const cloudUrl = await uploadToCloudinary(invitationCardPngBuffer, `invitation_${invitationTargetId}.png`);
+            if (cloudUrl && /^https:\/\//i.test(cloudUrl)) {
+              htmlCardImageSrc = cloudUrl;
+              console.log(`[EmailService] Uploaded backend PNG card to cloud storage: ${cloudUrl}`);
+            }
+          }
+        } catch (cloudErr) {
+          console.warn("[EmailService] Cloud storage upload skipped:", cloudErr.message);
+        }
+
+        if (!htmlCardImageSrc) {
+          htmlCardImageSrc = "cid:invitation_card";
+        }
+      }
+    } catch (renderErr) {
     }
   }
 
