@@ -3,6 +3,7 @@ const path = require("path");
 const fs = require("fs");
 const crypto = require("crypto");
 const QRCode = require("qrcode");
+const { renderInvitationCardPng } = require("./cardRenderer.service");
 const {
   saveBase64Image,
   findLocalFilePath,
@@ -85,7 +86,7 @@ const getTransporter = async () => {
 /**
  * Send email via Resend API (HTTP POST)
  */
-const sendViaResend = async ({ recipients, subject, html, from }) => {
+const sendViaResend = async ({ recipients, subject, html, from, attachments }) => {
   const apiKey = process.env.RESEND_API_KEY;
   let fromAddress = from;
   if (!process.env.EMAIL_FROM && !process.env.SMTP_FROM) {
@@ -93,18 +94,29 @@ const sendViaResend = async ({ recipients, subject, html, from }) => {
   }
 
   try {
+    const payload = {
+      from: fromAddress,
+      to: recipients,
+      subject: subject,
+      html: html,
+    };
+
+    if (Array.isArray(attachments) && attachments.length > 0) {
+      payload.attachments = attachments.map((a) => ({
+        filename: a.filename,
+        content: Buffer.isBuffer(a.content) ? a.content.toString("base64") : a.content,
+        cid: a.cid,
+        content_type: a.contentType,
+      }));
+    }
+
     const response = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        from: fromAddress,
-        to: recipients,
-        subject: subject,
-        html: html,
-      }),
+      body: JSON.stringify(payload),
     });
 
     const data = await response.json();
@@ -149,11 +161,12 @@ const isDarkColor = (hex) => {
 };
 
 /**
- * Safely parse and process a cover image or snapshot URL into an absolute public HTTPS/HTTP URL
+ * Safely parse and process a cover image, banner, or static asset into a direct, publicly accessible HTTPS URL.
+ * Email clients (Gmail, Outlook, Apple Mail) strictly block local paths, relative assets, and base64 data URIs.
  * @param {string} coverImage - The cover image string from event or invitation
- * @param {string} backendBaseUrl - Backend or API base URL
- * @param {string} frontendBaseUrl - Frontend application base URL
- * @returns {string|null}
+ * @param {string} [backendBaseUrl] - Backend or API base URL
+ * @param {string} [frontendBaseUrl] - Frontend application base URL
+ * @returns {string|null} - Direct public HTTPS URL or null if invalid/local
  */
 const resolvePublicImageUrl = (
   coverImage,
@@ -164,22 +177,48 @@ const resolvePublicImageUrl = (
     return null;
   }
 
-  const trimmed = coverImage.trim();
+  let trimmed = coverImage.trim();
   if (!trimmed || trimmed === "undefined" || trimmed === "null") {
     return null;
   }
 
-  // 1. Reject raw Base64 data URIs — Gmail, Outlook, Yahoo strip/block inline Base64 images
+  // 1. Strictly reject Base64 data URIs — email clients (Gmail, Outlook) block them
   if (trimmed.startsWith("data:")) {
     return null;
   }
 
-  // 2. Reject temporary client-side blob URLs or local file protocol URIs
-  if (trimmed.startsWith("blob:") || trimmed.startsWith("file:")) {
+  // 2. Reject temporary client-side blob URLs, local file protocols, and CID references for static images
+  if (trimmed.startsWith("blob:") || trimmed.startsWith("file:") || trimmed.startsWith("cid:")) {
     return null;
   }
 
-  // 3. If image URL contains localhost or dev ports (5000, 3000), external email clients cannot reach it
+  // 3. Reject local Windows or Unix file paths (e.g., C:\..., /Users/..., ./...)
+  if (/^([a-zA-Z]:[\\\/]|\/|\.\/|\.\.\/)/.test(trimmed)) {
+    // If it's a relative upload path like /uploads/..., check if a real public CDN/Storage URL is configured
+    if (trimmed.startsWith("/uploads/") || trimmed.startsWith("uploads/")) {
+      const cleanUploadPath = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+      const publicCdn = (
+        process.env.PUBLIC_STORAGE_URL ||
+        process.env.PUBLIC_CDN_URL ||
+        process.env.CLOUDINARY_URL ||
+        process.env.AWS_S3_PUBLIC_URL ||
+        ""
+      ).replace(/\/+$/, "");
+
+      if (
+        publicCdn &&
+        /^https:\/\//i.test(publicCdn) &&
+        !publicCdn.includes("localhost") &&
+        !publicCdn.includes("127.0.0.1") &&
+        !publicCdn.includes("your-backend.vercel.app")
+      ) {
+        return `${publicCdn}${cleanUploadPath}`;
+      }
+    }
+    return null;
+  }
+
+  // 4. Reject URLs containing localhost or dev ports (5000, 3000)
   if (
     trimmed.includes("localhost") ||
     trimmed.includes("127.0.0.1") ||
@@ -189,21 +228,32 @@ const resolvePublicImageUrl = (
     return null;
   }
 
-  // 4. If URL points to /uploads/ on vercel without CDN, check if it's local only
-  if (trimmed.includes("vercel.app/uploads/") || trimmed.includes("eventizersbackend.vercel.app")) {
-    // Vercel serverless has ephemeral storage; uploads made locally or on serverless are not persistent public URLs
+  // 5. Reject known broken/serverless Vercel upload paths (local disk uploads not present on Vercel)
+  if (
+    trimmed.includes("eventizersbackend.vercel.app/uploads/") ||
+    trimmed.includes("your-backend.vercel.app") ||
+    trimmed.includes("example.com")
+  ) {
     return null;
   }
 
-  // 5. Full HTTPS/HTTP URL (e.g. Cloudinary, AWS S3, Supabase, Firebase, CDN, Unsplash)
-  if (/^https?:\/\//i.test(trimmed)) {
+  // 6. If it's an HTTP URL on a public domain, upgrade to HTTPS to avoid mixed-content blocking
+  if (/^http:\/\//i.test(trimmed)) {
+    trimmed = trimmed.replace(/^http:\/\//i, "https://");
+  }
+
+  // 7. Validate as a direct, publicly accessible HTTPS URL
+  if (/^https:\/\//i.test(trimmed)) {
     try {
       const parsed = new URL(trimmed);
       if (
         parsed.hostname === "localhost" ||
         parsed.hostname === "127.0.0.1" ||
+        parsed.hostname === "0.0.0.0" ||
         parsed.port === "5000" ||
-        parsed.port === "3000"
+        parsed.port === "3000" ||
+        parsed.hostname.includes("example.com") ||
+        parsed.hostname.includes("placeholder")
       ) {
         return null;
       }
@@ -339,22 +389,34 @@ const generateInvitationHtml = ({
   } else if (fontFamily === "Inter" || fontFamily === "Poppins" || fontFamily === "sans-serif") {
     fontStack = "'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
   }
-
-  // Strict validation: Guard to ensure image src is valid for email clients
-  // ONLY allow valid HTTPS/HTTP URLs and CID references — reject raw Base64 data URIs and blob URLs
+  // Validation: Accept direct public HTTPS URLs OR inline MIME Content-ID attachments (cid:invitation_card)
   const isValidImageUrl = Boolean(
     cardImageSrc &&
     typeof cardImageSrc === "string" &&
     cardImageSrc.trim() !== "" &&
     cardImageSrc !== "undefined" &&
     cardImageSrc !== "null" &&
-    !cardImageSrc.startsWith("/") &&
-    !cardImageSrc.startsWith("blob:") &&
-    !cardImageSrc.startsWith("file:") &&
+    !cardImageSrc.trim().startsWith("blob:") &&
     !cardImageSrc.trim().startsWith("data:") &&
-    (/^https?:\/\//i.test(cardImageSrc.trim()) || cardImageSrc.trim().startsWith("cid:"))
+    !cardImageSrc.trim().startsWith("file:") &&
+    (
+      cardImageSrc.trim().startsWith("cid:") ||
+      /^https:\/\//i.test(cardImageSrc.trim())
+    )
   );
   const imageUrl = isValidImageUrl ? cardImageSrc.trim() : null;
+
+  // Strict QR code validation: accepts reliable public QR API URL (https://...) OR inline MIME attachment (cid:qrcode)
+  const isValidQrUrl = Boolean(
+    qrCodeUrl &&
+    typeof qrCodeUrl === "string" &&
+    qrCodeUrl.trim() !== "" &&
+    !qrCodeUrl.trim().startsWith("data:") &&
+    !qrCodeUrl.trim().startsWith("blob:") &&
+    !qrCodeUrl.trim().startsWith("file:") &&
+    (qrCodeUrl.trim() === "cid:qrcode" || qrCodeUrl.trim().startsWith("cid:") || /^https:\/\//i.test(qrCodeUrl.trim()))
+  );
+  const safeQrCodeUrl = isValidQrUrl ? qrCodeUrl.trim() : null;
 
   return `
 <!DOCTYPE html>
@@ -401,11 +463,11 @@ const generateInvitationHtml = ({
   </style>
 </head>
 <body style="margin: 0; padding: 0; width: 100% !important; background-color: ${bodyBg}; font-family: ${fontStack}; color: ${primaryText}; line-height: 1.6;">
-  <table border="0" cellpadding="0" cellspacing="0" width="100%" style="table-layout: fixed; background-color: ${bodyBg}; padding: 32px 12px;">
+  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="table-layout: fixed; background-color: ${bodyBg}; padding: 32px 12px;">
     <tr>
       <td align="center">
         <!-- Main Card Container -->
-        <table class="email-container" align="center" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; width: 100%; background-color: ${containerBg}; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08); border: 1px solid ${metaBoxBorder};">
+        <table role="presentation" class="email-container" align="center" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; width: 100%; background-color: ${containerBg}; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08); border: 1px solid ${metaBoxBorder};">
           
           <!-- ─── TOP BADGE & CLEAN EVENT TITLE HEADER ─── -->
           <tr>
@@ -439,20 +501,20 @@ const generateInvitationHtml = ({
           <tr>
             <td align="center" style="padding: 12px 16px 20px 16px;">
               <!--[if mso]>
-              <table align="center" border="0" cellspacing="0" cellpadding="0" width="560">
+              <table role="presentation" align="center" border="0" cellspacing="0" cellpadding="0" width="520">
               <tr>
-              <td align="center" valign="top" width="560">
+              <td align="center" valign="top" width="520">
               <![endif]-->
-              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 0 auto; max-width: 560px;">
+              <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 0 auto; max-width: 520px;">
                 <tr>
                   <td align="center" style="border-radius: 12px; overflow: hidden; background-color: ${cardIsDark ? "#1e293b" : "#f1f5f9"};">
-                    ${previewLink ? `<a href="${previewLink}" target="_blank" style="display: block; text-decoration: none; border: 0; outline: none;">` : ""}
+                    ${previewLink ? `<a href="${previewLink}" target="_blank" style="display: block; text-decoration: none; border: none; outline: none;">` : ""}
                       <img 
                         src="${imageUrl}" 
                         alt="${cleanAltText}" 
-                        width="560" 
+                        width="100%" 
                         border="0"
-                        style="display: block; width: 100%; max-width: 560px; height: auto; margin: 0 auto; border-radius: 12px; border: 0; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic; font-family: ${fontStack}; font-size: 15px; font-weight: 600; color: ${primaryText}; line-height: 1.4; text-align: center;" 
+                        style="display: block; max-width: 520px; width: 100%; height: auto; margin: 0 auto; border-radius: 12px; outline: none; border: none; text-decoration: none; -ms-interpolation-mode: bicubic;" 
                       />
                     ${previewLink ? `</a>` : ""}
                   </td>
@@ -496,7 +558,7 @@ const generateInvitationHtml = ({
           <!-- ─── FALLBACK THEMED CARD BANNER (WHEN NO IMAGE IS PROVIDED) ─── -->
           <tr>
             <td style="padding: 12px 24px 16px 24px;">
-              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: ${backgroundColor}; border-radius: 12px; padding: 24px 20px; text-align: ${textAlignment}; border: 1px solid ${metaBoxBorder}; box-shadow: 0 4px 12px rgba(0,0,0,0.04);">
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: ${backgroundColor}; border-radius: 12px; padding: 24px 20px; text-align: ${textAlignment}; border: 1px solid ${metaBoxBorder}; box-shadow: 0 4px 12px rgba(0,0,0,0.04);">
                 <tr>
                   <td align="${textAlignment}">
                     <h3 style="margin: 0 0 8px 0; font-size: 18px; font-weight: 700; color: ${textColor}; font-family: ${fontStack};">
@@ -527,7 +589,7 @@ const generateInvitationHtml = ({
           ${previewLink ? `
           <tr>
             <td align="center" style="padding: 8px 24px 20px 24px;">
-              <table border="0" cellspacing="0" cellpadding="0" align="center" style="margin: 0 auto;">
+              <table role="presentation" border="0" cellspacing="0" cellpadding="0" align="center" style="margin: 0 auto;">
                 <tr>
                   <td align="center" style="border-radius: ${btnRadius}px; background-color: ${btnColor};">
                     <!--[if mso]>
@@ -555,7 +617,7 @@ const generateInvitationHtml = ({
           ${(date || time || venue) ? `
           <tr>
             <td style="padding: 0 24px 20px 24px;">
-              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: ${metaBoxBg}; border-radius: 12px; padding: 16px 20px; border: 1px solid ${metaBoxBorder};">
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: ${metaBoxBg}; border-radius: 12px; padding: 16px 20px; border: 1px solid ${metaBoxBorder};">
                 ${date ? `
                 <tr>
                   <td width="28" style="vertical-align: middle; padding: 5px 0; font-size: 16px;">📅</td>
@@ -583,7 +645,7 @@ const generateInvitationHtml = ({
                 ${(mapLinkUrl || calendarLinkUrl) ? `
                 <tr>
                   <td colspan="2" style="padding: 12px 0 4px 0; border-top: 1px dashed ${metaBoxBorder};">
-                    <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
                       <tr>
                         ${calendarLinkUrl ? `
                         <td style="padding: 4px 8px 4px 0;">
@@ -649,24 +711,38 @@ const generateInvitationHtml = ({
           ` : ""}
 
           <!-- ─── QR CODE BLOCK (IF ENABLED) ─── -->
-          ${qrCodeUrl ? `
+          ${safeQrCodeUrl ? `
           <tr>
             <td align="center" style="padding: 0 24px 24px 24px;">
-              <table border="0" cellpadding="0" cellspacing="0" style="background-color: #f8fafc; border-radius: 14px; padding: 20px 24px; border: 1px solid #e2e8f0; text-align: center; margin: 0 auto; width: 100%; max-width: 300px; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="background-color: #f8fafc; border-radius: 14px; padding: 20px 24px; border: 1px solid #e2e8f0; text-align: center; margin: 0 auto; width: 100%; max-width: 300px; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
                 <tr>
                   <td align="center">
                     <p style="margin: 0 0 12px 0; font-size: 15px; font-weight: 700; color: #1e293b; text-align: center; font-family: ${fontStack}; letter-spacing: -0.2px;">
                       Scan to RSVP & Check-In
                     </p>
-                    <table border="0" cellpadding="0" cellspacing="0" align="center" style="margin: 0 auto; background-color: #ffffff; padding: 8px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
+                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center" style="margin: 0 auto; background-color: #ffffff; padding: 8px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
                       <tr>
                         <td align="center">
                           ${(qrLinkUrl || previewLink) ? `
-                          <a href="${qrLinkUrl || previewLink}" target="_blank" style="display: block; text-decoration: none; border: 0; outline: none; cursor: pointer;">
-                            <img src="${qrCodeUrl}" alt="Scan QR Code to RSVP & Check-In" width="200" height="200" style="display: block; margin: 0 auto; border: 0; width: 200px; height: 200px; border-radius: 8px;" />
+                          <a href="${qrLinkUrl || previewLink}" target="_blank" style="display: block; text-decoration: none; border: none; outline: none; cursor: pointer;">
+                            <img 
+                              src="${safeQrCodeUrl}" 
+                              alt="Scan QR Code to RSVP & Check-In" 
+                              width="200" 
+                              height="200" 
+                              border="0"
+                              style="display: block; outline: none; border: none; text-decoration: none; width: 200px; height: 200px; margin: 0 auto; border-radius: 8px;" 
+                            />
                           </a>
                           ` : `
-                          <img src="${qrCodeUrl}" alt="Scan QR Code to RSVP & Check-In" width="200" height="200" style="display: block; margin: 0 auto; border: 0; width: 200px; height: 200px; border-radius: 8px;" />
+                          <img 
+                            src="${safeQrCodeUrl}" 
+                            alt="Scan QR Code to RSVP & Check-In" 
+                            width="200" 
+                            height="200" 
+                            border="0"
+                            style="display: block; outline: none; border: none; text-decoration: none; width: 200px; height: 200px; margin: 0 auto; border-radius: 8px;" 
+                          />
                           `}
                         </td>
                       </tr>
@@ -685,7 +761,7 @@ const generateInvitationHtml = ({
           ${(locationDetails && Object.values(locationDetails).some(v => v)) ? `
           <tr>
             <td style="padding: 16px 24px;">
-              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: ${metaBoxBg}; border: 1px solid ${metaBoxBorder}; border-radius: 8px; padding: 16px;">
+              <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: ${metaBoxBg}; border: 1px solid ${metaBoxBorder}; border-radius: 8px; padding: 16px;">
                 <tr>
                   <td>
                     <h4 style="margin: 0 0 12px 0; font-size: 15px; font-weight: 700; color: ${primaryText}; font-family: ${fontStack};">
@@ -711,7 +787,8 @@ const generateInvitationHtml = ({
           <tr>
             <td style="background-color: ${cardIsDark ? "#090d16" : "#f8fafc"}; padding: 20px 24px; text-align: center; border-top: 1px solid ${metaBoxBorder}; font-size: 12px; color: ${secondaryText}; line-height: 1.5;">
               <p style="margin: 0 0 4px 0;">Sent via <strong style="color: ${primaryText};">InviteHub</strong></p>
-              <p style="margin: 0; font-size: 11px; color: ${secondaryText};">If you have any questions, please contact your event host.</p>
+              <p style="margin: 0 0 4px 0; font-size: 11px; color: ${secondaryText};">You received this invitation on behalf of the event host.</p>
+              <p style="margin: 0; font-size: 11px; color: ${secondaryText};">If you have questions or wish to RSVP, please use the links above or reply to this email.</p>
             </td>
           </tr>
 
@@ -719,9 +796,9 @@ const generateInvitationHtml = ({
       </td>
     </tr>
   </table>
-  ${trackingPixelUrl && /^https?:\/\//i.test(trackingPixelUrl) ? `
+  ${trackingPixelUrl && /^https:\/\//i.test(trackingPixelUrl) ? `
   <!-- Invisible 1x1 Open Rate Tracking Pixel -->
-  <img src="${trackingPixelUrl}" width="1" height="1" alt="" style="display:none !important; width:0px !important; height:0px !important; max-height:0px !important; max-width:0px !important; opacity:0 !important; overflow:hidden !important; line-height:0 !important; font-size:0 !important; mso-hide:all !important;" />
+  <img src="${trackingPixelUrl}" width="1" height="1" border="0" alt="" style="display: block; outline: none; border: none; text-decoration: none; width: 1px !important; height: 1px !important; max-height: 0px !important; max-width: 0px !important; opacity: 0 !important; overflow: hidden !important; line-height: 0 !important; font-size: 0 !important; mso-hide: all !important;" />
   ` : ""}
 </body>
 </html>
@@ -794,206 +871,97 @@ const sendInvitationEmails = async ({
   const invitationTargetId = invitation?.id || invitation?.eventId || event?.id;
   const previewLink = `${baseUrl}/invitation/${invitationTargetId}`;
 
-  // ─── Image source resolution & CID inline attachment setup ───
-  // Strategy: ALWAYS prefer CID inline attachment for maximum email client
-  // compatibility. CID works in Gmail, Outlook, Yahoo, Apple Mail regardless
-  // of whether backend is on localhost or a public domain.
-  let resolvedCardImageSrc = null;
-  let localSnapshotFilePath = null;
-  let rawBase64ForCid = null; // Raw Base64 string for direct CID attachment
+  // ─── Direct Backend PNG Card Generation (No client-side html2canvas) ───
+  let invitationCardPngBuffer = null;
+  let htmlCardImageSrc = null;
 
-  // Collect all raw snapshot sources (prioritised)
-  const rawSnapshotInput = snapshot || cardImageBase64 || snapshotUrl || cardSnapshotUrl || null;
+  try {
+    invitationCardPngBuffer = await renderInvitationCardPng({
+      invitation,
+      event,
+      options,
+    });
+    if (invitationCardPngBuffer && invitationCardPngBuffer.length > 0) {
+      console.log(`[EmailService] Generated backend composite PNG card (${(invitationCardPngBuffer.length / 1024).toFixed(1)} KB)`);
 
-  // 1. Direct snapshot URL provided
-  const directSnapshotUrl = snapshotUrl || cardSnapshotUrl;
-  if (directSnapshotUrl && typeof directSnapshotUrl === "string" && directSnapshotUrl.trim()) {
-    const trimmedUrl = directSnapshotUrl.trim();
-    if (trimmedUrl.startsWith("data:") || (!trimmedUrl.startsWith("http") && !trimmedUrl.startsWith("/") && trimmedUrl.length > 300)) {
-      // It's actually Base64 data passed as snapshotUrl — save to disk for CID attachment
-      rawBase64ForCid = trimmedUrl;
+      // If Cloudinary / cloud storage is configured, attempt uploading to get a public HTTPS URL (Option 2a)
       try {
-        const savedRes = await saveBase64Image(trimmedUrl, null, "invitation_snapshot");
-        if (savedRes && savedRes.url) {
-          resolvedCardImageSrc = resolvePublicImageUrl(savedRes.url, trackBase, baseUrl);
-          if (savedRes.filePath && fs.existsSync(savedRes.filePath)) {
-            localSnapshotFilePath = savedRes.filePath;
+        const { uploadToCloudinary } = require("../utils/fileStorage");
+        if (typeof uploadToCloudinary === "function") {
+          const cloudUrl = await uploadToCloudinary(invitationCardPngBuffer, `invitation_${invitationTargetId}.png`);
+          if (cloudUrl && /^https:\/\//i.test(cloudUrl)) {
+            htmlCardImageSrc = cloudUrl;
+            console.log(`[EmailService] Uploaded backend PNG card to cloud storage: ${cloudUrl}`);
           }
         }
-      } catch (err) {
-        console.warn("[EmailService] Failed to save Base64 snapshot from snapshotUrl:", err.message);
+      } catch (cloudErr) {
+        console.warn("[EmailService] Cloud storage upload skipped:", cloudErr.message);
       }
-    } else {
-      resolvedCardImageSrc = resolvePublicImageUrl(trimmedUrl, trackBase, baseUrl);
-      const discoveredPath = findLocalFilePath(trimmedUrl);
-      if (discoveredPath) {
-        localSnapshotFilePath = discoveredPath;
-      }
-    }
-  }
 
-  // 2. Raw snapshot / Base64 provided directly
-  if (!localSnapshotFilePath && rawSnapshotInput && typeof rawSnapshotInput === "string" && rawSnapshotInput.trim()) {
-    const trimmedRaw = rawSnapshotInput.trim();
-    if (trimmedRaw.startsWith("data:") || (!trimmedRaw.startsWith("http") && !trimmedRaw.startsWith("/") && trimmedRaw.length > 300)) {
-      rawBase64ForCid = trimmedRaw;
-      try {
-        const savedRes = await saveBase64Image(trimmedRaw, null, "invitation_snapshot");
-        if (savedRes && savedRes.url) {
-          if (!resolvedCardImageSrc) {
-            resolvedCardImageSrc = resolvePublicImageUrl(savedRes.url, trackBase, baseUrl);
-          }
-          if (savedRes.filePath && fs.existsSync(savedRes.filePath)) {
-            localSnapshotFilePath = savedRes.filePath;
-          }
-        }
-      } catch (err) {
-        console.warn("[EmailService] Failed to save raw Base64 snapshot:", err.message);
+      // Default to inline CID attachment if no cloud URL (Option 2b)
+      if (!htmlCardImageSrc) {
+        htmlCardImageSrc = "cid:invitation_card";
       }
     }
+  } catch (renderErr) {
+    console.warn("[EmailService] Failed backend PNG card render, attempting fallback:", renderErr.message);
   }
 
-  // 3. Explicit cardImageBase64 field (may not have been caught above)
-  if (!localSnapshotFilePath && cardImageBase64 && typeof cardImageBase64 === "string" && cardImageBase64.trim()) {
-    rawBase64ForCid = cardImageBase64.trim();
-    try {
-      const savedRes = await saveBase64Image(cardImageBase64, null, "invitation_snapshot");
-      if (savedRes && savedRes.url) {
-        if (!resolvedCardImageSrc) {
-          resolvedCardImageSrc = resolvePublicImageUrl(savedRes.url, trackBase, baseUrl);
-        }
-        if (savedRes.filePath && fs.existsSync(savedRes.filePath)) {
-          localSnapshotFilePath = savedRes.filePath;
-        }
-      }
-    } catch (err) {
-      console.warn("[EmailService] Failed to save cardImageBase64 snapshot:", err.message);
-    }
-  }
+  // Fallback: If backend rendering failed or public URL is explicitly requested
+  if (!htmlCardImageSrc) {
+    const candidateImages = [
+      snapshotUrl,
+      cardSnapshotUrl,
+      invitation?.imageUrl,
+      invitation?.bannerUrl,
+      invitation?.coverImage,
+      invitation?.designData?.previewUrl,
+      invitation?.designData?.imageUrl,
+      event?.imageUrl,
+      event?.coverImage,
+      event?.bannerUrl,
+      event?.thumbnailUrl,
+      options?.bannerUrl,
+    ];
 
-  // 4. Fallback to event/invitation image across all possible fields if not already resolved
-  if (!resolvedCardImageSrc && !localSnapshotFilePath) {
-    const rawImage = (
-      invitation?.imageUrl ||
-      invitation?.cardImage ||
-      invitation?.coverImage ||
-      invitation?.templateUrl ||
-      invitation?.snapshotUrl ||
-      invitation?.bannerUrl ||
-      invitation?.designData?.previewUrl ||
-      invitation?.designData?.imageUrl ||
-      event?.imageUrl ||
-      event?.coverImage ||
-      event?.cardImage ||
-      event?.templateUrl ||
-      event?.snapshotUrl ||
-      event?.thumbnail ||
-      event?.thumbnailUrl ||
-      event?.uploadedFileUrl ||
-      event?.bannerUrl ||
-      event?.designData?.previewUrl ||
-      event?.designData?.imageUrl ||
-      null
-    );
-
-    if (rawImage && typeof rawImage === "string" && rawImage.trim()) {
-      if (rawImage.startsWith("data:")) {
-        rawBase64ForCid = rawImage;
-        try {
-          const savedRes = await saveBase64Image(rawImage, null, "event_cover");
-          if (savedRes && savedRes.url) {
-            resolvedCardImageSrc = resolvePublicImageUrl(savedRes.url, trackBase, baseUrl);
-            if (savedRes.filePath && fs.existsSync(savedRes.filePath)) {
-              localSnapshotFilePath = savedRes.filePath;
-            }
-          }
-        } catch (e) {}
-      } else {
-        resolvedCardImageSrc = resolvePublicImageUrl(rawImage, trackBase, baseUrl);
-        const discoveredPath = findLocalFilePath(rawImage);
-        if (discoveredPath) {
-          localSnapshotFilePath = discoveredPath;
+    for (const candidate of candidateImages) {
+      if (candidate && typeof candidate === "string" && candidate.trim()) {
+        const resolved = resolvePublicImageUrl(candidate, trackBase, baseUrl);
+        if (resolved) {
+          htmlCardImageSrc = resolved;
+          break;
         }
       }
     }
   }
 
   const displayTitle = getCleanDisplayTitle(title, event?.title || "Special Event");
-  const subject = event?.emailSubject || event?.email_subject || `✨ Invitation: ${displayTitle}`;
-  const from = process.env.EMAIL_FROM || process.env.SMTP_FROM || `"InviteHub Events" <no-reply@invitehub.com>`;
+  // Clean subject line without spam-trigger symbols or excessive emojis
+  const subject = event?.emailSubject || event?.email_subject || `Invitation: ${displayTitle}`;
 
-  // ─── Configure Nodemailer CID inline attachment ───
-  // ALWAYS use CID inline attachment when we have image data. CID works universally
-  // across all email clients. Public HTTPS URL is used as a secondary fallback only.
-  const attachments = [];
-  let htmlCardImageSrc = null;
-  const CID_IDENTIFIER = "invitationCard";
-
-  // Strategy A: Local file on disk → attach from file path (most reliable)
-  if (localSnapshotFilePath && fs.existsSync(localSnapshotFilePath)) {
-    const ext = path.extname(localSnapshotFilePath).toLowerCase().replace(".", "");
-    const mimeMap = {
-      png: "image/png",
-      jpg: "image/jpeg",
-      jpeg: "image/jpeg",
-      webp: "image/webp",
-      gif: "image/gif",
-      svg: "image/svg+xml",
-    };
-    const mimeType = mimeMap[ext] || "image/png";
-
-    try {
-      const stats = fs.statSync(localSnapshotFilePath);
-      if (stats.size > 100) {
-        attachments.push({
-          filename: `invitation-card.${ext || "png"}`,
-          path: localSnapshotFilePath,
-          cid: CID_IDENTIFIER,
-          contentType: mimeType,
-          contentDisposition: "inline",
-        });
-        htmlCardImageSrc = `cid:${CID_IDENTIFIER}`;
-        console.log(`[EmailService] CID attachment created from local file (${(stats.size / 1024).toFixed(1)} KB): ${localSnapshotFilePath}`);
-      }
-    } catch (e) {
-      console.warn("[EmailService] Error checking local file for CID:", e.message);
-    }
-
-  // Strategy B: Raw Base64 data available → attach directly as Base64 buffer
-  } else if (rawBase64ForCid) {
-    const cleanBase64 = rawBase64ForCid.replace(/^data:image\/\w+;base64,/, "");
-    if (cleanBase64 && cleanBase64.length > 100) {
-      let mimeType = "image/png";
-      const mimeMatch = rawBase64ForCid.match(/^data:(image\/[a-zA-Z0-9+-]+);base64,/);
-      if (mimeMatch && mimeMatch[1]) {
-        mimeType = mimeMatch[1];
-      }
-      const extMap = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/gif": "gif" };
-      const ext = extMap[mimeType] || "png";
-
-      attachments.push({
-        filename: `invitation-card.${ext}`,
-        content: cleanBase64,
-        encoding: "base64",
-        cid: CID_IDENTIFIER,
-        contentType: mimeType,
-        contentDisposition: "inline",
-      });
-
-      htmlCardImageSrc = `cid:${CID_IDENTIFIER}`;
-      console.log(`[EmailService] CID attachment created from raw Base64 (${(cleanBase64.length / 1024).toFixed(1)} KB)`);
-    }
+  // ─── Sender and From Address Formatting for Spam Prevention ───
+  // When using Gmail SMTP, the From address MUST align with the authenticated account (SMTP_USER)
+  // to pass SPF and DKIM verification, which prevents Gmail from routing messages to Spam.
+  const smtpUser = (process.env.SMTP_USER || "swarakri783@gmail.com").trim();
+  let cleanFromEmail = (process.env.EMAIL_FROM || process.env.SMTP_FROM || smtpUser).trim();
+  const extractedEmailMatch = cleanFromEmail.match(/<([^>]+)>/);
+  if (extractedEmailMatch) {
+    cleanFromEmail = extractedEmailMatch[1].trim();
   }
 
-  // Strategy C: No local file or Base64 — fall back to verified public HTTPS URL only
-  if (!htmlCardImageSrc && resolvedCardImageSrc && /^https?:\/\//i.test(resolvedCardImageSrc) && !resolvedCardImageSrc.includes("localhost") && !resolvedCardImageSrc.includes("127.0.0.1") && !resolvedCardImageSrc.includes(":5000") && !resolvedCardImageSrc.includes(":3000")) {
-    htmlCardImageSrc = resolvedCardImageSrc;
-    console.log(`[EmailService] Using verified public HTTPS URL for email image: ${htmlCardImageSrc}`);
+  // Ensure Gmail SMTP domain alignment
+  if ((process.env.SMTP_HOST || "smtp.gmail.com").includes("gmail.com") && smtpUser && !cleanFromEmail.includes("@gmail.com")) {
+    cleanFromEmail = smtpUser;
   }
 
-  // Safety check: if htmlCardImageSrc is CID but attachments is empty, set to null
-  if (htmlCardImageSrc && htmlCardImageSrc.startsWith("cid:") && attachments.length === 0) {
-    htmlCardImageSrc = null;
+  const senderDisplayName = senderName ? `${senderName} via InviteHub` : "InviteHub Events";
+  const from = `"${senderDisplayName}" <${cleanFromEmail}>`;
+  const replyTo = cleanFromEmail;
+
+  if (htmlCardImageSrc) {
+    console.log(`[EmailService] Using invitation card image source: ${htmlCardImageSrc}`);
+  } else {
+    console.log(`[EmailService] No card image source; email will render table-based themed card.`);
   }
 
   // SMTP transport
@@ -1019,7 +987,7 @@ const sendInvitationEmails = async ({
   let sentCount = 0;
   let lastMessageId = null;
 
-  console.log(`[EmailService] Preparing email dispatch for: "${displayTitle}", imageSrc: ${htmlCardImageSrc || "(fallback)"}, attachments: ${attachments.length}, recipients: ${normalizedRecipients.length}`);
+  console.log(`[EmailService] Preparing email dispatch for: "${displayTitle}", cardSrc: ${htmlCardImageSrc || "(themed card layout)"}, recipients: ${normalizedRecipients.length}`);
 
   // Dispatch individual emails with personalized tracking pixels and click tracking
   for (const recipient of normalizedRecipients) {
@@ -1050,9 +1018,21 @@ const sendInvitationEmails = async ({
       mapLinkUrl = `https://www.google.com/maps/search/?api=1&query=${query}`;
     }
 
+    // Dynamic QR code and card attachment generation
     let qrCodeUrl = null;
     let qrLinkUrl = previewLink;
-    const recipientAttachments = [...attachments];
+    const recipientInlineAttachments = [];
+
+    // Attach backend-rendered invitation card PNG directly as inline attachment
+    if (invitationCardPngBuffer && htmlCardImageSrc === "cid:invitation_card") {
+      recipientInlineAttachments.push({
+        filename: "invitation-card.png",
+        content: invitationCardPngBuffer,
+        cid: "invitation_card",
+        contentType: "image/png",
+        contentDisposition: "inline",
+      });
+    }
 
     if (options?.qrCode !== false) {
       const guestId = recipient.guestId || recipient.id;
@@ -1065,45 +1045,32 @@ const sendInvitationEmails = async ({
       }
       qrLinkUrl = checkInUrl;
 
-      // Fallback public URL — used only if buffer generation below fails
-      const encodedUrl = encodeURIComponent(checkInUrl);
-      const publicQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&margin=8&data=${encodedUrl}`;
-
-      try {
-        // Generate PNG Buffer and attach as CID inline so the <img src="cid:..."> in the HTML
-        // references it directly. Gmail, Outlook, Yahoo and Apple Mail all support CID inline
-        // images and will render this correctly — no proxy stripping, no external request needed.
-        const qrBuffer = await QRCode.toBuffer(checkInUrl, {
-          width: 250,
-          margin: 2,
-          errorCorrectionLevel: "M",
-          color: {
-            dark: "#000000",
-            light: "#ffffff",
-          },
-        });
-
-        if (qrBuffer && qrBuffer.length > 100) {
-          const qrCid = `rsvp-qr-${recipient.guestId || Date.now()}@invitehub.io`;
-          recipientAttachments.push({
-            filename: "rsvp-qr.png",
+      // Check if inline MIME attachment with Content-ID (cid:qrcode) is explicitly requested
+      if (options?.useCidQr) {
+        try {
+          const qrBuffer = await QRCode.toBuffer(checkInUrl, {
+            width: 200,
+            margin: 1,
+            errorCorrectionLevel: "M",
+            type: "png",
+          });
+          recipientInlineAttachments.push({
+            filename: "qrcode.png",
             content: qrBuffer,
-            cid: qrCid,
+            cid: "qrcode",
             contentType: "image/png",
             contentDisposition: "inline",
           });
-          // *** CRITICAL FIX: point the HTML <img src> at the CID, not the external URL ***
-          qrCodeUrl = `cid:${qrCid}`;
-          console.log(`[EmailService] QR CID attachment ready (${(qrBuffer.length / 1024).toFixed(1)} KB): ${qrCid}`);
-        } else {
-          // Buffer empty — fall back to public URL
-          qrCodeUrl = publicQrUrl;
-          console.warn("[EmailService] QR buffer was empty, falling back to public URL.");
+          qrCodeUrl = "cid:qrcode";
+        } catch (qrErr) {
+          console.warn("[EmailService] Failed to generate CID QR buffer, falling back to public QR API URL:", qrErr.message);
+          const encodedUrl = encodeURIComponent(checkInUrl);
+          qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodedUrl}`;
         }
-      } catch (qrErr) {
-        // Buffer generation failed — fall back to public URL
-        qrCodeUrl = publicQrUrl;
-        console.warn("[EmailService] Failed to generate QR buffer, falling back to public URL:", qrErr.message);
+      } else {
+        // Default: Generate dynamic QR code using reliable public QR API URL directly in HTML
+        const encodedUrl = encodeURIComponent(checkInUrl);
+        qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodedUrl}`;
       }
     }
 
@@ -1150,13 +1117,50 @@ const sendInvitationEmails = async ({
       textAlignment,
     });
 
+    // Deliverability: Generate a clean plain-text fallback (crucial for passing spam filter heuristics)
+    const plainTextContent = [
+      greetingText || `Hello ${recipient.name || "Guest"},`,
+      "",
+      `You're invited to: ${displayTitle}`,
+      subtitle ? `${subtitle}\n` : "",
+      mainText ? `${mainText}\n` : "",
+      eventDate ? `Date: ${eventDate}` : "",
+      eventTime ? `Time: ${eventTime}` : "",
+      eventVenue ? `Location: ${eventVenue}` : "",
+      hostName ? `Hosted by: ${hostName}` : "",
+      "",
+      "View full details and RSVP online:",
+      trackedPreviewLink || previewLink,
+      "",
+      "---",
+      "Sent via InviteHub Events",
+      `If you have questions, reply directly to: ${replyTo}`,
+      `To unsubscribe or manage invite preferences: mailto:${cleanFromEmail}?subject=Unsubscribe`,
+    ].filter(Boolean).join("\n");
+
     const mailOptions = {
       from,
       to: recipient.email,
+      replyTo,
       subject,
+      text: plainTextContent,
       html: htmlContent,
-      attachments: recipientAttachments.length > 0 ? recipientAttachments : undefined,
+      headers: {
+        "X-Mailer": "InviteHub Event Platform",
+        "X-Priority": "3", // Normal priority
+        "List-Unsubscribe": `<mailto:${cleanFromEmail}?subject=Unsubscribe>`,
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+      },
     };
+
+    // Attach inline attachments (e.g. cid:qrcode) or custom user attachments
+    const combinedAttachments = [
+      ...recipientInlineAttachments,
+      ...(Array.isArray(options?.attachments) ? options.attachments : []),
+    ];
+    if (combinedAttachments.length > 0) {
+      mailOptions.attachments = combinedAttachments;
+    }
 
     try {
       const info = await transporter.sendMail(mailOptions);
@@ -1181,7 +1185,8 @@ const sendInvitationEmails = async ({
     recipientCount: sentCount,
     messageId: lastMessageId,
     previewUrl: testMessageUrl,
-    snapshotUrl: resolvedCardImageSrc,
+    snapshotUrl: htmlCardImageSrc,
+    cardImageBuffer: invitationCardPngBuffer,
   };
 };
 
@@ -1491,6 +1496,7 @@ const sendEventReminderEmail = async ({ guest, event, reminderMessage, daysBefor
 module.exports = {
   sendInvitationEmails,
   generateInvitationHtml,
+  renderInvitationCardPng,
   sendNoShowPenaltyNoticeEmail,
   generateNoShowPenaltyNoticeHtml,
   sendEventReminderEmail,

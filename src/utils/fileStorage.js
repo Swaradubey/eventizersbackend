@@ -225,6 +225,85 @@ const findLocalFilePath = (imagePathOrUrl) => {
 };
 
 /**
+ * Extract Cloudinary credentials from CLOUDINARY_URL or explicit env vars
+ */
+const getCloudinaryConfig = () => {
+  if (process.env.CLOUDINARY_URL) {
+    try {
+      const parsed = new URL(process.env.CLOUDINARY_URL);
+      return {
+        cloudName: parsed.hostname,
+        apiKey: parsed.username,
+        apiSecret: parsed.password,
+      };
+    } catch (_) {}
+  }
+  if (process.env.CLOUDINARY_CLOUD_NAME) {
+    return {
+      cloudName: process.env.CLOUDINARY_CLOUD_NAME,
+      apiKey: process.env.CLOUDINARY_API_KEY || "",
+      apiSecret: process.env.CLOUDINARY_API_SECRET || "",
+      uploadPreset: process.env.CLOUDINARY_UPLOAD_PRESET || "",
+    };
+  }
+  return null;
+};
+
+/**
+ * Upload a buffer or base64 to Cloudinary
+ * @param {Buffer|string} fileBufferOrBase64
+ * @param {string} [filename]
+ * @param {string} [folder="invitehub"]
+ * @returns {Promise<string|null>} Secure HTTPS URL or null
+ */
+const uploadToCloudinary = async (fileBufferOrBase64, filename = "image", folder = "invitehub") => {
+  const config = getCloudinaryConfig();
+  if (!config || !config.cloudName) return null;
+
+  try {
+    const crypto = require("crypto");
+    const axios = require("axios");
+    const timestamp = Math.floor(Date.now() / 1000);
+    const endpoint = `https://api.cloudinary.com/v1_1/${config.cloudName}/image/upload`;
+
+    let fileData = fileBufferOrBase64;
+    if (Buffer.isBuffer(fileBufferOrBase64)) {
+      fileData = `data:image/png;base64,${fileBufferOrBase64.toString("base64")}`;
+    }
+
+    const payload = {
+      file: fileData,
+      folder,
+    };
+
+    if (config.apiKey && config.apiSecret) {
+      const paramsToSign = `folder=${folder}&timestamp=${timestamp}${config.apiSecret}`;
+      const signature = crypto.createHash("sha1").update(paramsToSign).digest("hex");
+      payload.timestamp = timestamp;
+      payload.api_key = config.apiKey;
+      payload.signature = signature;
+    } else if (config.uploadPreset) {
+      payload.upload_preset = config.uploadPreset;
+    } else {
+      return null;
+    }
+
+    const res = await axios.post(endpoint, payload, {
+      headers: { "Content-Type": "application/json" },
+      timeout: 15000,
+    });
+
+    if (res.data && res.data.secure_url) {
+      console.log(`[FileStorage] Uploaded image to Cloudinary: ${res.data.secure_url}`);
+      return res.data.secure_url;
+    }
+  } catch (err) {
+    console.warn(`[FileStorage] Cloudinary upload failed: ${err.response?.data?.error?.message || err.message}`);
+  }
+  return null;
+};
+
+/**
  * Save an uploaded file buffer to public static storage.
  * If a cloud storage provider is configured, the returned URL will be the direct public CDN URL.
  * @param {Object} file - Multer file object { buffer, mimetype, originalname }
@@ -235,6 +314,22 @@ const findLocalFilePath = (imagePathOrUrl) => {
 const saveUploadedFile = async (file, req, prefix = "upload") => {
   if (!file || !file.buffer) {
     throw new Error("No file buffer provided for upload.");
+  }
+
+  // Attempt Cloudinary upload first if configured
+  try {
+    const cloudinaryUrl = await uploadToCloudinary(file.buffer, file.originalname || `${prefix}.png`);
+    if (cloudinaryUrl) {
+      return {
+        success: true,
+        filename: path.basename(cloudinaryUrl),
+        filePath: "",
+        url: cloudinaryUrl,
+        fileUrl: cloudinaryUrl,
+      };
+    }
+  } catch (e) {
+    console.warn("[FileStorage] Cloudinary upload attempt error:", e.message);
   }
 
   if (!fs.existsSync(UPLOADS_DIR)) {
@@ -252,14 +347,6 @@ const saveUploadedFile = async (file, req, prefix = "upload") => {
 
   const baseUrl = getPublicBaseUrl(req);
   const fileUrl = `${baseUrl}/uploads/${filename}`;
-
-  // Warn if the generated URL is a localhost link (won't work in external email clients without CID)
-  try {
-    const parsed = new URL(fileUrl);
-    if (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1") {
-      console.warn(`[FileStorage] ⚠️  Generated localhost image URL: ${fileUrl} — will use CID inline attachment for email compatibility.`);
-    }
-  } catch (_) {}
 
   return {
     success: true,
@@ -297,6 +384,22 @@ const saveBase64Image = async (base64String, req, prefix = "snapshot") => {
     };
   }
 
+  // Attempt direct Cloudinary upload for base64 if configured
+  try {
+    const cloudinaryUrl = await uploadToCloudinary(trimmed, `${prefix}.png`);
+    if (cloudinaryUrl) {
+      return {
+        success: true,
+        filename: path.basename(cloudinaryUrl),
+        filePath: "",
+        url: cloudinaryUrl,
+        fileUrl: cloudinaryUrl,
+      };
+    }
+  } catch (e) {
+    console.warn("[FileStorage] Cloudinary base64 upload attempt error:", e.message);
+  }
+
   let mimeType = "image/png";
   let cleanBase64 = trimmed;
 
@@ -320,6 +423,8 @@ const saveBase64Image = async (base64String, req, prefix = "snapshot") => {
 module.exports = {
   saveUploadedFile,
   saveBase64Image,
+  uploadToCloudinary,
+  getCloudinaryConfig,
   getPublicBaseUrl,
   isValidPublicUrl,
   findLocalFilePath,

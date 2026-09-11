@@ -20,6 +20,7 @@
   "license": "ISC",
   "dependencies": {
     "@google/genai": "^2.10.0",
+    "@napi-rs/canvas": "^1.0.9",
     "@prisma/client": "^5.17.0",
     "@resvg/resvg-js": "^2.6.2",
     "axios": "^1.19.0",

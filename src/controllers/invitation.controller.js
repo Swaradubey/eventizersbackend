@@ -672,9 +672,8 @@ const sendInvitation = async (req, res) => {
       mapImageUrl: req.body.mapImageUrl || req.body.map_image_url || req.body.eventDetails?.mapImageUrl || event?.mapImageUrl || event?.map_image_url || "",
     };
 
-    // Send emails via Nodemailer service with personalized tracking pixel and CID inline card image
-    // Pass both the resolved URL and the raw snapshot data so the email service can
-    // create CID inline attachments directly from Base64 when public URLs are unavailable
+    // Send emails via Nodemailer service with personalized tracking pixel and hosted public card image
+    // Pass both resolved URL and raw snapshot data so email service can resolve public image URLs
     const sendResult = await emailService.sendInvitationEmails({
       recipients: resolvedGuests.length > 0 ? resolvedGuests : targetEmails,
       invitation,
@@ -843,8 +842,8 @@ const sendInvitationToGuests = async (req, res) => {
       mapImageUrl: req.body.mapImageUrl || req.body.map_image_url || req.body.eventDetails?.mapImageUrl || event?.mapImageUrl || event?.map_image_url || "",
     };
 
-    // Pass both resolved URL and raw snapshot data so email service can create
-    // CID inline attachments directly from Base64 when public URLs are unavailable
+    // Pass both resolved URL and raw snapshot data so email service can resolve
+    // hosted public URLs for the invitation card image
     const sendResult = await emailService.sendInvitationEmails({
       recipients: resolvedGuests.length > 0 ? resolvedGuests : targetEmails,
       invitation,
