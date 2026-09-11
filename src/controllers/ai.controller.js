@@ -700,52 +700,106 @@ Return a JSON object:
 };
 
 /**
- * Erases detected text blocks from an image buffer using Replicate LaMa Inpainting,
- * with adaptive local inpainting as an instant fallback.
+ * Helper to extract Buffer from various Replicate SDK output formats
+ * (URL string, ReadableStream, Blob, or object with url)
+ */
+async function extractBufferFromReplicateOutput(output) {
+  if (!output) return null;
+  if (typeof output === 'string') {
+    if (output.startsWith('http://') || output.startsWith('https://')) {
+      const fetchRes = await fetch(output);
+      return Buffer.from(await fetchRes.arrayBuffer());
+    }
+    return Buffer.from(output, 'base64');
+  }
+  if (typeof output.getReader === 'function') {
+    const reader = output.getReader();
+    const chunks = [];
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+    }
+    return Buffer.concat(chunks);
+  }
+  if (typeof output.blob === 'function') {
+    const blob = await output.blob();
+    return Buffer.from(await blob.arrayBuffer());
+  }
+  if (typeof output.url === 'function' || output.url) {
+    const u = typeof output.url === 'function' ? output.url() : output.url;
+    const fetchRes = await fetch(u);
+    return Buffer.from(await fetchRes.arrayBuffer());
+  }
+  return null;
+}
+
+/**
+ * Erases detected text blocks from an image buffer using Replicate AI models
+ * (FLUX Text-Removal & LaMa Inpainting), with adaptive local inpainting as fallback.
  */
 async function eraseTextFromImage(rawBase64, textBlocks, cardBgColor) {
   try {
-    const { createCanvas, loadImage } = require('@napi-rs/canvas');
-    const imgBuffer = Buffer.from(rawBase64, 'base64');
-    const img = await loadImage(imgBuffer);
-
-    // 1. If Replicate API Token is configured, use LaMa (Large Mask Inpainting) on GPU
     const replicateToken = process.env.REPLICATE_API_TOKEN;
-    if (replicateToken && replicateToken !== 'your_replicate_api_token') {
-      try {
-        console.log('Using Replicate LaMa model for high-resolution card inpainting...');
-        const Replicate = require('replicate');
-        const replicate = new Replicate({ auth: replicateToken });
 
-        // Generate binary mask (Black background = preserve artwork, Solid White = erase text)
+    // 1. Replicate AI Inpainting / Text Removal
+    if (replicateToken && replicateToken !== 'your_replicate_api_token') {
+      const Replicate = require('replicate');
+      const replicate = new Replicate({ auth: replicateToken });
+      const imgDataUri = `data:image/jpeg;base64,${rawBase64}`;
+
+      // Approach A: FLUX.1 Kontext Text-Removal (Erases ALL text seamlessly without rectangular box patches)
+      try {
+        console.log('[Replicate] Attempting FLUX.1 text-removal model...');
+        const fluxOutput = await replicate.run(
+          'flux-kontext-apps/text-removal:324855075a979ec21334c810d5a10eee201019169e5234fa4ce494dc58398442',
+          {
+            input: {
+              input_image: imgDataUri,
+              output_format: 'png',
+            },
+          }
+        );
+        const cleanBuf = await extractBufferFromReplicateOutput(fluxOutput);
+        if (cleanBuf && cleanBuf.length > 0) {
+          console.log(`[Replicate] FLUX text-removal success! Output size: ${cleanBuf.length} bytes`);
+          return `data:image/png;base64,${cleanBuf.toString('base64')}`;
+        }
+      } catch (fluxErr) {
+        console.warn('[Replicate] FLUX text-removal failed, trying LaMa inpainting:', fluxErr.message);
+      }
+
+      // Approach B: LaMa (Large Mask Inpainting) with generated mask
+      try {
+        const { createCanvas, loadImage } = require('@napi-rs/canvas');
+        const imgBuffer = Buffer.from(rawBase64, 'base64');
+        const img = await loadImage(imgBuffer);
+
         const maskCanvas = createCanvas(img.width, img.height);
         const maskCtx = maskCanvas.getContext('2d');
         maskCtx.fillStyle = '#000000';
         maskCtx.fillRect(0, 0, img.width, img.height);
-
         maskCtx.fillStyle = '#FFFFFF';
+
         const blocks = (textBlocks && textBlocks.length > 0)
           ? textBlocks
-          : [{ x: 0.5, y: 0.55, width: 0.85, height: 0.55 }];
+          : [{ x: 0.5, y: 0.55, width: 0.88, height: 0.55 }];
 
         for (const block of blocks) {
           const cx = (block.x || 0.5) * img.width;
           const cy = (block.y || 0.5) * img.height;
-          // Add generous padding around text to fully capture font ascenders/descenders & swashes
-          const bw = Math.min(img.width * 0.94, Math.max(img.width * 0.15, (block.width || 0.5) * img.width * 1.14));
+          const bw = Math.min(img.width * 0.94, Math.max(img.width * 0.15, (block.width || 0.5) * img.width * 1.15));
           const bh = Math.min(img.height * 0.20, Math.max(img.height * 0.035, (block.height || 0.04) * img.height * 1.35));
           const x0 = Math.max(0, Math.floor(cx - bw / 2));
           const y0 = Math.max(0, Math.floor(cy - bh / 2));
           const w = Math.min(img.width - x0, Math.ceil(bw));
           const h = Math.min(img.height - y0, Math.ceil(bh));
-
           maskCtx.fillRect(x0, y0, w, h);
         }
 
         const maskDataUri = `data:image/png;base64,${maskCanvas.toBuffer('image/png').toString('base64')}`;
-        const imgDataUri = `data:image/jpeg;base64,${rawBase64}`;
-
-        const output = await replicate.run(
+        console.log('[Replicate] Attempting LaMa model with generated mask...');
+        const lamaOutput = await replicate.run(
           'allenhooo/lama:cdac78a1bec5b23c07fd29692fb70baa513ea403a39e643c48ec5edadb15fe72',
           {
             input: {
@@ -754,43 +808,17 @@ async function eraseTextFromImage(rawBase64, textBlocks, cardBgColor) {
             },
           }
         );
-
-        let cleanBuf = null;
-        if (typeof output === 'string') {
-          if (output.startsWith('http://') || output.startsWith('https://')) {
-            const fetchRes = await fetch(output);
-            cleanBuf = Buffer.from(await fetchRes.arrayBuffer());
-          } else {
-            cleanBuf = Buffer.from(output, 'base64');
-          }
-        } else if (output && typeof output.getReader === 'function') {
-          const reader = output.getReader();
-          const chunks = [];
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            chunks.push(value);
-          }
-          cleanBuf = Buffer.concat(chunks);
-        } else if (output && typeof output.blob === 'function') {
-          const blob = await output.blob();
-          cleanBuf = Buffer.from(await blob.arrayBuffer());
-        } else if (output && (typeof output.url === 'function' || output.url)) {
-          const u = typeof output.url === 'function' ? output.url() : output.url;
-          const fetchRes = await fetch(u);
-          cleanBuf = Buffer.from(await fetchRes.arrayBuffer());
-        }
-
+        const cleanBuf = await extractBufferFromReplicateOutput(lamaOutput);
         if (cleanBuf && cleanBuf.length > 0) {
-          console.log(`Replicate LaMa inpainting complete! Output size: ${cleanBuf.length} bytes`);
-          return `data:image/jpeg;base64,${cleanBuf.toString('base64')}`;
+          console.log(`[Replicate] LaMa inpainting success! Output size: ${cleanBuf.length} bytes`);
+          return `data:image/png;base64,${cleanBuf.toString('base64')}`;
         }
-      } catch (repErr) {
-        console.warn('Replicate LaMa inpainting failed, falling back to local inpainting:', repErr.message);
+      } catch (lamaErr) {
+        console.warn('[Replicate] LaMa inpainting failed, falling back to local:', lamaErr.message);
       }
     }
 
-    // 2. Fallback: High-Precision Per-Line Adaptive Inpainter (Leaves all artwork & borders intact)
+    // 2. Fallback: High-Precision Per-Line Adaptive Inpainter
     const canvas = createCanvas(img.width, img.height);
     const ctx = canvas.getContext('2d');
     ctx.drawImage(img, 0, 0);
