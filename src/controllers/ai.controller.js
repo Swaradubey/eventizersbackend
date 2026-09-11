@@ -212,12 +212,12 @@ Match this exact JSON schema:
     "cardBorderColor": "hex (e.g. '#FF7043', '#D4AF37', '#D87A80', '#1E3A8A')",
     "artworkTheme": "string (must be one of: 'birthday_confetti', 'floral_arch', 'art_deco', 'corporate_summit', 'founders_connect', 'dinner_sunset', 'hibiscus_blooms', 'chicory_whispers', 'lovely_blossoms', 'elegant_lace', 'painted_petals', 'floral_elegance', 'limoncello')",
     "textElements": [
-      { "id": "header", "role": "header", "text": "YOU ARE CORDIALLY INVITED TO CELEBRATE", "y": 0.22, "fontSize": 12, "fontFamily": "Montserrat", "color": "#FF7043" },
-      { "id": "title", "role": "title", "text": "Event Title", "y": 0.38, "fontSize": 28, "fontFamily": "Great Vibes", "color": "#1E293B" },
-      { "id": "details", "role": "details", "text": "Warm invitation details or subtitle", "y": 0.48, "fontSize": 12, "fontFamily": "Playfair Display", "color": "#475569" },
-      { "id": "date", "role": "date", "text": "Saturday, October 24 at 4:00 PM", "y": 0.60, "fontSize": 14, "fontFamily": "Montserrat", "color": "#1E293B" },
-      { "id": "venue", "role": "venue", "text": "Grand Ballroom, Mumbai", "y": 0.72, "fontSize": 13, "fontFamily": "Playfair Display", "color": "#475569" },
-      { "id": "rsvp", "role": "rsvp", "text": "Kindly RSVP by Oct 18", "y": 0.84, "fontSize": 11, "fontFamily": "Montserrat", "color": "#94A3B8" }
+      { "id": "header", "role": "header", "text": "YOU ARE CORDIALLY INVITED TO CELEBRATE", "y": 0.22, "fontSize": 12, "fontFamily": "Inter", "color": "#FF7043" },
+      { "id": "title", "role": "title", "text": "Event Title", "y": 0.38, "fontSize": 28, "fontFamily": "Georgia", "color": "#1E293B" },
+      { "id": "details", "role": "details", "text": "Warm invitation details or subtitle", "y": 0.48, "fontSize": 12, "fontFamily": "Inter", "color": "#475569" },
+      { "id": "date", "role": "date", "text": "Saturday, October 24 at 4:00 PM", "y": 0.60, "fontSize": 14, "fontFamily": "Inter", "color": "#1E293B" },
+      { "id": "venue", "role": "venue", "text": "Grand Ballroom, Mumbai", "y": 0.72, "fontSize": 13, "fontFamily": "Inter", "color": "#475569" },
+      { "id": "rsvp", "role": "rsvp", "text": "Kindly RSVP by Oct 18", "y": 0.84, "fontSize": 11, "fontFamily": "Inter", "color": "#94A3B8" }
     ]
   }
 }
@@ -458,14 +458,16 @@ Match this exact JSON schema:
       textElements: Array.isArray(rawSD.textElements) && rawSD.textElements.length > 0
         ? rawSD.textElements
         : [
-            { id: 'header', role: 'header', text: 'YOU ARE CORDIALLY INVITED TO CELEBRATE', y: 0.22, fontSize: 12, fontFamily: 'Montserrat', color: accentColor },
-            { id: 'title', role: 'title', text: finalTitle, y: 0.38, fontSize: 28, fontFamily: 'Great Vibes', color: textColor },
-            { id: 'details', role: 'details', text: aiData.invitationText || aiData.description || 'Join us for a wonderful celebration!', y: 0.48, fontSize: 12, fontFamily: 'Playfair Display', color: '#475569' },
-            { id: 'date', role: 'date', text: `${finalDate} at ${finalStartTime}`, y: 0.60, fontSize: 14, fontFamily: 'Montserrat', color: textColor },
-            { id: 'venue', role: 'venue', text: finalVenue, y: 0.72, fontSize: 13, fontFamily: 'Playfair Display', color: '#475569' },
-            { id: 'rsvp', role: 'rsvp', text: 'Kindly RSVP by upcoming week', y: 0.84, fontSize: 11, fontFamily: 'Montserrat', color: '#94A3B8' }
+            { id: 'header', role: 'header', text: 'YOU ARE CORDIALLY INVITED TO CELEBRATE', y: 0.22, fontSize: 12, fontFamily: 'Inter', color: accentColor },
+            { id: 'title', role: 'title', text: finalTitle, y: 0.38, fontSize: 28, fontFamily: 'Georgia', color: textColor },
+            { id: 'details', role: 'details', text: aiData.invitationText || aiData.description || 'Join us for a wonderful celebration!', y: 0.48, fontSize: 12, fontFamily: 'Inter', color: '#475569' },
+            { id: 'date', role: 'date', text: `${finalDate} at ${finalStartTime}`, y: 0.60, fontSize: 14, fontFamily: 'Inter', color: textColor },
+            { id: 'venue', role: 'venue', text: finalVenue, y: 0.72, fontSize: 13, fontFamily: 'Inter', color: '#475569' },
+            { id: 'rsvp', role: 'rsvp', text: 'Kindly RSVP by upcoming week', y: 0.84, fontSize: 11, fontFamily: 'Inter', color: '#94A3B8' }
           ]
     };
+
+    const aiStationeryDesign = normalizedStationery;
 
     return res.status(201).json({
       success: true,
@@ -478,24 +480,14 @@ Match this exact JSON schema:
       guestList: [],
       ...aiData,
       title: finalTitle,
-      eventType: finalEventType,
-      date: finalDate,
-      startTime: finalStartTime,
-      endTime: finalEndTime,
-      isFullDay: finalIsFullDay,
-      venue: finalVenue,
-      estimatedGuestCount: finalGuestCount,
-      themePalette: palette,
-      accentColor: accentColor,
-      backgroundColor: backgroundColor,
-      textColor: textColor,
-      stationeryDesign: normalizedStationery,
+      description: aiData.description || 'Join us for a wonderful celebration!',
+      stationeryDesign: aiStationeryDesign,
     });
   } catch (error) {
-    console.error('AI Generation Error / Gemini failure:', error);
+    console.error("Autonomous AI event creation failed:", error);
     const code = classifyGeminiError(error);
 
-    // 429 — quota exhausted after retries
+    // 429 — rate limit / quota exceeded
     if (code === 429) {
       return res.status(429).json({
         error: 'Gemini service is temporarily unavailable. Please try again in a few moments.',
@@ -580,8 +572,8 @@ IMPORTANT COORDINATE & TYPOGRAPHY RULES:
 3. Group related multi-word lines together (e.g. Combine Day + Date + Time into one clean line: "Sunday, February 15, 2026 at 11 AM", RSVP details as one line: "Kindly RSVP - 7905262129").
 4. Ensure every text block has a distinct, well-spaced vertical 'y' position so they never overlap.
 5. width and height should be generous bounding box dimensions as fractions.
-6. fontSize estimate: large cursive/headings ~28-44, names ~22-30, subtext/dates ~14-18, small text ~12-14.
-7. fontFamily: cursive/script -> "Great Vibes", elegant serif -> "Playfair Display", modern clean -> "Montserrat".
+6. fontSize estimate: large headings/titles ~28-44, names ~22-30, subtext/dates ~14-18, small text ~12-14.
+7. fontFamily: headings/titles/names -> "Georgia", body/dates/details/venue/rsvp -> "Inter".
 8. cardBgColor: exact hex color of the background paper where text sits (e.g. '#FAF4E8', '#FBF8F3', '#FFFFFF').
 9. cardTextColor: exact hex color of main text (e.g. '#BE7832', '#B45309', '#1E293B').
 10. Return ONLY valid JSON, no markdown, no code fences.
@@ -608,7 +600,7 @@ Return a JSON object:
       "width": 0.65,
       "height": 0.04,
       "fontSize": 26,
-      "fontFamily": "Great Vibes|Playfair Display|Montserrat",
+      "fontFamily": "Georgia|Inter",
       "color": "#BE7832",
       "align": "center"
     }
@@ -670,7 +662,7 @@ Return a JSON object:
       width: Math.min(1, Math.max(0.05, parseFloat(block.width) || 0.6)),
       height: Math.min(0.4, Math.max(0.04, parseFloat(block.height) || 0.08)),
       fontSize: Math.min(60, Math.max(10, parseInt(block.fontSize) || 16)),
-      fontFamily: block.fontFamily || 'Playfair Display',
+      fontFamily: block.fontFamily || (['title', 'header', 'subtitle', 'guestOfHonor'].includes(block.role) ? 'Georgia' : 'Inter'),
       color: block.color || parsed.cardTextColor || '#1E293B',
       align: ['left', 'center', 'right'].includes(block.align) ? block.align : 'center',
     }));
