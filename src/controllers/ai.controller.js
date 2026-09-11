@@ -522,9 +522,11 @@ const scanInvitationImage = async (req, res) => {
       rawBase64 = dataUriMatch[2];
     }
 
-    const prompt = `You are an expert at reading invitation cards. Analyze this invitation card image carefully and extract ALL text and event information you can find.
+    const prompt = `You are an expert at reading invitation cards. Analyze this invitation card image carefully and extract ALL text blocks with their positions and event information.
 
-Return a JSON object with these fields (use null for any field you cannot determine):
+The image dimensions are normalized to 1.0 x 1.0 (top-left is 0,0; bottom-right is 1,1).
+
+Return a JSON object with these fields (use null for fields you cannot determine):
 {
   "title": "The main event title or heading (e.g., 'Wedding Ceremony', 'Birthday Party')",
   "eventType": "Type of event (e.g., 'wedding', 'birthday', 'corporate', 'baby_shower')",
@@ -534,14 +536,31 @@ Return a JSON object with these fields (use null for any field you cannot determ
   "address": "Full address if visible",
   "hostName": "Name of the host or person organizing",
   "description": "Any additional descriptive text on the card",
-  "guestOfHonor": "Name of the person being celebrated (birthday person, bride/groom, etc.)"
+  "guestOfHonor": "Name of the person being celebrated",
+  "textBlocks": [
+    {
+      "text": "exact text found in this block",
+      "role": "one of: title|subtitle|guestOfHonor|date|time|venue|address|hostName|description|rsvp|other",
+      "x": 0.5,
+      "y": 0.15,
+      "width": 0.7,
+      "height": 0.08,
+      "fontSize": 28,
+      "align": "center"
+    }
+  ]
 }
 
-IMPORTANT: 
+IMPORTANT RULES:
 - Return ONLY valid JSON, no markdown, no code fences, no explanation.
-- Extract as much information as possible from the image.
+- For textBlocks: x and y are the CENTER of the text block as fractions (0.0 to 1.0) of image width/height.
+- width and height are the block dimensions as fractions of image size.
+- fontSize is an estimate: large headings ~28-48, normal text ~12-18, small text ~10-12.
+- align is "left", "center", or "right".
+- Include EVERY visible text block in the textBlocks array (minimum 2, maximum 12 blocks).
 - If a date is written as "March 15, 2025", convert it to "2025-03-15".
-- If time is written as "6:00 PM", convert to "18:00".`;
+- If time is written as "6:00 PM", convert to "18:00".
+- Estimate positions carefully by looking at where each text block appears vertically and horizontally in the image.`;
 
     const response = await callGeminiWithRetry(client, [
       {
@@ -579,9 +598,27 @@ IMPORTANT:
         hostName: null,
         description: aiText.substring(0, 200) || null,
         guestOfHonor: null,
+        textBlocks: [],
         rawText: aiText,
       });
     }
+
+    // Ensure textBlocks is always an array
+    if (!Array.isArray(parsed.textBlocks)) {
+      parsed.textBlocks = [];
+    }
+
+    // Clamp all positions to valid range
+    parsed.textBlocks = parsed.textBlocks.map(block => ({
+      text: block.text || '',
+      role: block.role || 'other',
+      x: Math.min(1, Math.max(0, parseFloat(block.x) || 0.5)),
+      y: Math.min(1, Math.max(0, parseFloat(block.y) || 0.5)),
+      width: Math.min(1, Math.max(0.05, parseFloat(block.width) || 0.6)),
+      height: Math.min(0.4, Math.max(0.04, parseFloat(block.height) || 0.08)),
+      fontSize: Math.min(60, Math.max(10, parseInt(block.fontSize) || 16)),
+      align: ['left', 'center', 'right'].includes(block.align) ? block.align : 'center',
+    }));
 
     return res.status(200).json(parsed);
   } catch (error) {
