@@ -471,7 +471,7 @@ Match this exact JSON schema:
       success: true,
       message: 'Event generated and saved to dashboard successfully',
       eventId: newEvent.id,
-      redirectUrl: redirectUrl,
+      redirectUrl: `/events/${newEvent.id}`,
       event: { ...newEvent, totalGuests: 0, guests: [] },
       invitation: newInvitation,
       guests: [],
