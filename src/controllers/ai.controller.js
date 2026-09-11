@@ -22,7 +22,7 @@ const keyIsValid =
 console.log(`Gemini API key loaded: ${keyIsValid ? 'yes' : 'no'}`);
 
 // Read Gemini model name from env, fall back to a known-good model
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
 console.log(`Gemini model used: ${GEMINI_MODEL}`);
 
 // Single shared Gemini client — initialized once using the .env API key
@@ -87,36 +87,52 @@ function classifyGeminiError(error) {
 }
 
 /**
- * Calls the Gemini API with automatic exponential backoff on 429 errors.
- * Retries up to 3 times: waits 1s → 2s → 4s between attempts.
+ * Calls the Gemini API with automatic model fallback and exponential backoff on 429 errors.
  */
 async function callGeminiWithRetry(client, aiPrompt) {
-  const MAX_RETRIES = 3;
-  const BASE_DELAY_MS = 1000;
+  const modelsToTry = [
+    process.env.GEMINI_MODEL,
+    'gemini-3.6-flash',
+    'gemini-2.5-flash',
+  ].filter((m, i, arr) => m && arr.indexOf(m) === i);
 
-  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      const response = await client.models.generateContent({
-        model: GEMINI_MODEL,
-        contents: aiPrompt,
-      });
-      return response;
-    } catch (error) {
-      const code = classifyGeminiError(error);
+  let lastError = null;
 
-      if (code === 429 && attempt < MAX_RETRIES) {
-        const delay = BASE_DELAY_MS * Math.pow(2, attempt - 1); // 1s, 2s, 4s
-        console.warn(
-          `Gemini 429 rate limit hit. Retrying attempt ${attempt + 1}/${MAX_RETRIES} in ${delay}ms...`
-        );
-        await new Promise((resolve) => setTimeout(resolve, delay));
-        continue;
+  for (const modelName of modelsToTry) {
+    const MAX_RETRIES = 2;
+    const BASE_DELAY_MS = 1000;
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const response = await client.models.generateContent({
+          model: modelName,
+          contents: aiPrompt,
+        });
+        return response;
+      } catch (error) {
+        lastError = error;
+        const code = classifyGeminiError(error);
+
+        if (code === 429 && attempt < MAX_RETRIES) {
+          const delay = BASE_DELAY_MS * Math.pow(2, attempt - 1);
+          console.warn(
+            `Gemini (${modelName}) 429 rate limit hit. Retrying attempt ${attempt + 1}/${MAX_RETRIES} in ${delay}ms...`
+          );
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          continue;
+        }
+
+        if (code === 429 || code === 404) {
+          console.warn(`Model ${modelName} encountered error code ${code}. Trying next available model...`);
+          break;
+        }
+
+        throw error;
       }
-
-      // Non-429 error or final retry exhausted — re-throw
-      throw error;
     }
   }
+
+  throw lastError;
 }
 
 /**
@@ -397,9 +413,9 @@ Match this exact JSON schema:
       limoncello: { id: 'tpl-limoncello', image: '/assets/templates/limoncello_scene.jpg' },
     };
 
-    let matchedTpl = THEME_TO_TEMPLATE_MAP[normalizedStationery.artworkTheme];
+    let matchedTpl = THEME_TO_TEMPLATE_MAP[normalizedStationery?.artworkTheme];
     if (!matchedTpl) {
-      const typeLower = finalEventType.toLowerCase();
+      const typeLower = (finalEventType || 'Celebration').toLowerCase();
       if (typeLower.includes('birthday')) {
         matchedTpl = { id: 'tpl-cake-and-confetti', image: '/assets/templates/cake-and-confetti-bg.svg' };
       } else if (typeLower.includes('wedding')) {
