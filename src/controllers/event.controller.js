@@ -456,8 +456,23 @@ const updateEvent = async (req, res) => {
     }
 
     const { id } = req.params;
-    const { title, eventDate, eventTime, venue } = req.body;
+    let { title, eventDate, eventTime, venue } = req.body;
     const userId = req.user.id;
+
+    // For partial updates (e.g. status='published' or design updates), fallback to existing event fields if missing
+    if (!title || !eventDate || !eventTime || !venue) {
+      const existing = await eventService.findEventByIdAndUserId(id, userId) || await eventService.findEventById(id);
+      if (existing) {
+        title = title || existing.title || "Special Event";
+        eventDate = eventDate || existing.eventDate || existing.date || new Date().toISOString().split("T")[0];
+        eventTime = eventTime || existing.eventTime || existing.time || "18:00:00";
+        venue = venue || existing.venue || existing.location || "TBD";
+        req.body.title = title;
+        req.body.eventDate = eventDate;
+        req.body.eventTime = eventTime;
+        req.body.venue = venue;
+      }
+    }
 
     // Validate required fields
     if (!title || !eventDate || !eventTime || !venue) {
