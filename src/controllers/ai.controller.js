@@ -357,95 +357,7 @@ Match this exact JSON schema:
       aiData.checklist?.length ? `\n\n✅ **Checklist**:\n${aiData.checklist.map((i) => `• ${i}`).join('\n')}` : ''
     }`;
 
-    // --- DIRECT DATABASE PERSISTENCE ---
-    const eventPayload = {
-      title: finalTitle,
-      description: formattedDescription,
-      eventType: finalEventType,
-      eventDate: finalDate,
-      eventTime: finalIsFullDay ? '09:00' : finalStartTime,
-      venue: finalVenue,
-      status: 'draft',
-    };
-
-    console.log("Saving autonomously generated event to database:", eventPayload);
-    const newEvent = await eventService.createEvent(eventPayload, userId);
-    console.log(`Event created successfully with ID: ${newEvent.id}`);
-
-    // Create Base Styled Invitation
-    let newInvitation = null;
-    try {
-      newInvitation = await prisma.invitation.create({
-        data: {
-          eventId: newEvent.id,
-          title: finalTitle,
-          subtitle: aiData.host || finalVenue,
-          mainText: aiData.invitationText || aiData.description || 'You are cordially invited.',
-          message: formattedDescription,
-          accentColor: accentColor,
-          backgroundColor: backgroundColor,
-          textColor: textColor,
-          titleSize: 48,
-          fontWeight: '700',
-          fontFamily: 'Playfair Display',
-          textAlignment: 'center',
-          buttonText: 'RSVP Now',
-          buttonColor: accentColor,
-          buttonRadius: 12,
-          status: 'draft',
-        },
-      });
-      console.log(`Invitation created successfully with ID: ${newInvitation.id}`);
-    } catch (invErr) {
-      console.warn("Could not auto-create invitation:", invErr.message);
-    }
-
-    // Save Design Settings Palette
-    try {
-      await prisma.designSettings.upsert({
-        where: { eventId: newEvent.id },
-        update: {
-          colorScheme: {
-            preset: aiData.theme || 'AI Generated Palette',
-            primaryColor: accentColor,
-            secondaryColor: palette[1] || '#00C0F9',
-            textColor: textColor,
-          },
-          typography: {
-            titleFont: 'Playfair Display',
-            bodyFont: 'Questrial',
-          },
-          background: {
-            type: 'gradient',
-            gradientDirection: 'to-r',
-            color: backgroundColor,
-          },
-        },
-        create: {
-          eventId: newEvent.id,
-          colorScheme: {
-            preset: aiData.theme || 'AI Generated Palette',
-            primaryColor: accentColor,
-            secondaryColor: palette[1] || '#00C0F9',
-            textColor: textColor,
-          },
-          typography: {
-            titleFont: 'Playfair Display',
-            bodyFont: 'Questrial',
-          },
-          background: {
-            type: 'gradient',
-            gradientDirection: 'to-r',
-            color: backgroundColor,
-          },
-        },
-      });
-      console.log(`Design settings saved for event: ${newEvent.id}`);
-    } catch (desErr) {
-      console.warn("Could not auto-create design settings:", desErr.message);
-    }
-
-    // 10. Normalize dynamic 4-layer stationery design
+    // 10. Normalize dynamic 4-layer stationery design & map to Evite Template Registry
     const rawSD = aiData.stationeryDesign || {};
     const normalizedStationery = {
       backdropColor: rawSD.backdropColor || backgroundColor || '#FFF9F5',
@@ -466,16 +378,147 @@ Match this exact JSON schema:
             { id: 'rsvp', role: 'rsvp', text: 'Kindly RSVP by upcoming week', y: 0.84, fontSize: 11, fontFamily: 'Inter', color: '#94A3B8' }
           ]
     };
-
     const aiStationeryDesign = normalizedStationery;
+
+    // Map theme/eventType to Evite 4-layer decoupled templates
+    const THEME_TO_TEMPLATE_MAP = {
+      birthday_confetti: { id: 'tpl-cake-and-confetti', image: '/assets/templates/cake-and-confetti-bg.svg' },
+      floral_arch: { id: 'tpl-floral-elegance', image: '/assets/templates/floral_elegance_scene.jpg' },
+      art_deco: { id: 'tpl-charity-gala', image: '/assets/templates/gala.jpg' },
+      corporate_summit: { id: 'tpl-corporate-launch', image: '/assets/templates/corporate.jpg' },
+      founders_connect: { id: 'tpl-net-founders', image: '/assets/templates/networking_founders.jpg' },
+      dinner_sunset: { id: 'tpl-dinner-party', image: '/assets/templates/dinner.jpg' },
+      hibiscus_blooms: { id: 'tpl-hibiscus-blooms', image: '/assets/templates/hibiscus_blooms_scene.jpg' },
+      chicory_whispers: { id: 'tpl-chicory-whispers', image: '/assets/templates/chicory_whispers_scene.jpg' },
+      lovely_blossoms: { id: 'tpl-lovely-blossoms', image: '/assets/templates/lovely_blossoms_scene.jpg' },
+      elegant_lace: { id: 'tpl-elegant-lace', image: '/assets/templates/elegant_lace_scene.jpg' },
+      painted_petals: { id: 'tpl-painted-petals', image: '/assets/templates/painted_petals_scene.jpg' },
+      floral_elegance: { id: 'tpl-floral-elegance', image: '/assets/templates/floral_elegance_scene.jpg' },
+      limoncello: { id: 'tpl-limoncello', image: '/assets/templates/limoncello_scene.jpg' },
+    };
+
+    let matchedTpl = THEME_TO_TEMPLATE_MAP[normalizedStationery.artworkTheme];
+    if (!matchedTpl) {
+      const typeLower = finalEventType.toLowerCase();
+      if (typeLower.includes('birthday')) {
+        matchedTpl = { id: 'tpl-cake-and-confetti', image: '/assets/templates/cake-and-confetti-bg.svg' };
+      } else if (typeLower.includes('wedding')) {
+        matchedTpl = { id: 'tpl-wedding-liam', image: '/assets/templates/wedding.jpg' };
+      } else if (typeLower.includes('shower') || typeLower.includes('baby')) {
+        matchedTpl = { id: 'tpl-baby-shower', image: '/assets/templates/babyshower.jpg' };
+      } else if (typeLower.includes('dinner') || typeLower.includes('food')) {
+        matchedTpl = { id: 'tpl-dinner-party', image: '/assets/templates/dinner.jpg' };
+      } else if (typeLower.includes('corp') || typeLower.includes('summit') || typeLower.includes('launch')) {
+        matchedTpl = { id: 'tpl-corporate-launch', image: '/assets/templates/corporate.jpg' };
+      } else if (typeLower.includes('anniversary')) {
+        matchedTpl = { id: 'tpl-anniversary-james', image: '/assets/templates/anniversary.jpg' };
+      } else {
+        matchedTpl = { id: 'tpl-cake-and-confetti', image: '/assets/templates/cake-and-confetti-bg.svg' };
+      }
+    }
+
+    // --- DIRECT DATABASE PERSISTENCE ---
+    const eventPayload = {
+      title: finalTitle,
+      description: formattedDescription,
+      eventType: finalEventType,
+      eventDate: finalDate,
+      eventTime: finalIsFullDay ? '09:00' : finalStartTime,
+      venue: finalVenue,
+      coverImage: matchedTpl.image,
+      selectedTemplateId: matchedTpl.id,
+      status: 'draft',
+    };
+
+    console.log("Saving autonomously generated event with template to database:", eventPayload);
+    const newEvent = await eventService.createEvent(eventPayload, userId);
+    console.log(`Event created successfully with ID: ${newEvent.id}, Template: ${matchedTpl.id}`);
+
+    // Create Base Styled Invitation with Template & Stationery
+    let newInvitation = null;
+    try {
+      newInvitation = await prisma.invitation.create({
+        data: {
+          eventId: newEvent.id,
+          title: finalTitle,
+          subtitle: aiData.host || finalVenue,
+          mainText: aiData.invitationText || aiData.description || 'You are cordially invited.',
+          message: formattedDescription,
+          accentColor: accentColor,
+          backgroundColor: normalizedStationery.cardBgColor || backgroundColor,
+          textColor: textColor,
+          titleSize: 48,
+          fontWeight: '700',
+          fontFamily: 'Playfair Display',
+          textAlignment: 'center',
+          buttonText: 'RSVP Now',
+          buttonColor: accentColor,
+          buttonRadius: 12,
+          imageUrl: matchedTpl.image,
+          status: 'draft',
+        },
+      });
+      console.log(`Invitation created successfully with ID: ${newInvitation.id}`);
+    } catch (invErr) {
+      console.warn("Could not auto-create invitation:", invErr.message);
+    }
+
+    // Save Design Settings Palette (Evite 4-layer config)
+    try {
+      await prisma.designSettings.upsert({
+        where: { eventId: newEvent.id },
+        update: {
+          colorScheme: {
+            preset: aiData.theme || 'AI Generated Palette',
+            primaryColor: accentColor,
+            secondaryColor: palette[1] || '#00C0F9',
+            textColor: textColor,
+            envelopeColor: normalizedStationery.envelopeColor,
+            backdropColor: normalizedStationery.backdropColor,
+          },
+          typography: {
+            titleFont: 'Playfair Display',
+            bodyFont: 'Montserrat',
+          },
+          background: {
+            type: 'color',
+            color: normalizedStationery.cardBgColor || backgroundColor,
+          },
+        },
+        create: {
+          eventId: newEvent.id,
+          colorScheme: {
+            preset: aiData.theme || 'AI Generated Palette',
+            primaryColor: accentColor,
+            secondaryColor: palette[1] || '#00C0F9',
+            textColor: textColor,
+            envelopeColor: normalizedStationery.envelopeColor,
+            backdropColor: normalizedStationery.backdropColor,
+          },
+          typography: {
+            titleFont: 'Playfair Display',
+            bodyFont: 'Montserrat',
+          },
+          background: {
+            type: 'color',
+            color: normalizedStationery.cardBgColor || backgroundColor,
+          },
+        },
+      });
+      console.log(`Design settings saved for event: ${newEvent.id}`);
+    } catch (desErr) {
+      console.warn("Could not auto-create design settings:", desErr.message);
+    }
 
     return res.status(201).json({
       success: true,
       message: 'Event generated and saved to dashboard successfully',
       eventId: newEvent.id,
-      redirectUrl: `/events/${newEvent.id}`,
-      event: { ...newEvent, totalGuests: 0, guests: [] },
-      invitation: newInvitation,
+      templateId: matchedTpl.id,
+      selectedTemplateId: matchedTpl.id,
+      redirectUrl: `/dashboard/invitations?eventId=${newEvent.id}&studio=true&templateId=${matchedTpl.id}`,
+      event: { ...newEvent, selectedTemplateId: matchedTpl.id, coverImage: matchedTpl.image, totalGuests: 0, guests: [] },
+      invitation: { ...newInvitation, templateId: matchedTpl.id, imageUrl: matchedTpl.image },
       guests: [],
       guestList: [],
       ...aiData,
