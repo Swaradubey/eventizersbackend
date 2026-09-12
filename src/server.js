@@ -16,7 +16,7 @@ const geminiKey = process.env.GEMINI_API_KEY;
 console.log(`Gemini API key loaded: ${geminiKey && geminiKey !== 'your_gemini_api_key_here' && geminiKey !== '' ? 'yes' : 'no'}`);
 
 // Gemini model diagnostic
-console.log(`Gemini model used: ${process.env.GEMINI_MODEL || 'gemini-2.0-flash'}`);
+console.log(`Gemini model used: ${process.env.GEMINI_MODEL || 'gemini-2.5-flash'}`);
 
 // Validate Stripe environment variables
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY?.trim();

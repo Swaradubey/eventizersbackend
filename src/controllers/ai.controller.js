@@ -7,7 +7,7 @@ const prisma = require('../config/prisma');
 if (!process.env.GEMINI_API_KEY) {
   try {
     require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
-  } catch (_) {}
+  } catch (_) { }
 }
 
 // Read the Gemini API key from the .env file only — no fallback providers
@@ -22,7 +22,7 @@ const keyIsValid =
 console.log(`Gemini API key loaded: ${keyIsValid ? 'yes' : 'no'}`);
 
 // Read Gemini model name from env, fall back to a known-good model
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 console.log(`Gemini model used: ${GEMINI_MODEL}`);
 
 // Single shared Gemini client — initialized once using the .env API key
@@ -75,8 +75,10 @@ function classifyGeminiError(error) {
   }
 
   if (
+    statusCode === 404 ||
     errMsg.includes('not found') ||
     errMsg.includes('is not found') ||
+    errMsg.includes('no longer available') ||
     errMsg.includes('not supported') ||
     errMsg.includes('404')
   ) {
@@ -92,8 +94,10 @@ function classifyGeminiError(error) {
 async function callGeminiWithRetry(client, aiPrompt) {
   const modelsToTry = [
     process.env.GEMINI_MODEL,
-    'gemini-3.6-flash',
     'gemini-2.5-flash',
+    'gemini-flash-latest',
+    'gemini-2.5-pro',
+    'gemini-3.5-flash',
   ].filter((m, i, arr) => m && arr.indexOf(m) === i);
 
   let lastError = null;
@@ -123,7 +127,7 @@ async function callGeminiWithRetry(client, aiPrompt) {
         }
 
         if (code === 429 || code === 404) {
-          console.warn(`Model ${modelName} encountered error code ${code}. Trying next available model...`);
+          console.warn(`Model ${modelName} encountered error code ${code} (${error.message}). Trying next available model...`);
           break;
         }
 
@@ -355,23 +359,15 @@ Match this exact JSON schema:
     const textColor = aiData.textColor || '#1A1118';
 
     // 9. Format Rich Event Description
-    const formattedDescription = `${aiData.description || 'Join us for this special event.'}${
-      aiData.theme ? `\n\n✨ **Theme**: ${aiData.theme}` : ''
-    }${
-      aiData.estimatedBudget ? `\n💰 **Estimated Budget**: ${aiData.estimatedBudget}` : ''
-    }${
-      finalGuestCount ? `\n👥 **Expected Guests**: ${finalGuestCount}` : ''
-    }${
-      aiData.schedule?.length ? `\n\n📅 **Schedule**:\n${aiData.schedule.map((i) => `• ${i}`).join('\n')}` : ''
-    }${
-      aiData.decor?.length ? `\n\n🎈 **Decor**:\n${aiData.decor.map((i) => `• ${i}`).join('\n')}` : ''
-    }${
-      aiData.food?.length ? `\n\n🍴 **Food & Drink**:\n${aiData.food.map((i) => `• ${i}`).join('\n')}` : ''
-    }${
-      aiData.activities?.length ? `\n\n🎮 **Activities**:\n${aiData.activities.map((i) => `• ${i}`).join('\n')}` : ''
-    }${
-      aiData.checklist?.length ? `\n\n✅ **Checklist**:\n${aiData.checklist.map((i) => `• ${i}`).join('\n')}` : ''
-    }`;
+    const formattedDescription = `${aiData.description || 'Join us for this special event.'}${aiData.theme ? `\n\n✨ **Theme**: ${aiData.theme}` : ''
+      }${aiData.estimatedBudget ? `\n💰 **Estimated Budget**: ${aiData.estimatedBudget}` : ''
+      }${finalGuestCount ? `\n👥 **Expected Guests**: ${finalGuestCount}` : ''
+      }${aiData.schedule?.length ? `\n\n📅 **Schedule**:\n${aiData.schedule.map((i) => `• ${i}`).join('\n')}` : ''
+      }${aiData.decor?.length ? `\n\n🎈 **Decor**:\n${aiData.decor.map((i) => `• ${i}`).join('\n')}` : ''
+      }${aiData.food?.length ? `\n\n🍴 **Food & Drink**:\n${aiData.food.map((i) => `• ${i}`).join('\n')}` : ''
+      }${aiData.activities?.length ? `\n\n🎮 **Activities**:\n${aiData.activities.map((i) => `• ${i}`).join('\n')}` : ''
+      }${aiData.checklist?.length ? `\n\n✅ **Checklist**:\n${aiData.checklist.map((i) => `• ${i}`).join('\n')}` : ''
+      }`;
 
     // 10. Normalize dynamic 4-layer stationery design & map to Evite Template Registry
     const rawSD = aiData.stationeryDesign || {};
@@ -386,13 +382,13 @@ Match this exact JSON schema:
       textElements: Array.isArray(rawSD.textElements) && rawSD.textElements.length > 0
         ? rawSD.textElements
         : [
-            { id: 'header', role: 'header', text: 'YOU ARE CORDIALLY INVITED TO CELEBRATE', y: 0.22, fontSize: 12, fontFamily: 'Inter', color: accentColor },
-            { id: 'title', role: 'title', text: finalTitle, y: 0.38, fontSize: 28, fontFamily: 'Georgia', color: textColor },
-            { id: 'details', role: 'details', text: aiData.invitationText || aiData.description || 'Join us for a wonderful celebration!', y: 0.48, fontSize: 12, fontFamily: 'Inter', color: '#475569' },
-            { id: 'date', role: 'date', text: `${finalDate} at ${finalStartTime}`, y: 0.60, fontSize: 14, fontFamily: 'Inter', color: textColor },
-            { id: 'venue', role: 'venue', text: finalVenue, y: 0.72, fontSize: 13, fontFamily: 'Inter', color: '#475569' },
-            { id: 'rsvp', role: 'rsvp', text: 'Kindly RSVP by upcoming week', y: 0.84, fontSize: 11, fontFamily: 'Inter', color: '#94A3B8' }
-          ]
+          { id: 'header', role: 'header', text: 'YOU ARE CORDIALLY INVITED TO CELEBRATE', y: 0.22, fontSize: 12, fontFamily: 'Inter', color: accentColor },
+          { id: 'title', role: 'title', text: finalTitle, y: 0.38, fontSize: 28, fontFamily: 'Georgia', color: textColor },
+          { id: 'details', role: 'details', text: aiData.invitationText || aiData.description || 'Join us for a wonderful celebration!', y: 0.48, fontSize: 12, fontFamily: 'Inter', color: '#475569' },
+          { id: 'date', role: 'date', text: `${finalDate} at ${finalStartTime}`, y: 0.60, fontSize: 14, fontFamily: 'Inter', color: textColor },
+          { id: 'venue', role: 'venue', text: finalVenue, y: 0.72, fontSize: 13, fontFamily: 'Inter', color: '#475569' },
+          { id: 'rsvp', role: 'rsvp', text: 'Kindly RSVP by upcoming week', y: 0.84, fontSize: 11, fontFamily: 'Inter', color: '#94A3B8' }
+        ]
     };
     const aiStationeryDesign = normalizedStationery;
 
