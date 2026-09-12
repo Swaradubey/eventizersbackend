@@ -251,23 +251,42 @@ const createInvitation = async (req, res) => {
           eventDate: eventDate !== undefined ? eventDate : existing.eventDate,
           eventTime: eventTime !== undefined ? eventTime : existing.eventTime,
           eventVenue: eventVenue !== undefined ? eventVenue : existing.eventVenue,
+          templateId: req.body.templateId || undefined,
         },
         userId
       );
-      if (cleanImageUrl) {
+      if (cleanImageUrl || req.body.templateId) {
         try {
           await prisma.event.update({
             where: { id: eventId },
-            data: { coverImage: cleanImageUrl },
+            data: {
+              ...(cleanImageUrl ? { coverImage: cleanImageUrl } : {}),
+              ...(req.body.templateId ? { selectedTemplateId: req.body.templateId } : {}),
+            },
           });
         } catch (syncErr) {
-          console.warn("Could not sync event coverImage:", syncErr.message);
+          console.warn("Could not sync event coverImage/selectedTemplateId:", syncErr.message);
         }
       }
       return res.status(200).json({
         success: true,
         message: "Invitation updated successfully.",
-        invitation: updated,
+        invitation: {
+          ...updated,
+          templateId: req.body.templateId || updated?.templateId || null,
+          templateName: req.body.templateName || null,
+          textElements: req.body.textElements || null,
+          card: req.body.card || null,
+          decorations: req.body.decorations || null,
+          background: req.body.background || null,
+          cardBg: req.body.cardBg || null,
+          envelope: req.body.envelope || null,
+          stageBackdrop: req.body.stageBackdrop || null,
+          effects: req.body.effects || null,
+          containerDimensions: req.body.containerDimensions || null,
+          isLandscape: req.body.isLandscape,
+          designData: req.body.designData || null,
+        },
       });
     }
 
@@ -295,25 +314,44 @@ const createInvitation = async (req, res) => {
         eventDate: eventDate || null,
         eventTime: eventTime || null,
         eventVenue: eventVenue || null,
+        templateId: req.body.templateId || undefined,
       },
       userId
     );
 
-    if (cleanImageUrl) {
+    if (eventId && (cleanImageUrl || req.body.templateId)) {
       try {
         await prisma.event.update({
           where: { id: eventId },
-          data: { coverImage: cleanImageUrl },
+          data: {
+            ...(cleanImageUrl ? { coverImage: cleanImageUrl } : {}),
+            ...(req.body.templateId ? { selectedTemplateId: req.body.templateId } : {}),
+          },
         });
       } catch (syncErr) {
-        console.warn("Could not sync event coverImage:", syncErr.message);
+        console.warn("Could not sync event coverImage/selectedTemplateId:", syncErr.message);
       }
     }
 
     return res.status(201).json({
       success: true,
       message: "Invitation created successfully.",
-      invitation: newInvitation
+      invitation: {
+        ...newInvitation,
+        templateId: req.body.templateId || newInvitation?.templateId || null,
+        templateName: req.body.templateName || null,
+        textElements: req.body.textElements || null,
+        card: req.body.card || null,
+        decorations: req.body.decorations || null,
+        background: req.body.background || null,
+        cardBg: req.body.cardBg || null,
+        envelope: req.body.envelope || null,
+        stageBackdrop: req.body.stageBackdrop || null,
+        effects: req.body.effects || null,
+        containerDimensions: req.body.containerDimensions || null,
+        isLandscape: req.body.isLandscape,
+        designData: req.body.designData || null,
+      },
     });
   } catch (error) {
     return handlePrismaError(error, res, "Server error during invitation creation.");
@@ -414,25 +452,44 @@ const updateInvitation = async (req, res) => {
         eventDate: eventDate !== undefined ? eventDate : existingInvitation.eventDate,
         eventTime: eventTime !== undefined ? eventTime : existingInvitation.eventTime,
         eventVenue: eventVenue !== undefined ? eventVenue : existingInvitation.eventVenue,
+        templateId: req.body.templateId || undefined,
       },
       userId
     );
 
-    if (cleanImageUrl && existingInvitation.eventId) {
+    if (existingInvitation.eventId && (cleanImageUrl || req.body.templateId)) {
       try {
         await prisma.event.update({
           where: { id: existingInvitation.eventId },
-          data: { coverImage: cleanImageUrl },
+          data: {
+            ...(cleanImageUrl ? { coverImage: cleanImageUrl } : {}),
+            ...(req.body.templateId ? { selectedTemplateId: req.body.templateId } : {}),
+          },
         });
       } catch (syncErr) {
-        console.warn("Could not sync event coverImage:", syncErr.message);
+        console.warn("Could not sync event coverImage/selectedTemplateId:", syncErr.message);
       }
     }
 
     return res.status(200).json({
       success: true,
       message: "Invitation updated successfully.",
-      invitation: updatedInvitation
+      invitation: {
+        ...updatedInvitation,
+        templateId: req.body.templateId || updatedInvitation?.templateId || null,
+        templateName: req.body.templateName || null,
+        textElements: req.body.textElements || null,
+        card: req.body.card || null,
+        decorations: req.body.decorations || null,
+        background: req.body.background || null,
+        cardBg: req.body.cardBg || null,
+        envelope: req.body.envelope || null,
+        stageBackdrop: req.body.stageBackdrop || null,
+        effects: req.body.effects || null,
+        containerDimensions: req.body.containerDimensions || null,
+        isLandscape: req.body.isLandscape,
+        designData: req.body.designData || null,
+      },
     });
   } catch (error) {
     return handlePrismaError(error, res, "Server error during invitation update.");

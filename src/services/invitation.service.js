@@ -16,6 +16,8 @@ const findInvitationsByUserId = async (userId) => {
       event: {
         select: {
           title: true,
+          selectedTemplateId: true,
+          designSettings: true,
         },
       },
     },
@@ -26,6 +28,8 @@ const findInvitationsByUserId = async (userId) => {
 
   return invitations.map((inv) => ({
     ...inv,
+    templateId: inv.event?.selectedTemplateId || null,
+    designSettings: inv.event?.designSettings || null,
     eventTitle: inv.event?.title || null,
     event: undefined,
   }));
@@ -49,6 +53,8 @@ const findInvitationById = async (id, userId) => {
       event: {
         select: {
           title: true,
+          selectedTemplateId: true,
+          designSettings: true,
         },
       },
     },
@@ -58,6 +64,8 @@ const findInvitationById = async (id, userId) => {
 
   return {
     ...invitation,
+    templateId: invitation.event?.selectedTemplateId || null,
+    designSettings: invitation.event?.designSettings || null,
     eventTitle: invitation.event?.title || null,
     event: undefined,
   };
@@ -81,6 +89,8 @@ const findInvitationByEventId = async (eventId, userId) => {
       event: {
         select: {
           title: true,
+          selectedTemplateId: true,
+          designSettings: true,
         },
       },
     },
@@ -90,6 +100,8 @@ const findInvitationByEventId = async (eventId, userId) => {
 
   return {
     ...invitation,
+    templateId: invitation.event?.selectedTemplateId || null,
+    designSettings: invitation.event?.designSettings || null,
     eventTitle: invitation.event?.title || null,
     event: undefined,
   };
@@ -155,18 +167,24 @@ const createInvitation = async (data, userId) => {
     },
   });
 
-  if (imageUrl) {
+  if (eventId && (imageUrl || data.templateId)) {
     try {
       await prisma.event.update({
         where: { id: eventId },
-        data: { coverImage: imageUrl },
+        data: {
+          ...(imageUrl ? { coverImage: imageUrl } : {}),
+          ...(data.templateId ? { selectedTemplateId: data.templateId } : {}),
+        },
       });
     } catch (evErr) {
-      console.warn("Could not sync event coverImage:", evErr.message);
+      console.warn("Could not sync event coverImage/selectedTemplateId:", evErr.message);
     }
   }
 
-  return invitation;
+  return {
+    ...invitation,
+    templateId: data.templateId || null,
+  };
 };
 
 /**
@@ -229,18 +247,24 @@ const updateInvitation = async (id, data, userId) => {
       },
     });
 
-    if (imageUrl && invitation.eventId) {
+    if (invitation.eventId && (imageUrl || data.templateId)) {
       try {
         await prisma.event.update({
           where: { id: invitation.eventId },
-          data: { coverImage: imageUrl },
+          data: {
+            ...(imageUrl ? { coverImage: imageUrl } : {}),
+            ...(data.templateId ? { selectedTemplateId: data.templateId } : {}),
+          },
         });
       } catch (evErr) {
-        console.warn("Could not sync event coverImage:", evErr.message);
+        console.warn("Could not sync event coverImage/selectedTemplateId:", evErr.message);
       }
     }
 
-    return invitation;
+    return {
+      ...invitation,
+      templateId: data.templateId || null,
+    };
   } catch (error) {
     if (error.code === "P2025") {
       return null;
