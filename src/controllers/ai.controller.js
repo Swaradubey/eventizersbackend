@@ -22,7 +22,7 @@ const keyIsValid =
 console.log(`Gemini API key loaded: ${keyIsValid ? 'yes' : 'no'}`);
 
 // Read Gemini model name from env, fall back to a known-good model
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
 console.log(`Gemini model used: ${GEMINI_MODEL}`);
 
 // Single shared Gemini client — initialized once using the .env API key
@@ -94,9 +94,9 @@ function classifyGeminiError(error) {
 async function callGeminiWithRetry(client, aiPrompt) {
   const modelsToTry = [
     process.env.GEMINI_MODEL,
+    'gemini-3.6-flash',
     'gemini-2.5-flash',
     'gemini-flash-latest',
-    'gemini-2.5-pro',
     'gemini-3.5-flash',
   ].filter((m, i, arr) => m && arr.indexOf(m) === i);
 
