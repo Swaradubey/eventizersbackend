@@ -32,4 +32,7 @@ router.delete("/team/:id", settingsController.removeTeamMember);
 router.get("/preferences", settingsController.getPreferences);
 router.put("/preferences", settingsController.updatePreferences);
 
+// Account Deletion
+router.delete("/account", settingsController.deleteAccount);
+
 module.exports = router;

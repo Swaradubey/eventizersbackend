@@ -10,14 +10,15 @@ const upload = multer({
   limits: { fileSize: 15 * 1024 * 1024 }, // 15MB limit
 });
 
-// Protect all routes in this router with authMiddleware
+const aiController = require("../controllers/ai.controller");
+
+// Public / Guest accessible AI route
+router.post("/ai-generate", authMiddleware.optionalAuthMiddleware, aiController.generateEventWithAI);
+
+// Protect remaining routes with authMiddleware
 router.use(authMiddleware);
 
 const { restrictGuest } = authMiddleware;
-
-// Event routes
-const aiController = require("../controllers/ai.controller");
-router.post("/ai-generate", restrictGuest, aiController.generateEventWithAI);
 
 router.get("/", eventController.getEvents);
 router.get("/:id", eventController.getEventById);

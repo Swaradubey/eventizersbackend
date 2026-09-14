@@ -256,6 +256,40 @@ const updatePreferences = async (userId, data) => {
   });
 };
 
+/**
+ * Permanently delete ONLY the requesting user's account and their own data.
+ */
+const deleteAccount = async (userId) => {
+  const numericUserId = parseInt(userId, 10);
+  if (isNaN(numericUserId)) {
+    throw new Error("Invalid user ID");
+  }
+
+  return await prisma.$transaction(async (tx) => {
+    // 1. Delete ONLY events created by THIS specific user (other users' events remain untouched)
+    await tx.event.deleteMany({
+      where: { createdBy: numericUserId },
+    });
+
+    // 2. Delete ONLY records belonging to THIS specific user
+    await tx.adminProfile.deleteMany({ where: { userId: numericUserId } });
+    await tx.adminNotificationSettings.deleteMany({ where: { userId: numericUserId } });
+    await tx.adminSecuritySettings.deleteMany({ where: { userId: numericUserId } });
+    await tx.adminPreferences.deleteMany({ where: { userId: numericUserId } });
+    await tx.adminTeamMember.deleteMany({ where: { userId: numericUserId } });
+    await tx.attendanceGuaranteeSetting.deleteMany({ where: { userId: numericUserId } });
+    await tx.guestGroup.deleteMany({ where: { userId: numericUserId } });
+    await tx.message.deleteMany({ where: { senderId: numericUserId } });
+    await tx.registry.deleteMany({ where: { createdBy: numericUserId } });
+    await tx.ticketOrder.deleteMany({ where: { userId: numericUserId } });
+
+    // 3. Delete ONLY THIS specific user record
+    return await tx.user.delete({
+      where: { id: numericUserId },
+    });
+  });
+};
+
 module.exports = {
   getProfile,
   updateProfile,
@@ -270,4 +304,5 @@ module.exports = {
   removeTeamMember,
   getPreferences,
   updatePreferences,
+  deleteAccount,
 };

@@ -148,7 +148,7 @@ async function callGeminiWithRetry(client, aiPrompt) {
 const processAutonomousEventGeneration = async (req, res) => {
   try {
     const rawPrompt = (req.body.userPrompt || req.body.prompt || '').trim();
-    const userId = req.user.id;
+    const userId = req.user ? req.user.id : null;
 
     if (!rawPrompt) {
       return res.status(400).json({ error: 'Please provide a description of your event.' });
@@ -429,108 +429,112 @@ Match this exact JSON schema:
       }
     }
 
-    // --- DIRECT DATABASE PERSISTENCE ---
-    const eventPayload = {
-      title: finalTitle,
-      description: formattedDescription,
-      eventType: finalEventType,
-      eventDate: finalDate,
-      eventTime: finalIsFullDay ? '09:00' : finalStartTime,
-      venue: finalVenue,
-      coverImage: matchedTpl.image,
-      selectedTemplateId: matchedTpl.id,
-      status: 'draft',
-    };
-
-    console.log("Saving autonomously generated event with template to database:", eventPayload);
-    const newEvent = await eventService.createEvent(eventPayload, userId);
-    console.log(`Event created successfully with ID: ${newEvent.id}, Template: ${matchedTpl.id}`);
-
-    // Create Base Styled Invitation with Template & Stationery
+    // --- DIRECT DATABASE PERSISTENCE (Only if authenticated) ---
+    let newEvent = null;
     let newInvitation = null;
-    try {
-      newInvitation = await prisma.invitation.create({
-        data: {
-          eventId: newEvent.id,
-          title: finalTitle,
-          subtitle: aiData.host || finalVenue,
-          mainText: aiData.invitationText || aiData.description || 'You are cordially invited.',
-          message: formattedDescription,
-          accentColor: accentColor,
-          backgroundColor: normalizedStationery.cardBgColor || backgroundColor,
-          textColor: textColor,
-          titleSize: 48,
-          fontWeight: '700',
-          fontFamily: 'Playfair Display',
-          textAlignment: 'center',
-          buttonText: 'RSVP Now',
-          buttonColor: accentColor,
-          buttonRadius: 12,
-          imageUrl: matchedTpl.image,
-          status: 'draft',
-        },
-      });
-      console.log(`Invitation created successfully with ID: ${newInvitation.id}`);
-    } catch (invErr) {
-      console.warn("Could not auto-create invitation:", invErr.message);
+
+    if (userId) {
+      const eventPayload = {
+        title: finalTitle,
+        description: formattedDescription,
+        eventType: finalEventType,
+        eventDate: finalDate,
+        eventTime: finalIsFullDay ? '09:00' : finalStartTime,
+        venue: finalVenue,
+        coverImage: matchedTpl.image,
+        selectedTemplateId: matchedTpl.id,
+        status: 'draft',
+      };
+
+      console.log("Saving autonomously generated event with template to database:", eventPayload);
+      newEvent = await eventService.createEvent(eventPayload, userId);
+      console.log(`Event created successfully with ID: ${newEvent.id}, Template: ${matchedTpl.id}`);
+
+      // Create Base Styled Invitation with Template & Stationery
+      try {
+        newInvitation = await prisma.invitation.create({
+          data: {
+            eventId: newEvent.id,
+            title: finalTitle,
+            subtitle: aiData.host || finalVenue,
+            mainText: aiData.invitationText || aiData.description || 'You are cordially invited.',
+            message: formattedDescription,
+            accentColor: accentColor,
+            backgroundColor: normalizedStationery.cardBgColor || backgroundColor,
+            textColor: textColor,
+            titleSize: 48,
+            fontWeight: '700',
+            fontFamily: 'Playfair Display',
+            textAlignment: 'center',
+            buttonText: 'RSVP Now',
+            buttonColor: accentColor,
+            buttonRadius: 12,
+            imageUrl: matchedTpl.image,
+            status: 'draft',
+          },
+        });
+        console.log(`Invitation created successfully with ID: ${newInvitation.id}`);
+      } catch (invErr) {
+        console.warn("Could not auto-create invitation:", invErr.message);
+      }
+
+      // Save Design Settings Palette (Evite 4-layer config)
+      try {
+        await prisma.designSettings.upsert({
+          where: { eventId: newEvent.id },
+          update: {
+            colorScheme: {
+              preset: aiData.theme || 'AI Generated Palette',
+              primaryColor: accentColor,
+              secondaryColor: palette[1] || '#00C0F9',
+              textColor: textColor,
+              envelopeColor: normalizedStationery.envelopeColor,
+              backdropColor: normalizedStationery.backdropColor,
+            },
+            typography: {
+              titleFont: 'Playfair Display',
+              bodyFont: 'Montserrat',
+            },
+            background: {
+              type: 'color',
+              color: normalizedStationery.cardBgColor || backgroundColor,
+            },
+          },
+          create: {
+            eventId: newEvent.id,
+            colorScheme: {
+              preset: aiData.theme || 'AI Generated Palette',
+              primaryColor: accentColor,
+              secondaryColor: palette[1] || '#00C0F9',
+              textColor: textColor,
+              envelopeColor: normalizedStationery.envelopeColor,
+              backdropColor: normalizedStationery.backdropColor,
+            },
+            typography: {
+              titleFont: 'Playfair Display',
+              bodyFont: 'Montserrat',
+            },
+            background: {
+              type: 'color',
+              color: normalizedStationery.cardBgColor || backgroundColor,
+            },
+          },
+        });
+        console.log(`Design settings saved for event: ${newEvent.id}`);
+      } catch (desErr) {
+        console.warn("Could not auto-create design settings:", desErr.message);
+      }
     }
 
-    // Save Design Settings Palette (Evite 4-layer config)
-    try {
-      await prisma.designSettings.upsert({
-        where: { eventId: newEvent.id },
-        update: {
-          colorScheme: {
-            preset: aiData.theme || 'AI Generated Palette',
-            primaryColor: accentColor,
-            secondaryColor: palette[1] || '#00C0F9',
-            textColor: textColor,
-            envelopeColor: normalizedStationery.envelopeColor,
-            backdropColor: normalizedStationery.backdropColor,
-          },
-          typography: {
-            titleFont: 'Playfair Display',
-            bodyFont: 'Montserrat',
-          },
-          background: {
-            type: 'color',
-            color: normalizedStationery.cardBgColor || backgroundColor,
-          },
-        },
-        create: {
-          eventId: newEvent.id,
-          colorScheme: {
-            preset: aiData.theme || 'AI Generated Palette',
-            primaryColor: accentColor,
-            secondaryColor: palette[1] || '#00C0F9',
-            textColor: textColor,
-            envelopeColor: normalizedStationery.envelopeColor,
-            backdropColor: normalizedStationery.backdropColor,
-          },
-          typography: {
-            titleFont: 'Playfair Display',
-            bodyFont: 'Montserrat',
-          },
-          background: {
-            type: 'color',
-            color: normalizedStationery.cardBgColor || backgroundColor,
-          },
-        },
-      });
-      console.log(`Design settings saved for event: ${newEvent.id}`);
-    } catch (desErr) {
-      console.warn("Could not auto-create design settings:", desErr.message);
-    }
-
-    return res.status(201).json({
+    return res.status(200).json({
       success: true,
-      message: 'Event generated and saved to dashboard successfully',
-      eventId: newEvent.id,
+      message: userId ? 'Event generated and saved to dashboard successfully' : 'Event design generated successfully in guest mode',
+      eventId: newEvent ? newEvent.id : null,
       templateId: matchedTpl.id,
       selectedTemplateId: matchedTpl.id,
-      redirectUrl: `/dashboard/invitations?eventId=${newEvent.id}&studio=true&templateId=${matchedTpl.id}`,
-      event: { ...newEvent, selectedTemplateId: matchedTpl.id, coverImage: matchedTpl.image, totalGuests: 0, guests: [] },
-      invitation: { ...newInvitation, templateId: matchedTpl.id, imageUrl: matchedTpl.image },
+      redirectUrl: newEvent ? `/dashboard/invitations?eventId=${newEvent.id}&studio=true&templateId=${matchedTpl.id}` : null,
+      event: newEvent ? { ...newEvent, selectedTemplateId: matchedTpl.id, coverImage: matchedTpl.image, totalGuests: 0, guests: [] } : null,
+      invitation: newInvitation ? { ...newInvitation, templateId: matchedTpl.id, imageUrl: matchedTpl.image } : null,
       guests: [],
       guestList: [],
       ...aiData,

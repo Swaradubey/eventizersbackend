@@ -284,6 +284,26 @@ const updatePreferences = async (req, res) => {
   }
 };
 
+/**
+ * DELETE /api/user/settings/account (or /api/admin/settings/account)
+ */
+const deleteAccount = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    await settingsService.deleteAccount(userId);
+    return res.status(200).json({
+      success: true,
+      message: "Your account and all associated data have been permanently deleted.",
+    });
+  } catch (error) {
+    console.error("Delete Account Error:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to delete account. Please try again.",
+    });
+  }
+};
+
 module.exports = {
   getProfile,
   updateProfile,
@@ -298,4 +318,5 @@ module.exports = {
   removeTeamMember,
   getPreferences,
   updatePreferences,
+  deleteAccount,
 };

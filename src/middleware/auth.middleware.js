@@ -72,8 +72,35 @@ const restrictGuest = (req, res, next) => {
   next();
 };
 
+const optionalAuthMiddleware = async (req, res, next) => {
+  try {
+    let token = req.cookies?.token;
+    if (req.headers.authorization && req.headers.authorization.startsWith("Bearer ")) {
+      token = req.headers.authorization.split(" ")[1];
+    }
+    if (token) {
+      const jwtSecret = process.env.JWT_SECRET;
+      if (jwtSecret) {
+        try {
+          const decoded = jwt.verify(token, jwtSecret);
+          const user = await authService.findUserById(decoded.id);
+          if (user) {
+            const { password, ...userWithoutPassword } = user;
+            if (decoded.isGoogleLogin) {
+              userWithoutPassword.role = "USER";
+            }
+            req.user = userWithoutPassword;
+          }
+        } catch (_) {}
+      }
+    }
+  } catch (_) {}
+  next();
+};
+
 module.exports = authMiddleware;
 module.exports.requireAuth = requireAuth;
 module.exports.requireAdmin = requireAdmin;
 module.exports.restrictGuest = restrictGuest;
+module.exports.optionalAuthMiddleware = optionalAuthMiddleware;
 
