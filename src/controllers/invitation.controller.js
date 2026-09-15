@@ -764,9 +764,23 @@ const sendInvitation = async (req, res) => {
 
     // Send emails via Nodemailer service with personalized tracking pixel and hosted public card image
     // Pass both resolved URL and raw snapshot data so email service can resolve public image URLs
+    // Merge frontend payload (card, cardBg, textElements, decorations) onto the DB invitation
+    // so the cardRenderer fallback can access artwork URLs and text layer positions
+    const enrichedInvitation = {
+      ...invitation,
+      ...(req.body.card ? { card: req.body.card } : {}),
+      ...(req.body.cardBg ? { cardBg: req.body.cardBg } : {}),
+      ...(req.body.background ? { background: req.body.background } : {}),
+      ...(req.body.textElements ? { textElements: req.body.textElements } : {}),
+      ...(req.body.decorations ? { decorations: req.body.decorations } : {}),
+      ...(req.body.envelope ? { envelope: req.body.envelope } : {}),
+      ...(req.body.effects ? { effects: req.body.effects } : {}),
+      templateId: req.body.templateId || invitation.templateId || null,
+    };
+
     const sendResult = await emailService.sendInvitationEmails({
       recipients: resolvedGuests.length > 0 ? resolvedGuests : targetEmails,
-      invitation,
+      invitation: enrichedInvitation,
       event: effectiveEvent,
       senderName: req.user.name || req.user.email,
       frontendUrl,
@@ -934,9 +948,23 @@ const sendInvitationToGuests = async (req, res) => {
 
     // Pass both resolved URL and raw snapshot data so email service can resolve
     // hosted public URLs for the invitation card image
+    // Merge frontend payload (card, cardBg, textElements, decorations) onto the DB invitation
+    // so the cardRenderer fallback can access artwork URLs and text layer positions
+    const enrichedInvitation = {
+      ...invitation,
+      ...(req.body.card ? { card: req.body.card } : {}),
+      ...(req.body.cardBg ? { cardBg: req.body.cardBg } : {}),
+      ...(req.body.background ? { background: req.body.background } : {}),
+      ...(req.body.textElements ? { textElements: req.body.textElements } : {}),
+      ...(req.body.decorations ? { decorations: req.body.decorations } : {}),
+      ...(req.body.envelope ? { envelope: req.body.envelope } : {}),
+      ...(req.body.effects ? { effects: req.body.effects } : {}),
+      templateId: req.body.templateId || invitation.templateId || null,
+    };
+
     const sendResult = await emailService.sendInvitationEmails({
       recipients: resolvedGuests.length > 0 ? resolvedGuests : targetEmails,
-      invitation,
+      invitation: enrichedInvitation,
       event: effectiveEvent,
       senderName: req.user.name || req.user.email,
       frontendUrl,
@@ -992,7 +1020,18 @@ const getPublicInvitation = async (req, res) => {
  */
 const submitPublicRSVP = async (req, res) => {
   try {
-    const { eventId, name, email, phone, rsvpStatus } = req.body;
+    const {
+      eventId,
+      name,
+      email,
+      phone,
+      rsvpStatus,
+      adultsCount,
+      childrenCount,
+      additionalGuests,
+      dietaryPreference,
+      specialDietaryRequests,
+    } = req.body;
 
     if (!eventId) {
       return res.status(400).json({ error: "Event ID is required." });
@@ -1015,6 +1054,11 @@ const submitPublicRSVP = async (req, res) => {
       email,
       phone,
       rsvpStatus,
+      adultsCount,
+      childrenCount,
+      additionalGuests,
+      dietaryPreference,
+      specialDietaryRequests,
     });
 
     return res.status(200).json({
@@ -1025,6 +1069,34 @@ const submitPublicRSVP = async (req, res) => {
   } catch (error) {
     console.error("[InvitationController] Error submitting public RSVP:", error);
     return res.status(500).json({ error: "Failed to submit RSVP response. Please try again." });
+  }
+};
+
+/**
+ * Public endpoint to fetch RSVP settings for an event (no auth required)
+ * GET /api/invitations/public/:eventId/rsvp-settings
+ */
+const getPublicRsvpSettings = async (req, res) => {
+  try {
+    const { eventId } = req.params;
+    if (!eventId) {
+      return res.status(400).json({ success: false, error: "Event ID is required." });
+    }
+
+    const { PrismaClient } = require("@prisma/client");
+    const prisma = new PrismaClient();
+
+    const rsvpSettings = await prisma.rsvpSettings.findUnique({
+      where: { eventId },
+    });
+
+    return res.status(200).json({
+      success: true,
+      rsvpSettings: rsvpSettings || null,
+    });
+  } catch (error) {
+    console.error("[InvitationController] Error fetching public RSVP settings:", error);
+    return res.status(200).json({ success: true, rsvpSettings: null });
   }
 };
 
@@ -1039,5 +1111,6 @@ module.exports = {
   sendInvitationToGuests,
   getPublicInvitation,
   submitPublicRSVP,
+  getPublicRsvpSettings,
 };
 

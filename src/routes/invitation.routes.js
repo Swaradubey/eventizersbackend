@@ -6,6 +6,7 @@ const authMiddleware = require("../middleware/auth.middleware");
 // Public endpoints (Accessible WITHOUT authentication)
 router.get("/public/:id", invitationController.getPublicInvitation);
 router.post("/public/rsvp", invitationController.submitPublicRSVP);
+router.get("/public/:eventId/rsvp-settings", invitationController.getPublicRsvpSettings);
 
 // Protect all remaining invitation routes in this router with authMiddleware
 router.use(authMiddleware);

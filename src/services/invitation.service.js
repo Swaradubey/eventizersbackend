@@ -314,7 +314,11 @@ const findPublicInvitation = async (idOrEventId) => {
     invitation = await prisma.invitation.findUnique({
       where: { id: idOrEventId },
       include: {
-        event: true,
+        event: {
+          include: {
+            rsvpSettings: true,
+          },
+        },
       },
     });
   } catch (err) {
@@ -329,7 +333,11 @@ const findPublicInvitation = async (idOrEventId) => {
       invitation = await prisma.invitation.findFirst({
         where: { eventId: idOrEventId },
         include: {
-          event: true,
+          event: {
+            include: {
+              rsvpSettings: true,
+            },
+          },
         },
       });
     }
@@ -342,6 +350,9 @@ const findPublicInvitation = async (idOrEventId) => {
 
     const event = await prisma.event.findUnique({
       where: { id: idOrEventId },
+      include: {
+        rsvpSettings: true,
+      },
     });
 
     if (!event) return null;
@@ -381,6 +392,7 @@ const findPublicInvitation = async (idOrEventId) => {
         eventTime: event.eventTime,
         coverImage: event.coverImage,
         selectedTemplateId: event.selectedTemplateId,
+        rsvpSettings: event.rsvpSettings || null,
       },
     };
   }
@@ -402,16 +414,37 @@ const findPublicInvitation = async (idOrEventId) => {
  * @param {Object} data
  * @returns {Promise<Object>}
  */
-const submitPublicRSVPData = async ({ eventId, name, email, phone, rsvpStatus }) => {
+const submitPublicRSVPData = async ({
+  eventId,
+  name,
+  email,
+  phone,
+  rsvpStatus,
+  adultsCount,
+  childrenCount,
+  additionalGuests,
+  dietaryPreference,
+  specialDietaryRequests,
+}) => {
   const cleanEmail = email.trim().toLowerCase();
   const cleanName = name.trim();
   const cleanPhone = phone ? phone.trim() : null;
   const statusVal = (rsvpStatus || "confirmed").toLowerCase();
   const finalStatus = (statusVal === "attending" || statusVal === "yes" || statusVal === "confirmed")
     ? "confirmed"
-    : (statusVal === "declined" || statusVal === "no" ? "declined" : "pending");
+    : (statusVal === "maybe" || statusVal === "pending")
+      ? "pending"
+      : (statusVal === "declined" || statusVal === "no" ? "declined" : "pending");
 
   const now = new Date();
+
+  const extraFields = {
+    adultsCount: Math.max(1, Number(adultsCount) || 1),
+    childrenCount: Math.max(0, Number(childrenCount) || 0),
+    additionalGuests: Math.max(0, Number(additionalGuests) || 0),
+    dietaryPreference: dietaryPreference ? String(dietaryPreference).trim() : null,
+    specialDietaryRequests: specialDietaryRequests ? String(specialDietaryRequests).trim() : null,
+  };
 
   const existingGuest = await prisma.guest.findFirst({
     where: {
@@ -435,6 +468,7 @@ const submitPublicRSVPData = async ({ eventId, name, email, phone, rsvpStatus })
         openedAt: existingGuest.openedAt || now,
         clickedAt: existingGuest.clickedAt || now,
         openCount: existingGuest.openCount > 0 ? existingGuest.openCount : 1,
+        ...extraFields,
       },
     });
   } else {
@@ -452,6 +486,7 @@ const submitPublicRSVPData = async ({ eventId, name, email, phone, rsvpStatus })
         openedAt: now,
         clickedAt: now,
         openCount: 1,
+        ...extraFields,
       },
     });
   }

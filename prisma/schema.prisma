@@ -150,6 +150,11 @@ model Guest {
   guaranteeChargedAt    DateTime? @map("guarantee_charged_at")
   guaranteeWaivedAt     DateTime? @map("guarantee_waived_at")
   stripePaymentMethodId String?   @map("stripe_payment_method_id")
+  adultsCount           Int       @default(1) @map("adults_count")
+  childrenCount         Int       @default(0) @map("children_count")
+  additionalGuests      Int       @default(0) @map("additional_guests")
+  dietaryPreference     String?   @map("dietary_preference") @db.VarChar(50)
+  specialDietaryRequests String?  @map("special_dietary_requests") @db.Text
 
   @@map("guests")
 }

@@ -197,7 +197,7 @@ async function renderInvitationCardPng({ invitation = {}, event = {}, templateCo
   const accentColor = invitation.accentColor || templateConfig?.accentColor || "#C49B45";
   const textColor = invitation.textColor || templateConfig?.textColor || "#1E293B";
   const secondaryColor = "#64748B";
-  const cardBgColor = invitation.backgroundColor || templateConfig?.card?.backgroundColor || "#FAF9F6";
+  const cardBgColor = invitation.card?.backgroundColor || invitation.backgroundColor || templateConfig?.card?.backgroundColor || "#FAF9F6";
   const envelopeOuterColor = templateConfig?.envelope?.outerColor || (invitation.accentColor ? `${invitation.accentColor}dd` : "#1E293B");
 
   // ─── 1. BACKDROP LAYER ───
@@ -306,15 +306,23 @@ async function renderInvitationCardPng({ invitation = {}, event = {}, templateCo
   // ─── 4. TEMPLATE ARTWORK / FLORAL FRAME LAYER ───
   let artworkPath = null;
   const candidateArtworks = [
+    // Full 4-layer card object (when available from frontend payload)
+    invitation.card?.artworkUrl,
+    invitation.card?.decorativeBorderSvgUrl,
+    // Template config from registered templates
     templateConfig?.card?.decorativeBorderSvgUrl,
     templateConfig?.card?.artworkUrl,
     templateConfig?.imageUrl,
+    // Invitation saved fields
     invitation.imageUrl,
     invitation.coverImage,
-    typeof invitation.cardBg?.value === "string" ? invitation.cardBg.value : null,
-    typeof invitation.background?.value === "string" ? invitation.background.value : null,
+    // Background object fields (cardBg / background)
+    typeof invitation.cardBg?.value === "string" && invitation.cardBg.type === "image" ? invitation.cardBg.value : null,
+    typeof invitation.background?.value === "string" && invitation.background.type === "image" ? invitation.background.value : null,
+    // Event fields
     event.coverImage,
     event.imageUrl,
+    // Template ID based asset resolution
     event.selectedTemplateId ? `/assets/templates/${event.selectedTemplateId}.svg` : null,
     invitation.templateId ? `/assets/templates/${invitation.templateId}.svg` : null,
   ];

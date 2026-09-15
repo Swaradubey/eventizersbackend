@@ -919,9 +919,23 @@ const sendEventInvitations = async (req, res) => {
     }
 
     // Send invitations via emailService (Nodemailer)
+    // Merge frontend payload (card, cardBg, textElements, decorations) onto the DB invitation
+    // so the cardRenderer fallback can access artwork URLs and text layer positions
+    const enrichedInvitation = invitation ? {
+      ...invitation,
+      ...(req.body.card ? { card: req.body.card } : {}),
+      ...(req.body.cardBg ? { cardBg: req.body.cardBg } : {}),
+      ...(req.body.background ? { background: req.body.background } : {}),
+      ...(req.body.textElements ? { textElements: req.body.textElements } : {}),
+      ...(req.body.decorations ? { decorations: req.body.decorations } : {}),
+      ...(req.body.envelope ? { envelope: req.body.envelope } : {}),
+      ...(req.body.effects ? { effects: req.body.effects } : {}),
+      templateId: req.body.templateId || invitation?.templateId || null,
+    } : invitation;
+
     const sendResult = await emailService.sendInvitationEmails({
       recipients,
-      invitation,
+      invitation: enrichedInvitation,
       event,
       senderName: req.user.name || req.user.email,
       frontendUrl,
