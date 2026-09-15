@@ -582,15 +582,31 @@ const findEventById = async (id, userId) => {
 };
 
 const DEFAULT_RSVP_SETTINGS = {
+  rsvpDeadlineEnabled: false,
+  rsvpDeadlineDate: null,
+  allowLateRsvp: false,
+  allowMaybe: true,
+  isPrivateGuestList: false,
+  allowPlusOne: true,
+  maxAdditionalGuests: 1,
+
+  // Modal state aliases
+  deadlineEnabled: false,
+  deadlineDate: "",
+  allowAfterDeadline: false,
+  privateGuestList: false,
+  allowGuestsToBringAnyone: true,
+
+  // Legacy aliases
   rsvpDeadline: null,
   allowPlusOnes: true,
   maxPlusOnes: 1,
-  allowMaybeResponse: false,
+  allowMaybeResponse: true,
   requirePhoneNumber: false,
   collectDietaryRestrictions: false,
   collectMealPreference: false,
   collectSongRequests: false,
-  customQuestions: []
+  customQuestions: [],
 };
 
 /**
@@ -603,6 +619,13 @@ const findRsvpSettingsByEventId = async (eventId) => {
     `SELECT 
       id,
       event_id AS "eventId",
+      rsvp_deadline_enabled AS "rsvpDeadlineEnabled",
+      rsvp_deadline_date AS "rsvpDeadlineDate",
+      allow_late_rsvp AS "allowLateRsvp",
+      allow_maybe AS "allowMaybe",
+      is_private_guest_list AS "isPrivateGuestList",
+      allow_plus_one AS "allowPlusOne",
+      max_additional_guests AS "maxAdditionalGuests",
       rsvp_deadline AS "rsvpDeadline",
       allow_plus_ones AS "allowPlusOnes",
       max_plus_ones AS "maxPlusOnes",
@@ -624,11 +647,50 @@ const findRsvpSettingsByEventId = async (eventId) => {
   }
 
   const row = result.rows[0];
+  const rsvpDeadlineEnabled = row.rsvpDeadlineEnabled !== null && row.rsvpDeadlineEnabled !== undefined
+    ? Boolean(row.rsvpDeadlineEnabled)
+    : Boolean(row.rsvpDeadline);
+  const rsvpDeadlineDate = row.rsvpDeadlineDate || (row.rsvpDeadline ? new Date(row.rsvpDeadline) : null);
+  const allowLateRsvp = Boolean(row.allowLateRsvp);
+  const allowMaybe = row.allowMaybe !== null && row.allowMaybe !== undefined
+    ? Boolean(row.allowMaybe)
+    : (row.allowMaybeResponse !== null && row.allowMaybeResponse !== undefined ? Boolean(row.allowMaybeResponse) : true);
+  const isPrivateGuestList = Boolean(row.isPrivateGuestList);
+  const allowPlusOne = row.allowPlusOne !== null && row.allowPlusOne !== undefined
+    ? Boolean(row.allowPlusOne)
+    : (row.allowPlusOnes !== false);
+  const maxAdditionalGuests = row.maxAdditionalGuests != null
+    ? Number(row.maxAdditionalGuests)
+    : (row.maxPlusOnes != null ? Number(row.maxPlusOnes) : 1);
+
+  const deadlineDateStr = rsvpDeadlineDate
+    ? (typeof rsvpDeadlineDate === "string" ? rsvpDeadlineDate.split("T")[0] : rsvpDeadlineDate.toISOString().split("T")[0])
+    : (row.rsvpDeadline || "");
+
   return {
-    rsvpDeadline: row.rsvpDeadline || null,
-    allowPlusOnes: row.allowPlusOnes !== false,
-    maxPlusOnes: row.maxPlusOnes != null ? Number(row.maxPlusOnes) : 1,
-    allowMaybeResponse: Boolean(row.allowMaybeResponse),
+    id: row.id,
+    eventId: row.eventId,
+    // Canonical schema fields
+    rsvpDeadlineEnabled,
+    rsvpDeadlineDate,
+    allowLateRsvp,
+    allowMaybe,
+    isPrivateGuestList,
+    allowPlusOne,
+    maxAdditionalGuests,
+
+    // Modal state aliases
+    deadlineEnabled: rsvpDeadlineEnabled,
+    deadlineDate: deadlineDateStr,
+    allowAfterDeadline: allowLateRsvp,
+    privateGuestList: isPrivateGuestList,
+    allowGuestsToBringAnyone: allowPlusOne,
+
+    // Legacy fields
+    rsvpDeadline: deadlineDateStr || null,
+    allowPlusOnes: allowPlusOne,
+    maxPlusOnes: maxAdditionalGuests,
+    allowMaybeResponse: allowMaybe,
     requirePhoneNumber: Boolean(row.requirePhoneNumber),
     collectDietaryRestrictions: Boolean(row.collectDietaryRestrictions),
     collectMealPreference: Boolean(row.collectMealPreference),
@@ -647,10 +709,46 @@ const findRsvpSettingsByEventId = async (eventId) => {
  */
 const upsertRsvpSettings = async (eventId, data = {}) => {
   const current = await findRsvpSettingsByEventId(eventId);
-  const rsvpDeadline = data.rsvpDeadline !== undefined ? data.rsvpDeadline : current.rsvpDeadline;
-  const allowPlusOnes = data.allowPlusOnes !== undefined ? Boolean(data.allowPlusOnes) : current.allowPlusOnes;
-  const maxPlusOnes = data.maxPlusOnes !== undefined ? Math.max(1, Number(data.maxPlusOnes) || 1) : current.maxPlusOnes;
-  const allowMaybeResponse = data.allowMaybeResponse !== undefined ? Boolean(data.allowMaybeResponse) : current.allowMaybeResponse;
+
+  const rsvpDeadlineEnabled = data.rsvpDeadlineEnabled !== undefined
+    ? Boolean(data.rsvpDeadlineEnabled)
+    : (data.deadlineEnabled !== undefined ? Boolean(data.deadlineEnabled) : current.rsvpDeadlineEnabled);
+
+  let rawDeadlineDate = data.rsvpDeadlineDate !== undefined
+    ? data.rsvpDeadlineDate
+    : (data.deadlineDate !== undefined ? data.deadlineDate : (data.rsvpDeadline !== undefined ? data.rsvpDeadline : current.rsvpDeadlineDate));
+  let rsvpDeadlineDate = null;
+  if (rawDeadlineDate) {
+    const d = new Date(rawDeadlineDate);
+    if (!isNaN(d.getTime())) {
+      rsvpDeadlineDate = d.toISOString();
+    }
+  }
+
+  const allowLateRsvp = data.allowLateRsvp !== undefined
+    ? Boolean(data.allowLateRsvp)
+    : (data.allowAfterDeadline !== undefined ? Boolean(data.allowAfterDeadline) : current.allowLateRsvp);
+
+  const allowMaybe = data.allowMaybe !== undefined
+    ? Boolean(data.allowMaybe)
+    : (data.allowMaybeResponse !== undefined ? Boolean(data.allowMaybeResponse) : current.allowMaybe);
+
+  const isPrivateGuestList = data.isPrivateGuestList !== undefined
+    ? Boolean(data.isPrivateGuestList)
+    : (data.privateGuestList !== undefined ? Boolean(data.privateGuestList) : current.isPrivateGuestList);
+
+  const allowPlusOne = data.allowPlusOne !== undefined
+    ? Boolean(data.allowPlusOne)
+    : (data.allowGuestsToBringAnyone !== undefined ? Boolean(data.allowGuestsToBringAnyone) : (data.allowPlusOnes !== undefined ? Boolean(data.allowPlusOnes) : current.allowPlusOne));
+
+  const maxAdditionalGuests = data.maxAdditionalGuests !== undefined
+    ? Math.max(1, Number(data.maxAdditionalGuests) || 1)
+    : (data.maxPlusOnes !== undefined ? Math.max(1, Number(data.maxPlusOnes) || 1) : current.maxAdditionalGuests);
+
+  const deadlineDateStr = rsvpDeadlineDate
+    ? rsvpDeadlineDate.split("T")[0]
+    : (typeof rawDeadlineDate === "string" ? rawDeadlineDate : null);
+
   const requirePhoneNumber = data.requirePhoneNumber !== undefined ? Boolean(data.requirePhoneNumber) : current.requirePhoneNumber;
   const collectDietaryRestrictions = data.collectDietaryRestrictions !== undefined ? Boolean(data.collectDietaryRestrictions) : current.collectDietaryRestrictions;
   const collectMealPreference = data.collectMealPreference !== undefined ? Boolean(data.collectMealPreference) : current.collectMealPreference;
@@ -661,7 +759,15 @@ const upsertRsvpSettings = async (eventId, data = {}) => {
 
   const result = await db.query(
     `INSERT INTO rsvp_settings (
+      id,
       event_id,
+      rsvp_deadline_enabled,
+      rsvp_deadline_date,
+      allow_late_rsvp,
+      allow_maybe,
+      is_private_guest_list,
+      allow_plus_one,
+      max_additional_guests,
       rsvp_deadline,
       allow_plus_ones,
       max_plus_ones,
@@ -672,8 +778,18 @@ const upsertRsvpSettings = async (eventId, data = {}) => {
       collect_song_requests,
       custom_questions,
       updated_at
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, CURRENT_TIMESTAMP)
+    ) VALUES (
+      COALESCE((SELECT id FROM rsvp_settings WHERE event_id = $1), gen_random_uuid()),
+      $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17::jsonb, CURRENT_TIMESTAMP
+    )
     ON CONFLICT (event_id) DO UPDATE SET
+      rsvp_deadline_enabled = EXCLUDED.rsvp_deadline_enabled,
+      rsvp_deadline_date = EXCLUDED.rsvp_deadline_date,
+      allow_late_rsvp = EXCLUDED.allow_late_rsvp,
+      allow_maybe = EXCLUDED.allow_maybe,
+      is_private_guest_list = EXCLUDED.is_private_guest_list,
+      allow_plus_one = EXCLUDED.allow_plus_one,
+      max_additional_guests = EXCLUDED.max_additional_guests,
       rsvp_deadline = EXCLUDED.rsvp_deadline,
       allow_plus_ones = EXCLUDED.allow_plus_ones,
       max_plus_ones = EXCLUDED.max_plus_ones,
@@ -687,6 +803,13 @@ const upsertRsvpSettings = async (eventId, data = {}) => {
     RETURNING 
       id,
       event_id AS "eventId",
+      rsvp_deadline_enabled AS "rsvpDeadlineEnabled",
+      rsvp_deadline_date AS "rsvpDeadlineDate",
+      allow_late_rsvp AS "allowLateRsvp",
+      allow_maybe AS "allowMaybe",
+      is_private_guest_list AS "isPrivateGuestList",
+      allow_plus_one AS "allowPlusOne",
+      max_additional_guests AS "maxAdditionalGuests",
       rsvp_deadline AS "rsvpDeadline",
       allow_plus_ones AS "allowPlusOnes",
       max_plus_ones AS "maxPlusOnes",
@@ -700,24 +823,52 @@ const upsertRsvpSettings = async (eventId, data = {}) => {
       updated_at AS "updatedAt"`,
     [
       eventId,
-      rsvpDeadline || null,
-      allowPlusOnes,
-      maxPlusOnes,
-      allowMaybeResponse,
+      rsvpDeadlineEnabled,
+      rsvpDeadlineDate,
+      allowLateRsvp,
+      allowMaybe,
+      isPrivateGuestList,
+      allowPlusOne,
+      maxAdditionalGuests,
+      deadlineDateStr || null,
+      allowPlusOne,
+      maxAdditionalGuests,
+      allowMaybe,
       requirePhoneNumber,
       collectDietaryRestrictions,
       collectMealPreference,
       collectSongRequests,
-      customQuestions
+      customQuestions,
     ]
   );
 
   const row = result.rows[0];
+  const retRsvpDeadlineDate = row.rsvpDeadlineDate || (row.rsvpDeadline ? new Date(row.rsvpDeadline) : null);
+  const retDeadlineDateStr = retRsvpDeadlineDate
+    ? (typeof retRsvpDeadlineDate === "string" ? retRsvpDeadlineDate.split("T")[0] : retRsvpDeadlineDate.toISOString().split("T")[0])
+    : (row.rsvpDeadline || "");
+
   return {
-    rsvpDeadline: row.rsvpDeadline || null,
-    allowPlusOnes: row.allowPlusOnes !== false,
-    maxPlusOnes: row.maxPlusOnes != null ? Number(row.maxPlusOnes) : 1,
-    allowMaybeResponse: Boolean(row.allowMaybeResponse),
+    id: row.id,
+    eventId: row.eventId,
+    rsvpDeadlineEnabled: Boolean(row.rsvpDeadlineEnabled),
+    rsvpDeadlineDate: retRsvpDeadlineDate,
+    allowLateRsvp: Boolean(row.allowLateRsvp),
+    allowMaybe: Boolean(row.allowMaybe),
+    isPrivateGuestList: Boolean(row.isPrivateGuestList),
+    allowPlusOne: Boolean(row.allowPlusOne),
+    maxAdditionalGuests: Number(row.maxAdditionalGuests),
+
+    deadlineEnabled: Boolean(row.rsvpDeadlineEnabled),
+    deadlineDate: retDeadlineDateStr,
+    allowAfterDeadline: Boolean(row.allowLateRsvp),
+    privateGuestList: Boolean(row.isPrivateGuestList),
+    allowGuestsToBringAnyone: Boolean(row.allowPlusOne),
+
+    rsvpDeadline: retDeadlineDateStr || null,
+    allowPlusOnes: Boolean(row.allowPlusOne),
+    maxPlusOnes: Number(row.maxAdditionalGuests),
+    allowMaybeResponse: Boolean(row.allowMaybe),
     requirePhoneNumber: Boolean(row.requirePhoneNumber),
     collectDietaryRestrictions: Boolean(row.collectDietaryRestrictions),
     collectMealPreference: Boolean(row.collectMealPreference),

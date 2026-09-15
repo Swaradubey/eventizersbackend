@@ -596,12 +596,22 @@ const deleteEvent = async (req, res) => {
 const getRsvpSettings = async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user.id;
+    const userId = req.user?.id;
 
-    // Verify ownership
-    const event = await eventService.findEventByIdAndUserId(id, userId);
-    if (!event) {
-      return res.status(404).json({ success: false, error: "Event not found or unauthorized access." });
+    // Verify ownership if authenticated
+    if (userId) {
+      let event = await eventService.findEventByIdAndUserId(id, userId);
+      if (!event && req.user?.role === "ADMIN") {
+        event = await eventService.findEventById(id);
+      }
+      if (!event) {
+        return res.status(404).json({ success: false, error: "Event not found or unauthorized access." });
+      }
+    } else {
+      const event = await eventService.findEventById(id);
+      if (!event) {
+        return res.status(404).json({ success: false, error: "Event not found." });
+      }
     }
 
     const rsvpSettings = await eventService.findRsvpSettingsByEventId(id);
@@ -618,6 +628,7 @@ const getRsvpSettings = async (req, res) => {
 /**
  * Update RSVP settings for an event
  * PUT /api/events/:id/rsvp-settings
+ * PATCH /api/events/:id/rsvp-settings
  */
 const updateRsvpSettings = async (req, res) => {
   try {
@@ -625,9 +636,20 @@ const updateRsvpSettings = async (req, res) => {
     const userId = req.user.id;
 
     // Verify ownership
-    const event = await eventService.findEventByIdAndUserId(id, userId);
+    let event = await eventService.findEventByIdAndUserId(id, userId);
+    if (!event && req.user.role === "ADMIN") {
+      event = await eventService.findEventById(id);
+    }
     if (!event) {
       return res.status(404).json({ success: false, error: "Event not found or unauthorized access." });
+    }
+
+    // Validate payload values if provided
+    if (req.body.maxAdditionalGuests !== undefined) {
+      const num = Number(req.body.maxAdditionalGuests);
+      if (isNaN(num) || num < 0 || num > 50) {
+        return res.status(400).json({ success: false, error: "maxAdditionalGuests must be a number between 0 and 50." });
+      }
     }
 
     const updatedSettings = await eventService.upsertRsvpSettings(id, req.body);

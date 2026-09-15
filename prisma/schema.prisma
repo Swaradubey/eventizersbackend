@@ -519,21 +519,28 @@ model AttendanceGuaranteeSetting {
 }
 
 model RsvpSettings {
-  id                         String   @id @default(uuid()) @db.Uuid
-  eventId                    String   @unique @map("event_id") @db.Uuid
-  rsvpDeadline               String?  @map("rsvp_deadline") @db.VarChar(50)
-  allowPlusOnes              Boolean  @default(true) @map("allow_plus_ones")
-  maxPlusOnes                Int      @default(1) @map("max_plus_ones")
-  allowMaybeResponse         Boolean  @default(false) @map("allow_maybe_response")
-  requirePhoneNumber         Boolean  @default(false) @map("require_phone_number")
-  collectDietaryRestrictions Boolean  @default(false) @map("collect_dietary_restrictions")
-  collectMealPreference      Boolean  @default(false) @map("collect_meal_preference")
-  collectSongRequests        Boolean  @default(false) @map("collect_song_requests")
-  customQuestions            Json     @default("[]") @map("custom_questions")
-  createdAt                  DateTime @default(now()) @map("created_at")
-  updatedAt                  DateTime @default(now()) @updatedAt @map("updated_at")
+  id                         String    @id @default(uuid()) @db.Uuid
+  eventId                    String    @unique @map("event_id") @db.Uuid
+  rsvpDeadlineEnabled        Boolean   @default(false) @map("rsvp_deadline_enabled")
+  rsvpDeadlineDate           DateTime? @map("rsvp_deadline_date")
+  allowLateRsvp              Boolean   @default(false) @map("allow_late_rsvp")
+  allowMaybe                 Boolean   @default(true) @map("allow_maybe")
+  isPrivateGuestList         Boolean   @default(false) @map("is_private_guest_list")
+  allowPlusOne               Boolean   @default(true) @map("allow_plus_one")
+  maxAdditionalGuests        Int       @default(1) @map("max_additional_guests")
+  rsvpDeadline               String?   @map("rsvp_deadline") @db.VarChar(50)
+  allowPlusOnes              Boolean   @default(true) @map("allow_plus_ones")
+  maxPlusOnes                Int       @default(1) @map("max_plus_ones")
+  allowMaybeResponse         Boolean   @default(false) @map("allow_maybe_response")
+  requirePhoneNumber         Boolean   @default(false) @map("require_phone_number")
+  collectDietaryRestrictions Boolean   @default(false) @map("collect_dietary_restrictions")
+  collectMealPreference      Boolean   @default(false) @map("collect_meal_preference")
+  collectSongRequests        Boolean   @default(false) @map("collect_song_requests")
+  customQuestions            Json      @default("[]") @map("custom_questions")
+  createdAt                  DateTime  @default(now()) @map("created_at")
+  updatedAt                  DateTime  @default(now()) @updatedAt @map("updated_at")
 
-  event                      Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  event                      Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
   @@map("rsvp_settings")
 }

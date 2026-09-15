@@ -29,6 +29,7 @@ router.delete("/:id", restrictGuest, eventController.deleteEvent);
 // RSVP Settings routes
 router.get("/:id/rsvp-settings", eventController.getRsvpSettings);
 router.put("/:id/rsvp-settings", restrictGuest, eventController.updateRsvpSettings);
+router.patch("/:id/rsvp-settings", restrictGuest, eventController.updateRsvpSettings);
 
 // Design & Fonts Settings routes
 router.get("/:id/design", eventController.getDesignSettings);
