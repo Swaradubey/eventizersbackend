@@ -665,7 +665,17 @@ const findRsvpSettingsByEventId = async (eventId) => {
 
   const deadlineDateStr = rsvpDeadlineDate
     ? (typeof rsvpDeadlineDate === "string" ? rsvpDeadlineDate.split("T")[0] : rsvpDeadlineDate.toISOString().split("T")[0])
-    : (row.rsvpDeadline || "");
+    : (row.rsvpDeadline ? String(row.rsvpDeadline).split("T")[0] : "");
+
+  let deadlineTimeStr = "";
+  if (rsvpDeadlineDate) {
+    if (typeof rsvpDeadlineDate === "string" && rsvpDeadlineDate.includes("T")) {
+      const t = rsvpDeadlineDate.split("T")[1];
+      if (t) deadlineTimeStr = t.substring(0, 5);
+    } else if (rsvpDeadlineDate instanceof Date && !isNaN(rsvpDeadlineDate.getTime())) {
+      deadlineTimeStr = `${String(rsvpDeadlineDate.getUTCHours()).padStart(2, '0')}:${String(rsvpDeadlineDate.getUTCMinutes()).padStart(2, '0')}`;
+    }
+  }
 
   return {
     id: row.id,
@@ -682,6 +692,8 @@ const findRsvpSettingsByEventId = async (eventId) => {
     // Modal state aliases
     deadlineEnabled: rsvpDeadlineEnabled,
     deadlineDate: deadlineDateStr,
+    deadlineTime: deadlineTimeStr,
+    rsvpDeadlineTime: deadlineTimeStr,
     allowAfterDeadline: allowLateRsvp,
     privateGuestList: isPrivateGuestList,
     allowGuestsToBringAnyone: allowPlusOne,
@@ -717,11 +729,29 @@ const upsertRsvpSettings = async (eventId, data = {}) => {
   let rawDeadlineDate = data.rsvpDeadlineDate !== undefined
     ? data.rsvpDeadlineDate
     : (data.deadlineDate !== undefined ? data.deadlineDate : (data.rsvpDeadline !== undefined ? data.rsvpDeadline : current.rsvpDeadlineDate));
+  let rawDeadlineTime = data.rsvpDeadlineTime !== undefined
+    ? data.rsvpDeadlineTime
+    : (data.deadlineTime !== undefined ? data.deadlineTime : null);
+
   let rsvpDeadlineDate = null;
   if (rawDeadlineDate) {
-    const d = new Date(rawDeadlineDate);
-    if (!isNaN(d.getTime())) {
-      rsvpDeadlineDate = d.toISOString();
+    if (typeof rawDeadlineDate === "string" && !rawDeadlineDate.includes("T") && rawDeadlineTime) {
+      const matchTime = String(rawDeadlineTime).match(/(\d{1,2}):(\d{2})/);
+      const [year, month, day] = rawDeadlineDate.split("-").map(Number);
+      if (year && month && day) {
+        const h = matchTime ? Number(matchTime[1]) : 23;
+        const m = matchTime ? Number(matchTime[2]) : 59;
+        const d = new Date(Date.UTC(year, month - 1, day, h, m, 0, 0));
+        if (!isNaN(d.getTime())) {
+          rsvpDeadlineDate = d.toISOString();
+        }
+      }
+    }
+    if (!rsvpDeadlineDate) {
+      const d = new Date(rawDeadlineDate);
+      if (!isNaN(d.getTime())) {
+        rsvpDeadlineDate = d.toISOString();
+      }
     }
   }
 
@@ -846,7 +876,17 @@ const upsertRsvpSettings = async (eventId, data = {}) => {
   const retRsvpDeadlineDate = row.rsvpDeadlineDate || (row.rsvpDeadline ? new Date(row.rsvpDeadline) : null);
   const retDeadlineDateStr = retRsvpDeadlineDate
     ? (typeof retRsvpDeadlineDate === "string" ? retRsvpDeadlineDate.split("T")[0] : retRsvpDeadlineDate.toISOString().split("T")[0])
-    : (row.rsvpDeadline || "");
+    : (row.rsvpDeadline ? String(row.rsvpDeadline).split("T")[0] : "");
+
+  let retDeadlineTimeStr = "";
+  if (retRsvpDeadlineDate) {
+    if (typeof retRsvpDeadlineDate === "string" && retRsvpDeadlineDate.includes("T")) {
+      const t = retRsvpDeadlineDate.split("T")[1];
+      if (t) retDeadlineTimeStr = t.substring(0, 5);
+    } else if (retRsvpDeadlineDate instanceof Date && !isNaN(retRsvpDeadlineDate.getTime())) {
+      retDeadlineTimeStr = `${String(retRsvpDeadlineDate.getUTCHours()).padStart(2, '0')}:${String(retRsvpDeadlineDate.getUTCMinutes()).padStart(2, '0')}`;
+    }
+  }
 
   return {
     id: row.id,
@@ -861,6 +901,8 @@ const upsertRsvpSettings = async (eventId, data = {}) => {
 
     deadlineEnabled: Boolean(row.rsvpDeadlineEnabled),
     deadlineDate: retDeadlineDateStr,
+    deadlineTime: retDeadlineTimeStr,
+    rsvpDeadlineTime: retDeadlineTimeStr,
     allowAfterDeadline: Boolean(row.allowLateRsvp),
     privateGuestList: Boolean(row.isPrivateGuestList),
     allowGuestsToBringAnyone: Boolean(row.allowPlusOne),
