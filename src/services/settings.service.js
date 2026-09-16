@@ -266,24 +266,68 @@ const deleteAccount = async (userId) => {
   }
 
   return await prisma.$transaction(async (tx) => {
-    // 1. Delete ONLY events created by THIS specific user (other users' events remain untouched)
-    await tx.event.deleteMany({
+    // 1. Fetch all event IDs created by this user
+    const userEvents = await tx.event.findMany({
       where: { createdBy: numericUserId },
+      select: { id: true },
     });
+    const userEventIds = userEvents.map((e) => e.id);
 
-    // 2. Delete ONLY records belonging to THIS specific user
+    // 2. Fetch all ticket orders linked to user's events OR created by this user
+    const userOrders = await tx.ticketOrder.findMany({
+      where: {
+        OR: [
+          { userId: numericUserId },
+          { eventId: { in: userEventIds } },
+        ],
+      },
+      select: { id: true },
+    });
+    const userOrderIds = userOrders.map((o) => o.id);
+
+    // 3. Delete ticket order items first to satisfy foreign key constraint on ticket_orders
+    if (userOrderIds.length > 0) {
+      await tx.ticketOrderItem.deleteMany({
+        where: { orderId: { in: userOrderIds } },
+      });
+      await tx.ticketOrder.deleteMany({
+        where: { id: { in: userOrderIds } },
+      });
+    }
+
+    // 4. Delete all child records belonging to user's events
+    if (userEventIds.length > 0) {
+      await tx.checkIn.deleteMany({ where: { eventId: { in: userEventIds } } });
+      await tx.guest.deleteMany({ where: { eventId: { in: userEventIds } } });
+      await tx.invitation.deleteMany({ where: { eventId: { in: userEventIds } } });
+      await tx.ticketTier.deleteMany({ where: { eventId: { in: userEventIds } } });
+      await tx.message.deleteMany({ where: { eventId: { in: userEventIds } } });
+      await tx.registry.deleteMany({ where: { eventId: { in: userEventIds } } });
+      await tx.rsvpSettings.deleteMany({ where: { eventId: { in: userEventIds } } });
+      await tx.designSettings.deleteMany({ where: { eventId: { in: userEventIds } } });
+      await tx.stationeryDesign.deleteMany({ where: { eventId: { in: userEventIds } } });
+      await tx.customDomainSettings.deleteMany({ where: { eventId: { in: userEventIds } } });
+      await tx.auditLog.deleteMany({ where: { eventId: { in: userEventIds } } });
+
+      // Delete the events created by this user
+      await tx.event.deleteMany({
+        where: { id: { in: userEventIds } },
+      });
+    }
+
+    // 5. Delete user-level settings & profile records
     await tx.adminProfile.deleteMany({ where: { userId: numericUserId } });
     await tx.adminNotificationSettings.deleteMany({ where: { userId: numericUserId } });
     await tx.adminSecuritySettings.deleteMany({ where: { userId: numericUserId } });
     await tx.adminPreferences.deleteMany({ where: { userId: numericUserId } });
     await tx.adminTeamMember.deleteMany({ where: { userId: numericUserId } });
+    await tx.adminTeamMember.deleteMany({ where: { invitedById: numericUserId } });
     await tx.attendanceGuaranteeSetting.deleteMany({ where: { userId: numericUserId } });
     await tx.guestGroup.deleteMany({ where: { userId: numericUserId } });
     await tx.message.deleteMany({ where: { senderId: numericUserId } });
     await tx.registry.deleteMany({ where: { createdBy: numericUserId } });
-    await tx.ticketOrder.deleteMany({ where: { userId: numericUserId } });
 
-    // 3. Delete ONLY THIS specific user record
+    // 6. Delete the User record
     return await tx.user.delete({
       where: { id: numericUserId },
     });

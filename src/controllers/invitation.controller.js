@@ -645,6 +645,13 @@ const sendInvitation = async (req, res) => {
       }
     }
 
+    const eventStatus = (event?.status || invitation?.status || "draft").toLowerCase();
+    if (eventStatus === "draft") {
+      return res.status(400).json({
+        error: "Event is in draft mode. Please publish your event before sending invitations.",
+      });
+    }
+
     // Resolve snapshot image URL (convert Base64 if needed) for email dispatch
     const rawSnapshot = snapshot || cardImageBase64 || snapshotUrl || cardSnapshotUrl || null;
     let resolvedSnapshotUrl = null;
