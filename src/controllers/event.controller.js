@@ -460,7 +460,7 @@ const updateEvent = async (req, res) => {
     const userId = req.user.id;
 
     // For partial updates (e.g. status='published' or design updates), fallback to existing event fields if missing
-    if (!title || !eventDate || !eventTime || !venue) {
+    if (!title || !eventDate || !eventTime || !venue || req.body.status === undefined) {
       const existing = await eventService.findEventByIdAndUserId(id, userId) || await eventService.findEventById(id);
       if (existing) {
         title = title || existing.title || "Special Event";
@@ -471,6 +471,9 @@ const updateEvent = async (req, res) => {
         req.body.eventDate = eventDate;
         req.body.eventTime = eventTime;
         req.body.venue = venue;
+        if (req.body.status === undefined && existing.status) {
+          req.body.status = existing.status;
+        }
       }
     }
 
@@ -751,6 +754,20 @@ const sendEventInvitations = async (req, res) => {
     const event = await eventService.findEventByIdAndUserId(id, userId);
     if (!event) {
       return res.status(404).json({ success: false, error: "Event not found or unauthorized access." });
+    }
+
+    // Auto-publish event if currently in draft mode so sending invitations is never blocked
+    if (event.status === "draft" || !event.status || event.status === "pending") {
+      try {
+        await db.query(
+          `UPDATE events SET status = 'published', updated_at = NOW() WHERE id = $1`,
+          [id]
+        );
+        event.status = "published";
+        console.log(`[EventController] Auto-published event ${id} from draft to 'published' on invitation send.`);
+      } catch (pubErr) {
+        console.warn("[EventController] Could not auto-publish event on send:", pubErr.message);
+      }
     }
 
     // If delivery method is SMS or WhatsApp without testEmail or for UI demo

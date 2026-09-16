@@ -640,6 +640,14 @@ const sendInvitation = async (req, res) => {
     if (invitation.eventId) {
       try {
         event = await eventService.findEventById(invitation.eventId, userId);
+        if (event && (event.status === "draft" || !event.status)) {
+          await db.query(
+            `UPDATE events SET status = 'published', updated_at = NOW() WHERE id = $1`,
+            [invitation.eventId]
+          );
+          event.status = "published";
+          console.log(`[InvitationController] Auto-published event ${invitation.eventId} on invitation dispatch.`);
+        }
       } catch (err) {
         console.warn("[InvitationController] Could not fetch event details:", err.message);
       }
@@ -801,6 +809,18 @@ const sendInvitation = async (req, res) => {
     // Mark status as published
     await invitationService.updateInvitation(id, { ...invitation, status: "published" }, userId);
 
+    // Auto-publish associated event if draft or un-published
+    if (invitation.eventId) {
+      try {
+        await db.query(
+          `UPDATE events SET status = 'published', updated_at = NOW() WHERE id = $1 AND (status = 'draft' OR status IS NULL)`,
+          [invitation.eventId]
+        );
+      } catch (pubErr) {
+        console.warn("[InvitationController] Error auto-publishing event:", pubErr.message);
+      }
+    }
+
     return res.status(200).json({
       success: true,
       message: `Invitation successfully sent to ${sendResult.recipientCount} recipient(s)!`,
@@ -861,6 +881,14 @@ const sendInvitationToGuests = async (req, res) => {
     if (invitation.eventId) {
       try {
         event = await eventService.findEventById(invitation.eventId, userId);
+        if (event && (event.status === "draft" || !event.status)) {
+          await db.query(
+            `UPDATE events SET status = 'published', updated_at = NOW() WHERE id = $1`,
+            [invitation.eventId]
+          );
+          event.status = "published";
+          console.log(`[InvitationController] Auto-published event ${invitation.eventId} on sending to guests.`);
+        }
       } catch (err) {
         console.warn("[InvitationController] Could not fetch event details:", err.message);
       }
@@ -983,6 +1011,18 @@ const sendInvitationToGuests = async (req, res) => {
     });
 
     await invitationService.updateInvitation(invitationId, { ...invitation, status: "published" }, userId);
+
+    const targetEventId = invitation?.eventId || eventId;
+    if (targetEventId) {
+      try {
+        await db.query(
+          `UPDATE events SET status = 'published', updated_at = NOW() WHERE id = $1 AND (status = 'draft' OR status IS NULL)`,
+          [targetEventId]
+        );
+      } catch (pubErr) {
+        console.warn("[InvitationController] Error auto-publishing event on guest send:", pubErr.message);
+      }
+    }
 
     return res.status(200).json({
       success: true,
