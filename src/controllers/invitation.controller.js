@@ -790,6 +790,8 @@ const sendInvitation = async (req, res) => {
       ...(req.body.decorations ? { decorations: req.body.decorations } : {}),
       ...(req.body.envelope ? { envelope: req.body.envelope } : {}),
       ...(req.body.effects ? { effects: req.body.effects } : {}),
+      ...(req.body.gifting ? { gifting: req.body.gifting } : {}),
+      ...(req.body.designData ? { designData: req.body.designData } : {}),
       templateId: req.body.templateId || invitation.templateId || null,
     };
 
@@ -994,6 +996,8 @@ const sendInvitationToGuests = async (req, res) => {
       ...(req.body.decorations ? { decorations: req.body.decorations } : {}),
       ...(req.body.envelope ? { envelope: req.body.envelope } : {}),
       ...(req.body.effects ? { effects: req.body.effects } : {}),
+      ...(req.body.gifting ? { gifting: req.body.gifting } : {}),
+      ...(req.body.designData ? { designData: req.body.designData } : {}),
       templateId: req.body.templateId || invitation.templateId || null,
     };
 

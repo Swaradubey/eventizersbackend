@@ -5,6 +5,7 @@ const { createCanvas, loadImage } = require("@napi-rs/canvas");
 // Base directories for template assets
 const TEMPLATES_DIRS = [
   path.resolve(__dirname, "../../../public/assets/templates"),
+  path.resolve(__dirname, "../../../invitehub/public/assets/templates"),
   path.resolve(__dirname, "../../public/assets/templates"),
   path.resolve(__dirname, "../../uploads"),
   path.resolve(__dirname, "../../../public/images"),
@@ -33,6 +34,13 @@ const CATEGORY_ARTWORK_MAP = {
 const resolveAssetPath = (assetUrl) => {
   if (!assetUrl || typeof assetUrl !== "string") return null;
   const clean = assetUrl.trim();
+
+  // If this is an SVG template asset, prefer the textless '-bg.svg' variant to prevent double text
+  if (clean.endsWith(".svg") && !clean.endsWith("-bg.svg")) {
+    const bgCandidate = clean.replace(/\.svg$/i, "-bg.svg");
+    const resolvedBg = resolveAssetPath(bgCandidate);
+    if (resolvedBg) return resolvedBg;
+  }
 
   // If full HTTPS/HTTP URL
   if (/^https?:\/\//i.test(clean)) {
@@ -327,8 +335,24 @@ async function renderInvitationCardPng({ invitation = {}, event = {}, templateCo
     invitation.templateId ? `/assets/templates/${invitation.templateId}.svg` : null,
   ];
 
+  const hasCustomTextLayers = Boolean(
+    (Array.isArray(invitation.textElements) && invitation.textElements.length > 0) ||
+    (Array.isArray(invitation.textLayers) && invitation.textLayers.length > 0)
+  );
+
   for (const cand of candidateArtworks) {
     if (cand && typeof cand === "string" && !cand.startsWith("#") && !cand.startsWith("data:")) {
+      if (hasCustomTextLayers) {
+        const lower = cand.toLowerCase();
+        if (
+          lower.includes("snapshot") ||
+          lower.includes("canvas_snapshot") ||
+          lower.includes("invitation_snapshot") ||
+          lower.includes("invitation_cover")
+        ) {
+          continue;
+        }
+      }
       const resolved = resolveAssetPath(cand);
       if (resolved) {
         artworkPath = resolved;

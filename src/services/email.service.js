@@ -365,6 +365,7 @@ const generateInvitationHtml = ({
   fontWeight = "700",
   titleSize = 28,
   textAlignment = "center",
+  gifting,
 }) => {
   const cardIsDark = isDarkColor(backgroundColor);
   const bodyBg = cardIsDark ? "#0f172a" : "#f4f6f9";
@@ -377,6 +378,16 @@ const generateInvitationHtml = ({
   const btnColor = buttonColor || accent || "#2563eb";
   const btnRadius = Math.max(0, Math.min(30, parseInt(buttonRadius, 10) || 10));
   const safeButtonText = buttonText || "View Invitation & RSVP";
+
+  // Normalize gifting items from gifting parameter
+  let cleanGiftItems = [];
+  if (gifting && gifting.enabled !== false) {
+    if (Array.isArray(gifting.items)) {
+      cleanGiftItems = gifting.items.filter((i) => i && i.enabled !== false && i.url);
+    } else if (Array.isArray(gifting)) {
+      cleanGiftItems = gifting.filter((i) => i && i.enabled !== false && i.url);
+    }
+  }
 
   // Clean event title and alt text
   const cleanTitle = getCleanDisplayTitle(title, "Special Event Invitation");
@@ -815,7 +826,113 @@ const generateInvitationHtml = ({
           </tr>
           ` : ""}
 
-          <!-- ─── 4. FOOTER ─── -->
+          <!-- ─── 4. GIFTING & REGISTRIES TABLE BLOCK (EVITE-STYLE) ─── -->
+          ${cleanGiftItems.length > 0 ? `
+          <tr>
+            <td style="padding: 0 24px 20px 24px;">
+              <table role="presentation" class="dark-box" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: ${metaBoxBg}; border-radius: 12px; border: 1px solid ${metaBoxBorder}; padding: 18px 20px;">
+                <tr>
+                  <td style="padding-bottom: 12px; border-bottom: 1px solid ${metaBoxBorder};">
+                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                      <tr>
+                        <td width="28" style="vertical-align: middle; font-size: 18px;">🎁</td>
+                        <td style="vertical-align: middle; padding-left: 8px;">
+                          <h4 style="margin: 0; font-size: 15px; font-weight: 700; color: ${primaryText}; font-family: ${fontStack};">
+                            Gift Registries &amp; Charities
+                          </h4>
+                          <p style="margin: 3px 0 0 0; font-size: 12px; color: ${secondaryText};">
+                            The host has registered wishlists and charity causes for this event:
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+
+                <!-- Gift Items Table -->
+                <tr>
+                  <td style="padding-top: 10px;">
+                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                      ${cleanGiftItems.map((gift, idx) => {
+                        const provider = (gift.provider || "other").toLowerCase();
+                        const isAmazon = provider === "amazon";
+                        const isTarget = provider === "target";
+                        const isWalmart = provider === "walmart";
+                        const isCharity = gift.type === "charity";
+                        
+                        let badgeBg = "#f1f5f9";
+                        let badgeColor = "#334155";
+                        let badgeLabel = "GIFT";
+                        let btnActionText = isCharity ? "Donate" : "Shop";
+
+                        if (isAmazon) {
+                          badgeBg = "#fef3c7";
+                          badgeColor = "#78350f";
+                          badgeLabel = "AMZ";
+                        } else if (isTarget) {
+                          badgeBg = "#fee2e2";
+                          badgeColor = "#991b1b";
+                          badgeLabel = "TGT";
+                        } else if (isWalmart) {
+                          badgeBg = "#dbeafe";
+                          badgeColor = "#1e40af";
+                          badgeLabel = "WMT";
+                        } else if (isCharity) {
+                          badgeBg = "#ffe4e6";
+                          badgeColor = "#9f1239";
+                          badgeLabel = "❤️";
+                        }
+
+                        const isLast = idx === cleanGiftItems.length - 1;
+
+                        return `
+                        <tr>
+                          <td style="padding: 10px 0 ${isLast ? "0" : "10px"} 0; ${!isLast ? `border-bottom: 1px solid ${metaBoxBorder};` : ""}">
+                            <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                              <tr>
+                                <td width="36" style="vertical-align: middle;">
+                                  <div style="width: 32px; height: 32px; border-radius: 8px; background-color: ${badgeBg}; color: ${badgeColor}; font-weight: 800; font-size: 10px; line-height: 32px; text-align: center; text-transform: uppercase; border: 1px solid ${metaBoxBorder};">
+                                    ${badgeLabel}
+                                  </div>
+                                </td>
+                                <td style="vertical-align: middle; padding: 0 10px;">
+                                  <p style="margin: 0; font-size: 13px; font-weight: 700; color: ${primaryText}; font-family: ${fontStack};">
+                                    ${gift.title || "Gift Registry"}
+                                  </p>
+                                  ${gift.description ? `
+                                  <p style="margin: 2px 0 0 0; font-size: 11px; color: ${secondaryText};">
+                                    ${gift.description}
+                                  </p>
+                                  ` : ""}
+                                </td>
+                                <td align="right" style="vertical-align: middle; white-space: nowrap;">
+                                  <!--[if mso]>
+                                  <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${gift.url}" style="height:32px;v-text-anchor:middle;width:90px;" arcsize="20%" stroke="f" fillcolor="${accent}">
+                                  <w:anchorlock/>
+                                  <center style="color:#ffffff;font-family:sans-serif;font-size:11px;font-weight:bold;">${btnActionText} &rarr;</center>
+                                  </v:roundrect>
+                                  <![endif]-->
+                                  <!--[if !mso]><!-- -->
+                                  <a href="${gift.url}" target="_blank" style="display: inline-block; background-color: ${accent}; color: #ffffff; font-size: 11px; font-weight: 700; padding: 7px 14px; border-radius: 6px; text-decoration: none; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; box-shadow: 0 2px 6px ${accent}30;">
+                                    ${btnActionText} &rarr;
+                                  </a>
+                                  <!--<![endif]-->
+                                </td>
+                              </tr>
+                            </table>
+                          </td>
+                        </tr>
+                        `;
+                      }).join("")}
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          ` : ""}
+
+          <!-- ─── 5. FOOTER ─── -->
           <tr>
             <td style="background-color: ${cardIsDark ? "#090d16" : "#f8fafc"}; padding: 20px 24px; text-align: center; border-top: 1px solid ${metaBoxBorder}; font-size: 12px; color: ${secondaryText}; line-height: 1.5;">
               <p style="margin: 0 0 4px 0;">Sent via <strong style="color: ${primaryText};">InviteHub</strong></p>
@@ -903,6 +1020,52 @@ const sendInvitationEmails = async ({
   const trackBase = (trackingBaseUrl || process.env.API_BASE_URL || process.env.BACKEND_URL || "http://localhost:5000").replace(/\/+$/, "");
   const invitationTargetId = invitation?.id || invitation?.eventId || event?.id;
   const previewLink = `${baseUrl}/invitation/${invitationTargetId}`;
+
+  // ─── RESOLVE EVENT GIFTING & REGISTRIES (EVITE-STYLE) ───
+  const effectiveGifting = (() => {
+    if (invitation?.gifting) return invitation.gifting;
+    if (invitation?.designData?.gifting) return invitation.designData.gifting;
+    if (event?.gifting) return event.gifting;
+    if (event?.designData?.gifting) return event.designData.gifting;
+
+    const legacyW = invitation?.designData?.wishlists || event?.wishlists || [];
+    const legacyC = invitation?.designData?.charities || event?.charities || [];
+    const legacyF = invitation?.designData?.personalFunds || event?.personalFunds || [];
+
+    const items = [
+      ...legacyW.map((w) => ({
+        id: w.id || `w-${Math.random()}`,
+        type: "wishlist",
+        provider: (w.platform?.toLowerCase() === "amazon" ? "amazon" : w.platform?.toLowerCase() === "target" ? "target" : w.platform?.toLowerCase() === "walmart" ? "walmart" : "other"),
+        title: w.title || `${w.platform || "Online"} Wishlist`,
+        url: w.url,
+        enabled: true,
+      })),
+      ...legacyC.map((c) => ({
+        id: c.id || `c-${Math.random()}`,
+        type: "charity",
+        provider: "other",
+        title: c.name || "Charity",
+        description: c.description || "Charity Donation",
+        url: c.url,
+        enabled: true,
+      })),
+      ...legacyF.map((f) => ({
+        id: f.id || `f-${Math.random()}`,
+        type: "fundraiser",
+        provider: "other",
+        title: f.title || "Personal Cause",
+        description: f.goal ? `Goal: ${f.goal}` : "Personal Cause",
+        url: f.url,
+        enabled: true,
+      })),
+    ];
+
+    if (items.length > 0) {
+      return { enabled: true, items };
+    }
+    return null;
+  })();
 
   // ─── RESOLVE INVITATION CARD IMAGE SNAPSHOT OR BACKEND RENDER ───
   let invitationCardPngBuffer = null;
@@ -1212,6 +1375,7 @@ const sendInvitationEmails = async ({
       fontWeight,
       titleSize,
       textAlignment,
+      gifting: effectiveGifting,
     });
 
     // Deliverability: Generate a clean plain-text fallback (crucial for passing spam filter heuristics)
@@ -1225,6 +1389,15 @@ const sendInvitationEmails = async ({
       eventTime ? `Time: ${eventTime}` : "",
       eventVenue ? `Location: ${eventVenue}` : "",
       hostName ? `Hosted by: ${hostName}` : "",
+      ...(effectiveGifting && Array.isArray(effectiveGifting.items) && effectiveGifting.items.length > 0
+        ? [
+            "",
+            "Gift Registries & Charities:",
+            ...effectiveGifting.items
+              .filter((g) => g && g.enabled !== false && g.url)
+              .map((g) => `- ${g.title}: ${g.url}`),
+          ]
+        : []),
       "",
       "View full details and RSVP online:",
       trackedPreviewLink || previewLink,
