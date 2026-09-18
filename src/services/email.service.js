@@ -269,11 +269,11 @@ const resolvePublicImageUrl = (
 /**
  * Compute street map image URL for a given location/venue name or address
  * Supports Google Maps Static API if GOOGLE_MAPS_API_KEY is configured in .env,
- * otherwise falls back to OpenStreetMap (100% free, no watermark, no API key needed).
+ * otherwise falls back to CartoDB Voyager basemaps (100% free, fast, never blocked by email clients).
  */
 const getMapTileUrlForLocation = async (locationStr) => {
   if (!locationStr || typeof locationStr !== "string") {
-    return "https://tile.openstreetmap.org/14/11713/6832.png";
+    return "https://a.basemaps.cartocdn.com/rastertiles/voyager/14/11713/6832.png";
   }
   const cleanLoc = locationStr.trim();
   if (!cleanLoc || cleanLoc.toLowerCase() === "online" || cleanLoc.toLowerCase() === "tbd") {
@@ -307,14 +307,14 @@ const getMapTileUrlForLocation = async (locationStr) => {
             ((1.0 - Math.log(Math.tan(latRad) + 1.0 / Math.cos(latRad)) / Math.PI) / 2.0) *
               Math.pow(2, zoom)
           );
-          return `https://tile.openstreetmap.org/${zoom}/${x}/${y}.png`;
+          return `https://a.basemaps.cartocdn.com/rastertiles/voyager/${zoom}/${x}/${y}.png`;
         }
       }
     }
   } catch (err) {
     console.warn("[EmailService] Nominatim geocode lookup skipped:", err.message);
   }
-  return "https://tile.openstreetmap.org/14/11713/6832.png";
+  return "https://a.basemaps.cartocdn.com/rastertiles/voyager/14/11713/6832.png";
 };
 
 /**
@@ -882,7 +882,7 @@ const generateInvitationHtml = ({
                 <tr>
                   <td align="center" style="background-color: #e2e8f0; padding: 0; line-height: 0;">
                     <a href="${mapLinkUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(venue || "")}`}" target="_blank" style="display: block; text-decoration: none; border: 0; outline: none;">
-                      <img src="${mapImageUrl || `https://tile.openstreetmap.org/14/11713/6832.png`}" 
+                      <img src="${(mapImageUrl || `https://a.basemaps.cartocdn.com/rastertiles/voyager/14/11713/6832.png`).replace(/https?:\/\/tile\.openstreetmap\.org\//i, 'https://a.basemaps.cartocdn.com/rastertiles/voyager/')}" 
                            alt="Venue Location Map" width="550" border="0" 
                            style="display: block; width: 100%; max-width: 550px; height: 180px; object-fit: cover; border: 0; outline: none; margin: 0 auto;" />
                     </a>
@@ -1152,6 +1152,9 @@ const sendInvitationEmails = async ({
 
   const eventVenue = event?.venue || "";
   let eventMapImageUrl = event?.mapImageUrl || event?.map_image_url || null;
+  if (eventMapImageUrl && typeof eventMapImageUrl === "string") {
+    eventMapImageUrl = eventMapImageUrl.replace(/https?:\/\/tile\.openstreetmap\.org\//i, "https://a.basemaps.cartocdn.com/rastertiles/voyager/");
+  }
   if (!eventMapImageUrl && (eventVenue || event?.address)) {
     try {
       eventMapImageUrl = await getMapTileUrlForLocation(event?.address || eventVenue);
@@ -1388,6 +1391,31 @@ const sendInvitationEmails = async ({
     console.log(`[EmailService] No card image source; email will render table-based themed card.`);
   }
 
+  // ─── RESOLVE VENUE MAP TILE INLINE ATTACHMENT OR SAFE CARTO CDN ───
+  let venueMapPngBuffer = null;
+  let htmlMapImageSrc = eventMapImageUrl
+    ? eventMapImageUrl.replace(/https?:\/\/tile\.openstreetmap\.org\//i, "https://a.basemaps.cartocdn.com/rastertiles/voyager/")
+    : (eventVenue || event?.address ? "https://a.basemaps.cartocdn.com/rastertiles/voyager/14/11713/6832.png" : null);
+
+  if (htmlMapImageSrc && /^https?:\/\//i.test(htmlMapImageSrc)) {
+    try {
+      const mapTileRes = await fetch(htmlMapImageSrc, {
+        headers: { "User-Agent": "EventizersApp/1.0 (support@eventizers.com)" },
+        signal: AbortSignal.timeout(4000),
+      });
+      if (mapTileRes.ok) {
+        const arr = await mapTileRes.arrayBuffer();
+        if (arr && arr.byteLength > 500) {
+          venueMapPngBuffer = Buffer.from(arr);
+          htmlMapImageSrc = "cid:venue_map";
+          console.log(`[EmailService] Loaded venue map tile PNG for inline CID attachment (${(venueMapPngBuffer.length / 1024).toFixed(1)} KB)`);
+        }
+      }
+    } catch (mErr) {
+      console.warn("[EmailService] Pre-fetch venue map tile buffer skipped:", mErr.message);
+    }
+  }
+
   // Extract and format RSVP deadline
   const formattedRsvpDeadline = formatRsvpDeadline(event, invitation, options);
   const rsvpDeadlineDisplay = formattedRsvpDeadline ? formattedRsvpDeadline.formatted : null;
@@ -1465,6 +1493,17 @@ const sendInvitationEmails = async ({
       });
     }
 
+    // Attach venue street map PNG directly as inline attachment
+    if (venueMapPngBuffer && htmlMapImageSrc === "cid:venue_map") {
+      recipientInlineAttachments.push({
+        filename: "venue-map.png",
+        content: venueMapPngBuffer,
+        cid: "venue_map",
+        contentType: "image/png",
+        contentDisposition: "inline",
+      });
+    }
+
     if (options?.qrCode !== false) {
       const guestId = recipient.guestId || recipient.id;
       const eventId = event?.id || invitation?.eventId;
@@ -1534,7 +1573,7 @@ const sendInvitationEmails = async ({
       greetingText,
       calendarLinkUrl,
       mapLinkUrl,
-      mapImageUrl: eventMapImageUrl,
+      mapImageUrl: htmlMapImageSrc,
       qrCodeUrl,
       qrLinkUrl,
       backgroundColor,
