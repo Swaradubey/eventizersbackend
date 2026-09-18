@@ -4,7 +4,12 @@ const { createCanvas, loadImage } = require("@napi-rs/canvas");
 
 // Base directories for template assets
 const TEMPLATES_DIRS = [
+  path.resolve(__dirname, "../../../public/templates/bridal"),
+  path.resolve(__dirname, "../../../public/templates/envelopes"),
+  path.resolve(__dirname, "../../../public/templates"),
   path.resolve(__dirname, "../../../public/assets/templates"),
+  path.resolve(__dirname, "../../../invitehub/public/templates/bridal"),
+  path.resolve(__dirname, "../../../invitehub/public/templates"),
   path.resolve(__dirname, "../../../invitehub/public/assets/templates"),
   path.resolve(__dirname, "../../public/assets/templates"),
   path.resolve(__dirname, "../../uploads"),

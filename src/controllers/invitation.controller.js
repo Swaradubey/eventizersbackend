@@ -752,6 +752,23 @@ const sendInvitation = async (req, res) => {
       "http://localhost:3000"
     );
 
+    // Resolve RSVP settings and deadline options
+    let rsvpSettings = null;
+    if (req.body.rsvpSettings) {
+      try {
+        rsvpSettings = typeof req.body.rsvpSettings === "string" ? JSON.parse(req.body.rsvpSettings) : req.body.rsvpSettings;
+      } catch (_) {}
+    } else if (req.body.rsvpOptions) {
+      try {
+        rsvpSettings = typeof req.body.rsvpOptions === "string" ? JSON.parse(req.body.rsvpOptions) : req.body.rsvpOptions;
+      } catch (_) {}
+    }
+    if (!rsvpSettings && invitation.eventId) {
+      try {
+        rsvpSettings = await eventService.findRsvpSettingsByEventId(invitation.eventId);
+      } catch (_) {}
+    }
+
     // Build effective event: merge invitation-level overrides onto the fetched event
     // so the email always reflects what the user edited in accordion 5, not stale DB values
     const effectiveEvent = {
@@ -775,6 +792,12 @@ const sendInvitation = async (req, res) => {
       address: req.body.address || req.body.eventDetails?.address || event?.address || "",
       mapUrl: req.body.mapUrl || req.body.map_url || req.body.eventDetails?.mapUrl || event?.mapUrl || event?.map_url || "",
       mapImageUrl: req.body.mapImageUrl || req.body.map_image_url || req.body.eventDetails?.mapImageUrl || event?.mapImageUrl || event?.map_image_url || "",
+      rsvpSettings: rsvpSettings || event?.rsvpSettings || null,
+      rsvpDeadline: req.body.rsvpDeadline || req.body.deadlineDate || rsvpSettings?.deadlineDate || rsvpSettings?.rsvpDeadline || event?.rsvpDeadline || null,
+      rsvpDeadlineDate: req.body.rsvpDeadlineDate || req.body.deadlineDate || rsvpSettings?.deadlineDate || rsvpSettings?.rsvpDeadlineDate || null,
+      rsvpDeadlineTime: req.body.rsvpDeadlineTime || req.body.deadlineTime || rsvpSettings?.deadlineTime || rsvpSettings?.rsvpDeadlineTime || null,
+      rsvpDeadlineEnabled: req.body.rsvpDeadlineEnabled !== undefined ? req.body.rsvpDeadlineEnabled : (req.body.deadlineEnabled !== undefined ? req.body.deadlineEnabled : rsvpSettings?.rsvpDeadlineEnabled ?? rsvpSettings?.deadlineEnabled),
+      deadlineEnabled: req.body.deadlineEnabled !== undefined ? req.body.deadlineEnabled : (req.body.rsvpDeadlineEnabled !== undefined ? req.body.rsvpDeadlineEnabled : rsvpSettings?.deadlineEnabled ?? rsvpSettings?.rsvpDeadlineEnabled),
     };
 
     // Send emails via Nodemailer service with personalized tracking pixel and hosted public card image
@@ -959,6 +982,23 @@ const sendInvitationToGuests = async (req, res) => {
       "http://localhost:3000"
     );
 
+    // Resolve RSVP settings and deadline options
+    let rsvpSettings = null;
+    if (req.body.rsvpSettings) {
+      try {
+        rsvpSettings = typeof req.body.rsvpSettings === "string" ? JSON.parse(req.body.rsvpSettings) : req.body.rsvpSettings;
+      } catch (_) {}
+    } else if (req.body.rsvpOptions) {
+      try {
+        rsvpSettings = typeof req.body.rsvpOptions === "string" ? JSON.parse(req.body.rsvpOptions) : req.body.rsvpOptions;
+      } catch (_) {}
+    }
+    if (!rsvpSettings && invitation.eventId) {
+      try {
+        rsvpSettings = await eventService.findRsvpSettingsByEventId(invitation.eventId);
+      } catch (_) {}
+    }
+
     // Build effective event: merge invitation-level overrides onto the fetched event
     const effectiveEvent = {
       ...(event || {}),
@@ -981,6 +1021,12 @@ const sendInvitationToGuests = async (req, res) => {
       address: req.body.address || req.body.eventDetails?.address || event?.address || "",
       mapUrl: req.body.mapUrl || req.body.map_url || req.body.eventDetails?.mapUrl || event?.mapUrl || event?.map_url || "",
       mapImageUrl: req.body.mapImageUrl || req.body.map_image_url || req.body.eventDetails?.mapImageUrl || event?.mapImageUrl || event?.map_image_url || "",
+      rsvpSettings: rsvpSettings || event?.rsvpSettings || null,
+      rsvpDeadline: req.body.rsvpDeadline || req.body.deadlineDate || rsvpSettings?.deadlineDate || rsvpSettings?.rsvpDeadline || event?.rsvpDeadline || null,
+      rsvpDeadlineDate: req.body.rsvpDeadlineDate || req.body.deadlineDate || rsvpSettings?.deadlineDate || rsvpSettings?.rsvpDeadlineDate || null,
+      rsvpDeadlineTime: req.body.rsvpDeadlineTime || req.body.deadlineTime || rsvpSettings?.deadlineTime || rsvpSettings?.rsvpDeadlineTime || null,
+      rsvpDeadlineEnabled: req.body.rsvpDeadlineEnabled !== undefined ? req.body.rsvpDeadlineEnabled : (req.body.deadlineEnabled !== undefined ? req.body.deadlineEnabled : rsvpSettings?.rsvpDeadlineEnabled ?? rsvpSettings?.deadlineEnabled),
+      deadlineEnabled: req.body.deadlineEnabled !== undefined ? req.body.deadlineEnabled : (req.body.rsvpDeadlineEnabled !== undefined ? req.body.rsvpDeadlineEnabled : rsvpSettings?.deadlineEnabled ?? rsvpSettings?.rsvpDeadlineEnabled),
     };
 
     // Pass both resolved URL and raw snapshot data so email service can resolve

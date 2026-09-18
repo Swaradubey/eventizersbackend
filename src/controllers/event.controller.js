@@ -950,10 +950,37 @@ const sendEventInvitations = async (req, res) => {
       templateId: req.body.templateId || invitation?.templateId || null,
     } : invitation;
 
+    // Fetch and merge RSVP settings and deadline options for the event
+    let rsvpSettings = null;
+    if (req.body.rsvpSettings) {
+      try {
+        rsvpSettings = typeof req.body.rsvpSettings === "string" ? JSON.parse(req.body.rsvpSettings) : req.body.rsvpSettings;
+      } catch (_) {}
+    } else if (req.body.rsvpOptions) {
+      try {
+        rsvpSettings = typeof req.body.rsvpOptions === "string" ? JSON.parse(req.body.rsvpOptions) : req.body.rsvpOptions;
+      } catch (_) {}
+    }
+    if (!rsvpSettings && id) {
+      try {
+        rsvpSettings = await eventService.findRsvpSettingsByEventId(id);
+      } catch (_) {}
+    }
+
+    const effectiveEvent = {
+      ...event,
+      rsvpSettings: rsvpSettings || event?.rsvpSettings || null,
+      rsvpDeadline: req.body.rsvpDeadline || req.body.deadlineDate || rsvpSettings?.deadlineDate || rsvpSettings?.rsvpDeadline || event?.rsvpDeadline || null,
+      rsvpDeadlineDate: req.body.rsvpDeadlineDate || req.body.deadlineDate || rsvpSettings?.deadlineDate || rsvpSettings?.rsvpDeadlineDate || null,
+      rsvpDeadlineTime: req.body.rsvpDeadlineTime || req.body.deadlineTime || rsvpSettings?.deadlineTime || rsvpSettings?.rsvpDeadlineTime || null,
+      rsvpDeadlineEnabled: req.body.rsvpDeadlineEnabled !== undefined ? req.body.rsvpDeadlineEnabled : (req.body.deadlineEnabled !== undefined ? req.body.deadlineEnabled : rsvpSettings?.rsvpDeadlineEnabled ?? rsvpSettings?.deadlineEnabled),
+      deadlineEnabled: req.body.deadlineEnabled !== undefined ? req.body.deadlineEnabled : (req.body.rsvpDeadlineEnabled !== undefined ? req.body.rsvpDeadlineEnabled : rsvpSettings?.deadlineEnabled ?? rsvpSettings?.rsvpDeadlineEnabled),
+    };
+
     const sendResult = await emailService.sendInvitationEmails({
       recipients,
       invitation: enrichedInvitation,
-      event,
+      event: effectiveEvent,
       senderName: req.user.name || req.user.email,
       frontendUrl,
       trackingBaseUrl,

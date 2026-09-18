@@ -199,24 +199,44 @@ const findLocalFilePath = (imagePathOrUrl) => {
     }
   }
 
-  // 2. Check if it references a static template asset (e.g. /assets/templates/birthday.jpg)
-  if (trimmed.includes("/assets/") || trimmed.startsWith("assets/")) {
+  // 2. Check if it references a static template or asset (e.g. /templates/bridal/blush-burgundy-frame.png, /assets/...)
+  if (
+    trimmed.includes("/templates/") ||
+    trimmed.startsWith("templates/") ||
+    trimmed.includes("/assets/") ||
+    trimmed.startsWith("assets/") ||
+    trimmed.includes("/images/") ||
+    trimmed.startsWith("images/") ||
+    trimmed.endsWith(".png") ||
+    trimmed.endsWith(".svg") ||
+    trimmed.endsWith(".jpg") ||
+    trimmed.endsWith(".jpeg")
+  ) {
     const cleanPath = trimmed.split("?")[0].split("#")[0];
     const relativeAssetPath = cleanPath
       .replace(/^https?:\/\/[^/]+/i, "")
-      .replace(/^\/+/, ""); // e.g. "assets/templates/birthday.jpg"
+      .replace(/^\/+/, ""); // e.g. "templates/bridal/blush-burgundy-frame.png"
     
     for (const publicDir of PUBLIC_ASSET_DIRS) {
       const candidatePath = path.join(publicDir, relativeAssetPath);
       if (fs.existsSync(candidatePath)) {
         return candidatePath;
       }
+      // Also search subdirectories for matching filename
+      const filename = path.basename(cleanPath);
+      const subdirs = ["", "templates", "templates/bridal", "templates/envelopes", "assets", "assets/templates", "images"];
+      for (const sub of subdirs) {
+        const subCandidate = path.join(publicDir, sub, filename);
+        if (fs.existsSync(subCandidate)) {
+          return subCandidate;
+        }
+      }
     }
   }
 
   // 3. Fallback: check if the direct path exists on disk
   try {
-    if (path.isAbsolute(trimmed) && fs.existsSync(trimmed)) {
+    if (fs.existsSync(trimmed)) {
       return trimmed;
     }
   } catch (_) {}

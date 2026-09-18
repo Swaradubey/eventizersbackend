@@ -217,6 +217,11 @@ const errorHandler = (err, req, res, next) => {
   if (res.headersSent) {
     return next(err);
   }
+  const origin = req.headers.origin;
+  if (origin) {
+    res.header("Access-Control-Allow-Origin", origin);
+    res.header("Access-Control-Allow-Credentials", "true");
+  }
   const status = err.status || err.statusCode || 500;
   const message = err.message || "An unexpected error occurred on the server.";
   res.status(status).json({

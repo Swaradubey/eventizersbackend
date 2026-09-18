@@ -333,6 +333,152 @@ const getCleanDisplayTitle = (titleCandidate, fallback = "Special Event Invitati
 };
 
 /**
+ * Format RSVP Deadline for display in invitations and reminder emails
+ * @param {Object} event
+ * @param {Object} [invitation]
+ * @param {Object} [options]
+ * @returns {{ enabled: boolean, formatted: string, dateFormatted: string, timeFormatted: string } | null}
+ */
+const formatRsvpDeadline = (event, invitation = {}, options = {}) => {
+  const rsvpSettings = event?.rsvpSettings || invitation?.rsvpSettings || options?.rsvpSettings || null;
+
+  // Check if RSVP deadline is explicitly enabled or disabled
+  const isEnabled =
+    options?.rsvpDeadlineEnabled !== undefined
+      ? Boolean(options.rsvpDeadlineEnabled)
+      : options?.deadlineEnabled !== undefined
+      ? Boolean(options.deadlineEnabled)
+      : event?.rsvpDeadlineEnabled !== undefined
+      ? Boolean(event.rsvpDeadlineEnabled)
+      : event?.deadlineEnabled !== undefined
+      ? Boolean(event.deadlineEnabled)
+      : rsvpSettings?.rsvpDeadlineEnabled !== undefined
+      ? Boolean(rsvpSettings.rsvpDeadlineEnabled)
+      : rsvpSettings?.deadlineEnabled !== undefined
+      ? Boolean(rsvpSettings.deadlineEnabled)
+      : Boolean(event?.rsvpDeadline || rsvpSettings?.rsvpDeadline || rsvpSettings?.deadlineDate);
+
+  if (!isEnabled) {
+    return null;
+  }
+
+  // Extract raw date candidate
+  const rawDate =
+    options?.rsvpDeadline ||
+    options?.rsvpDeadlineDate ||
+    options?.deadlineDate ||
+    event?.rsvpDeadlineDate ||
+    event?.deadlineDate ||
+    event?.rsvpDeadline ||
+    rsvpSettings?.rsvpDeadlineDate ||
+    rsvpSettings?.deadlineDate ||
+    rsvpSettings?.rsvpDeadline ||
+    null;
+
+  if (!rawDate) {
+    return null;
+  }
+
+  // Extract raw time candidate
+  const rawTime =
+    options?.rsvpDeadlineTime ||
+    options?.deadlineTime ||
+    event?.rsvpDeadlineTime ||
+    event?.deadlineTime ||
+    rsvpSettings?.rsvpDeadlineTime ||
+    rsvpSettings?.deadlineTime ||
+    null;
+
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  let dateFormatted = "";
+  let timeFormatted = "";
+
+  // 1. Process Date
+  if (typeof rawDate === "string") {
+    const cleanDateStr = rawDate.trim();
+    // Check YYYY-MM-DD
+    const ymdMatch = cleanDateStr.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    // Check DD-MM-YYYY
+    const dmyMatch = cleanDateStr.match(/^(\d{1,2})-(\d{1,2})-(\d{4})/);
+
+    if (ymdMatch) {
+      const y = parseInt(ymdMatch[1], 10);
+      const m = parseInt(ymdMatch[2], 10);
+      const d = parseInt(ymdMatch[3], 10);
+      if (m >= 1 && m <= 12) {
+        dateFormatted = `${String(d).padStart(2, "0")} ${months[m - 1]} ${y}`;
+      }
+    } else if (dmyMatch) {
+      const d = parseInt(dmyMatch[1], 10);
+      const m = parseInt(dmyMatch[2], 10);
+      const y = parseInt(dmyMatch[3], 10);
+      if (m >= 1 && m <= 12) {
+        dateFormatted = `${String(d).padStart(2, "0")} ${months[m - 1]} ${y}`;
+      }
+    }
+
+    if (!dateFormatted) {
+      const parsed = new Date(cleanDateStr);
+      if (!isNaN(parsed.getTime())) {
+        const d = parsed.getUTCDate();
+        const m = parsed.getUTCMonth();
+        const y = parsed.getUTCFullYear();
+        dateFormatted = `${String(d).padStart(2, "0")} ${months[m]} ${y}`;
+        if (!rawTime && cleanDateStr.includes("T")) {
+          const h = parsed.getUTCHours();
+          const min = parsed.getUTCMinutes();
+          const ampm = h >= 12 ? "PM" : "AM";
+          const h12 = h % 12 || 12;
+          timeFormatted = `${String(h12).padStart(2, "0")}:${String(min).padStart(2, "0")} ${ampm}`;
+        }
+      }
+    }
+  } else if (rawDate instanceof Date && !isNaN(rawDate.getTime())) {
+    const d = rawDate.getUTCDate();
+    const m = rawDate.getUTCMonth();
+    const y = rawDate.getUTCFullYear();
+    dateFormatted = `${String(d).padStart(2, "0")} ${months[m]} ${y}`;
+    if (!rawTime) {
+      const h = rawDate.getUTCHours();
+      const min = rawDate.getUTCMinutes();
+      const ampm = h >= 12 ? "PM" : "AM";
+      const h12 = h % 12 || 12;
+      timeFormatted = `${String(h12).padStart(2, "0")}:${String(min).padStart(2, "0")} ${ampm}`;
+    }
+  }
+
+  if (!dateFormatted) {
+    return null;
+  }
+
+  // 2. Process Time if not already extracted
+  if (!timeFormatted && rawTime) {
+    const timeStr = String(rawTime).trim();
+    const tMatch = timeStr.match(/^(\d{1,2}):(\d{2})/);
+    if (tMatch) {
+      let h = parseInt(tMatch[1], 10);
+      const min = tMatch[2];
+      const ampm = h >= 12 ? "PM" : "AM";
+      h = h % 12 || 12;
+      timeFormatted = `${String(h).padStart(2, "0")}:${min} ${ampm}`;
+    } else if (/AM|PM/i.test(timeStr)) {
+      timeFormatted = timeStr;
+    }
+  }
+
+  const formatted = timeFormatted
+    ? `RSVP Deadline: ${dateFormatted} at ${timeFormatted}`
+    : `RSVP Deadline: ${dateFormatted}`;
+
+  return {
+    enabled: true,
+    formatted,
+    dateFormatted,
+    timeFormatted,
+  };
+};
+
+/**
  * Generate responsive, email-client compatible HTML template for invitation
  */
 const generateInvitationHtml = ({
@@ -342,6 +488,7 @@ const generateInvitationHtml = ({
   date,
   time,
   venue,
+  rsvpDeadline,
   emailDescription,
   hostName,
   locationDetails,
@@ -378,6 +525,16 @@ const generateInvitationHtml = ({
   const btnColor = buttonColor || accent || "#2563eb";
   const btnRadius = Math.max(0, Math.min(30, parseInt(buttonRadius, 10) || 10));
   const safeButtonText = buttonText || "View Invitation & RSVP";
+
+  // Extract and normalize RSVP Deadline
+  let rsvpDeadlineText = null;
+  if (rsvpDeadline) {
+    if (typeof rsvpDeadline === "string" && rsvpDeadline.trim()) {
+      rsvpDeadlineText = rsvpDeadline.trim();
+    } else if (typeof rsvpDeadline === "object" && rsvpDeadline.formatted) {
+      rsvpDeadlineText = rsvpDeadline.formatted;
+    }
+  }
 
   // Normalize gifting items from gifting parameter
   let cleanGiftItems = [];
@@ -619,6 +776,18 @@ const generateInvitationHtml = ({
                   </td>
                 </tr>
               </table>
+              ${rsvpDeadlineText ? `
+              <!-- ─── RSVP DEADLINE HIGHLIGHT BADGE ─── -->
+              <table role="presentation" border="0" cellspacing="0" cellpadding="0" align="center" style="margin: 14px auto 0 auto;">
+                <tr>
+                  <td align="center" style="background-color: ${cardIsDark ? 'rgba(239, 68, 68, 0.18)' : '#FEF2F2'}; border: 1px solid ${cardIsDark ? 'rgba(239, 68, 68, 0.4)' : '#FCA5A5'}; border-radius: 24px; padding: 7px 20px;">
+                    <span style="font-size: 13px; font-weight: 700; color: ${cardIsDark ? '#FCA5A5' : '#DC2626'}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; letter-spacing: 0.2px;">
+                      ⏰ ${rsvpDeadlineText}
+                    </span>
+                  </td>
+                </tr>
+              </table>
+              ` : ""}
               <p class="dark-secondary" style="margin: 10px 0 0 0; font-size: 12px; color: ${secondaryText}; text-align: center;">
                 Click above to view full event details and submit your RSVP online.
               </p>
@@ -627,7 +796,7 @@ const generateInvitationHtml = ({
           ` : ""}
 
           <!-- ─── 3. DYNAMIC EVENT DETAILS TABLE ─── -->
-          ${(date || time || venue) ? `
+          ${(date || time || venue || rsvpDeadlineText) ? `
           <tr>
             <td style="padding: 0 24px 20px 24px;">
               <table role="presentation" class="dark-box" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: ${metaBoxBg}; border-radius: 12px; padding: 18px 20px; border: 1px solid ${metaBoxBorder};">
@@ -644,6 +813,14 @@ const generateInvitationHtml = ({
                   <td width="28" style="vertical-align: middle; padding: 6px 0; font-size: 16px;">⏰</td>
                   <td class="dark-text" style="font-size: 14px; color: ${primaryText}; padding: 6px 0; vertical-align: middle;">
                     <strong style="color: ${accent}; font-weight: 600;">Time:</strong> <span style="font-weight: 500;">${time}</span>
+                  </td>
+                </tr>
+                ` : ""}
+                ${rsvpDeadlineText ? `
+                <tr>
+                  <td width="28" style="vertical-align: middle; padding: 6px 0; font-size: 16px;">⏳</td>
+                  <td class="dark-text" style="font-size: 14px; color: ${primaryText}; padding: 6px 0; vertical-align: middle;">
+                    <strong style="color: #DC2626; font-weight: 700;">RSVP By:</strong> <span style="font-weight: 600; color: ${primaryText};">${rsvpDeadlineText.replace(/^RSVP Deadline:\s*/i, "")}</span>
                   </td>
                 </tr>
                 ` : ""}
@@ -1118,7 +1295,11 @@ const sendInvitationEmails = async ({
       cardSnapshotUrl,
       invitation?.imageUrl,
       invitation?.coverImage,
+      invitation?.card?.artworkUrl,
+      invitation?.card?.borderIllustration,
+      invitation?.cardBg,
       event?.coverImage,
+      event?.imageUrl,
     ];
 
     for (const cand of candidateFiles) {
@@ -1222,6 +1403,13 @@ const sendInvitationEmails = async ({
     console.log(`[EmailService] Using invitation card image source: ${htmlCardImageSrc}`);
   } else {
     console.log(`[EmailService] No card image source; email will render table-based themed card.`);
+  }
+
+  // Extract and format RSVP deadline
+  const formattedRsvpDeadline = formatRsvpDeadline(event, invitation, options);
+  const rsvpDeadlineDisplay = formattedRsvpDeadline ? formattedRsvpDeadline.formatted : null;
+  if (rsvpDeadlineDisplay) {
+    console.log(`[EmailService] Active RSVP deadline: "${rsvpDeadlineDisplay}"`);
   }
 
   // SMTP transport
@@ -1341,6 +1529,7 @@ const sendInvitationEmails = async ({
       date: eventDate,
       time: eventTime,
       venue: eventVenue,
+      rsvpDeadline: formattedRsvpDeadline,
       emailDescription,
       hostName,
       locationDetails: {
@@ -1388,6 +1577,7 @@ const sendInvitationEmails = async ({
       eventDate ? `Date: ${eventDate}` : "",
       eventTime ? `Time: ${eventTime}` : "",
       eventVenue ? `Location: ${eventVenue}` : "",
+      rsvpDeadlineDisplay ? `${rsvpDeadlineDisplay}` : "",
       hostName ? `Hosted by: ${hostName}` : "",
       ...(effectiveGifting && Array.isArray(effectiveGifting.items) && effectiveGifting.items.length > 0
         ? [
@@ -1766,6 +1956,7 @@ const sendEventReminderEmail = async ({ guest, event, reminderMessage, daysBefor
 module.exports = {
   sendInvitationEmails,
   generateInvitationHtml,
+  formatRsvpDeadline,
   renderInvitationCardPng,
   sendNoShowPenaltyNoticeEmail,
   generateNoShowPenaltyNoticeHtml,
