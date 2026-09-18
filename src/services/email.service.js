@@ -267,21 +267,30 @@ const resolvePublicImageUrl = (
 };
 
 /**
- * Compute CartoDB Voyager street map tile URL for a given location/venue name or address
+ * Compute street map image URL for a given location/venue name or address
+ * Supports Google Maps Static API if GOOGLE_MAPS_API_KEY is configured in .env,
+ * otherwise falls back to OpenStreetMap (100% free, no watermark, no API key needed).
  */
 const getMapTileUrlForLocation = async (locationStr) => {
   if (!locationStr || typeof locationStr !== "string") {
-    return "https://basemaps.cartocdn.com/rastertiles/voyager/14/11713/6832.png";
+    return "https://tile.openstreetmap.org/14/11713/6832.png";
   }
   const cleanLoc = locationStr.trim();
   if (!cleanLoc || cleanLoc.toLowerCase() === "online" || cleanLoc.toLowerCase() === "tbd") {
     return null;
   }
+
+  // If user configured Google Maps Static API key
+  const googleKey = process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_MAP_API_KEY;
+  if (googleKey) {
+    return `https://maps.googleapis.com/maps/api/staticmap?center=${encodeURIComponent(cleanLoc)}&zoom=15&size=600x200&scale=2&markers=color:red%7C${encodeURIComponent(cleanLoc)}&key=${googleKey}`;
+  }
+
   try {
     const res = await fetch(
       `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(cleanLoc)}&format=json&limit=1`,
       {
-        headers: { "User-Agent": "EventizersApp/1.0" },
+        headers: { "User-Agent": "EventizersApp/1.0 (support@eventizers.com)" },
         signal: AbortSignal.timeout(3500),
       }
     );
@@ -298,14 +307,14 @@ const getMapTileUrlForLocation = async (locationStr) => {
             ((1.0 - Math.log(Math.tan(latRad) + 1.0 / Math.cos(latRad)) / Math.PI) / 2.0) *
               Math.pow(2, zoom)
           );
-          return `https://basemaps.cartocdn.com/rastertiles/voyager/${zoom}/${x}/${y}.png`;
+          return `https://tile.openstreetmap.org/${zoom}/${x}/${y}.png`;
         }
       }
     }
   } catch (err) {
     console.warn("[EmailService] Nominatim geocode lookup skipped:", err.message);
   }
-  return "https://basemaps.cartocdn.com/rastertiles/voyager/14/11713/6832.png";
+  return "https://tile.openstreetmap.org/14/11713/6832.png";
 };
 
 /**
@@ -873,7 +882,7 @@ const generateInvitationHtml = ({
                 <tr>
                   <td align="center" style="background-color: #e2e8f0; padding: 0; line-height: 0;">
                     <a href="${mapLinkUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(venue || "")}`}" target="_blank" style="display: block; text-decoration: none; border: 0; outline: none;">
-                      <img src="${mapImageUrl || `https://basemaps.cartocdn.com/rastertiles/voyager/14/11713/6832.png`}" 
+                      <img src="${mapImageUrl || `https://tile.openstreetmap.org/14/11713/6832.png`}" 
                            alt="Venue Location Map" width="550" border="0" 
                            style="display: block; width: 100%; max-width: 550px; height: 180px; object-fit: cover; border: 0; outline: none; margin: 0 auto;" />
                     </a>
