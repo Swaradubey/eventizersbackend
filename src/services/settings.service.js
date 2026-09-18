@@ -9,30 +9,39 @@ const getProfile = async (userId) => {
     where: { userId },
   });
 
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+
   if (!profile) {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-    });
-    
     if (user) {
       return {
-        fullName: user.name,
-        email: user.email,
+        fullName: user.name || "",
+        name: user.name || "",
+        email: user.email || "",
+        phoneNumber: user.phoneNumber || "",
+        phone: user.phoneNumber || "",
         organization: "",
         profileImage: "",
       };
     }
     return {
       fullName: "",
+      name: "",
       email: "",
+      phoneNumber: "",
+      phone: "",
       organization: "",
       profileImage: "",
     };
   }
 
   return {
-    fullName: profile.fullName,
-    email: profile.email,
+    fullName: profile.fullName || user?.name || "",
+    name: profile.fullName || user?.name || "",
+    email: profile.email || user?.email || "",
+    phoneNumber: user?.phoneNumber || "",
+    phone: user?.phoneNumber || "",
     organization: profile.organization || "",
     profileImage: profile.profileImage || "",
   };
@@ -42,21 +51,34 @@ const getProfile = async (userId) => {
  * Update/upsert profile settings for an admin.
  */
 const updateProfile = async (userId, data) => {
-  const { fullName, email, organization, profileImage } = data;
+  const { fullName, name, email, organization, profileImage, phoneNumber, phone } = data;
+  const resolvedName = (fullName || name || "").trim();
+  const resolvedPhone = phoneNumber !== undefined ? phoneNumber : phone;
+
+  if (resolvedPhone !== undefined || resolvedName) {
+    const userUpdateData = {};
+    if (resolvedName) userUpdateData.name = resolvedName;
+    if (resolvedPhone !== undefined) userUpdateData.phoneNumber = resolvedPhone ? String(resolvedPhone).trim() : null;
+    await prisma.user.update({
+      where: { id: userId },
+      data: userUpdateData,
+    }).catch((err) => console.warn("[SettingsService] User table phone/name update skipped:", err.message));
+  }
+
   return await prisma.adminProfile.upsert({
     where: { userId },
     update: {
-      fullName,
-      email,
-      organization,
-      profileImage,
+      fullName: resolvedName,
+      email: (email || "").trim().toLowerCase(),
+      organization: organization ? organization.trim() : "",
+      profileImage: profileImage !== undefined ? profileImage : undefined,
     },
     create: {
       userId,
-      fullName,
-      email,
-      organization,
-      profileImage,
+      fullName: resolvedName,
+      email: (email || "").trim().toLowerCase(),
+      organization: organization ? organization.trim() : "",
+      profileImage: profileImage || "",
     },
   });
 };
