@@ -1045,9 +1045,28 @@ function getCategorizedFallback(prompt = "") {
 }
 
 /**
+ * Run a Replicate prediction with a hard timeout.
+ * If the model doesn't finish within `timeoutMs`, returns null so the
+ * caller can fall back gracefully instead of holding the connection open.
+ */
+async function runReplicateWithTimeout(replicate, model, input, timeoutMs = 90_000) {
+  return Promise.race([
+    replicate.run(model, { input }),
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("REPLICATE_TIMEOUT")), timeoutMs)
+    ),
+  ]);
+}
+
+/**
  * Generate a dynamic event invitation template image using Replicate AI.
  * Calls black-forest-labs/flux-schnell with an enriched aesthetic prompt.
- * Guaranteed to return a high-resolution aesthetic template and event typography metadata.
+ *
+ * Response codes:
+ *   200 – success (image URL or curated fallback)
+ *   504 – Replicate generation timed out (returns fallback image so the
+ *         frontend can still proceed, but signals the timeout)
+ *   500 – unexpected processing error
  */
 const generateEventTemplate = async (req, res) => {
   const rawPrompt = (req.body?.prompt || req.body?.userPrompt || "Event Celebration").trim();
@@ -1057,6 +1076,7 @@ const generateEventTemplate = async (req, res) => {
   const rawVenue = req.body?.venue || "The Grand Palace Hall, City Center";
 
   let finalImageUrl = null;
+  let timedOut = false;
 
   try {
     const replicateToken = process.env.REPLICATE_API_TOKEN;
@@ -1074,16 +1094,24 @@ const generateEventTemplate = async (req, res) => {
 
       let output = null;
       try {
-        output = await replicate.run("black-forest-labs/flux-schnell", {
-          input: {
+        output = await runReplicateWithTimeout(
+          replicate,
+          "black-forest-labs/flux-schnell",
+          {
             prompt: enrichedPrompt,
             aspect_ratio: "9:16",
             output_format: "png",
             num_outputs: 1,
           },
-        });
+          90_000
+        );
       } catch (runErr) {
-        console.warn("[Replicate] replicate.run error:", runErr.message);
+        if (runErr.message === "REPLICATE_TIMEOUT") {
+          console.warn("[Replicate] Generation timed out after 90 s — falling back to curated image.");
+          timedOut = true;
+        } else {
+          console.warn("[Replicate] replicate.run error:", runErr.message);
+        }
       }
 
       console.log("[Replicate] Raw resolved output:", output);
@@ -1127,7 +1155,7 @@ const generateEventTemplate = async (req, res) => {
 
     console.log("[Replicate] Template ready:", finalImageUrl.substring(0, 100));
 
-    return res.status(200).json({
+    const payload = {
       success: true,
       imageUrl: finalImageUrl,
       details: {
@@ -1142,13 +1170,24 @@ const generateEventTemplate = async (req, res) => {
         venue: rawVenue,
         eventType: rawEventType,
       },
-    });
+    };
+
+    // Signal timeout to the frontend even though we returned a fallback image
+    if (timedOut) {
+      return res.status(504).json({
+        ...payload,
+        warning: "AI image generation timed out. A curated template was used instead.",
+      });
+    }
+
+    return res.status(200).json(payload);
   } catch (err) {
     console.error("[Replicate] Exception caught:", err.message);
     const fallbackUrl = getCategorizedFallback(rawPrompt);
-    return res.status(200).json({
+    return res.status(500).json({
       success: true,
       imageUrl: fallbackUrl,
+      warning: "AI image generation failed. A curated template was used instead.",
       details: {
         title: rawTitle || "Special Event",
         date: rawDate || "Saturday, 25 October • 6:00 PM",

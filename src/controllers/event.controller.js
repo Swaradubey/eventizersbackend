@@ -416,6 +416,18 @@ const createEvent = async (req, res) => {
     });
   } catch (error) {
     console.error("Create Event Error:", error);
+
+    // Distinguish known error types
+    if (error.code === "P2025" || (error.message && error.message.includes("Record to connect to does not exist"))) {
+      return res.status(404).json({ error: "Referenced resource not found. Please refresh and try again." });
+    }
+    if (error.code === "P2002" || (error.message && error.message.includes("Unique constraint"))) {
+      return res.status(409).json({ error: "A duplicate entry already exists." });
+    }
+    if (error.name === "MulterError") {
+      return res.status(400).json({ error: `File upload error: ${error.message}` });
+    }
+
     return res.status(500).json({ error: error.message || "Server error during event creation." });
   }
 };
