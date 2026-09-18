@@ -429,12 +429,36 @@ const submitPublicRSVPData = async ({
   const cleanEmail = email.trim().toLowerCase();
   const cleanName = name.trim();
   const cleanPhone = phone ? phone.trim() : null;
-  const statusVal = (rsvpStatus || "confirmed").toLowerCase();
-  const finalStatus = (statusVal === "attending" || statusVal === "yes" || statusVal === "confirmed")
-    ? "confirmed"
-    : (statusVal === "maybe" || statusVal === "pending")
-      ? "pending"
-      : (statusVal === "declined" || statusVal === "no" ? "declined" : "pending");
+  const statusVal = (rsvpStatus || "attending").toString().trim().toLowerCase();
+  let finalStatus = "attending";
+  if (
+    statusVal === "attending" || 
+    statusVal === "yes" || 
+    statusVal === "confirmed" || 
+    statusVal.includes("yes") || 
+    statusVal.includes("there") || 
+    statusVal.includes("attend")
+  ) {
+    finalStatus = "attending";
+  } else if (
+    statusVal === "maybe" || 
+    statusVal.includes("maybe") || 
+    statusVal.includes("tentative") || 
+    statusVal.includes("not sure")
+  ) {
+    finalStatus = "maybe";
+  } else if (
+    statusVal === "declined" || 
+    statusVal === "no" || 
+    statusVal.includes("no") || 
+    statusVal.includes("decline") || 
+    statusVal.includes("can't") || 
+    statusVal.includes("cant")
+  ) {
+    finalStatus = "declined";
+  } else {
+    finalStatus = statusVal;
+  }
 
   const now = new Date();
 
