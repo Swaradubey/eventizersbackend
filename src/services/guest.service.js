@@ -168,7 +168,11 @@ const updateGuest = async (id, data) => {
       email = COALESCE($2, email), 
       phone = COALESCE($3, phone), 
       status = COALESCE($4, status),
-      rsvp_status = COALESCE($4, rsvp_status),
+      rsvp_status = CASE 
+        WHEN LOWER($4) = 'invited' AND LOWER(COALESCE(rsvp_status, '')) IN ('attending', 'confirmed', 'maybe', 'declined', 'accepted', 'yes', 'no') 
+        THEN rsvp_status 
+        ELSE COALESCE($4, rsvp_status) 
+      END,
       event_id = COALESCE($5, event_id),
       groups = CASE WHEN $6::text[] IS NOT NULL THEN $6::text[] ELSE groups END,
       is_opened = CASE 
