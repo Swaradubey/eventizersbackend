@@ -961,7 +961,17 @@ const generateInvitationHtml = ({
           ` : ""}
 
           <!-- ─── ADDITIONAL VENUE INFORMATION ─── -->
-          ${(locationDetails && Object.values(locationDetails).some(v => v)) ? `
+          ${(locationDetails && [
+            locationDetails.directions,
+            locationDetails.parkingInstructions,
+            locationDetails.nearbyParking,
+            locationDetails.entryInstructions,
+            locationDetails.floorNumber,
+            locationDetails.roomNumber,
+            locationDetails.securityGateInfo,
+            locationDetails.emergencyContact,
+            locationDetails.hotelRecommendations,
+          ].some(v => v && typeof v === 'string' && v.trim().length > 0)) ? `
           <tr>
             <td style="padding: 16px 24px;">
               <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: ${metaBoxBg}; border: 1px solid ${metaBoxBorder}; border-radius: 8px; padding: 16px;">
