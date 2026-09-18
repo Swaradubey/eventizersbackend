@@ -431,6 +431,8 @@ const formatRsvpDeadline = (event, invitation = {}, options = {}) => {
           const h12 = h % 12 || 12;
           timeFormatted = `${String(h12).padStart(2, "0")}:${String(min).padStart(2, "0")} ${ampm}`;
         }
+      } else if (cleanDateStr) {
+        dateFormatted = cleanDateStr;
       }
     }
   } else if (rawDate instanceof Date && !isNaN(rawDate.getTime())) {
@@ -539,11 +541,25 @@ const generateInvitationHtml = ({
   // Normalize gifting items from gifting parameter
   let cleanGiftItems = [];
   if (gifting && gifting.enabled !== false) {
-    if (Array.isArray(gifting.items)) {
-      cleanGiftItems = gifting.items.filter((i) => i && i.enabled !== false && i.url);
-    } else if (Array.isArray(gifting)) {
-      cleanGiftItems = gifting.filter((i) => i && i.enabled !== false && i.url);
-    }
+    const rawItems = Array.isArray(gifting.items) ? gifting.items : (Array.isArray(gifting) ? gifting : []);
+    cleanGiftItems = rawItems
+      .map((item) => {
+        if (!item || item.enabled === false) return null;
+        let url = (item.url || item.link || item.targetUrl || "").toString().trim();
+        if (!url) return null;
+        if (!url.startsWith("http://") && !url.startsWith("https://") && !url.startsWith("mailto:")) {
+          url = "https://" + url;
+        }
+        const provider = (item.provider || item.platform || item.store || "other").toString().toLowerCase();
+        return {
+          ...item,
+          url,
+          title: item.title || item.name || (provider !== "other" ? `${provider.toUpperCase()} Registry` : "Gift Registry"),
+          description: item.description || item.note || (item.recipient ? `For ${item.recipient}` : ""),
+          provider,
+        };
+      })
+      .filter(Boolean);
   }
 
   // Clean event title and alt text
@@ -639,28 +655,6 @@ const generateInvitationHtml = ({
     [data-ogsc] .dark-bg { background-color: #0f172a !important; }
     [data-ogsc] .dark-container { background-color: #1e293b !important; }
     [data-ogsc] .dark-text { color: #f8fafc !important; }
-    [data-ogsc] .dark-secondary { color: #94a3b8 !important; }
-    @keyframes curtainLeftOpen {
-      0% { transform: translateX(0); }
-      100% { transform: translateX(-102%); }
-    }
-    @keyframes curtainRightOpen {
-      0% { transform: translateX(0); }
-      100% { transform: translateX(102%); }
-    }
-    @keyframes cardSlideUp {
-      0% { transform: translateY(35px) scale(0.92); opacity: 0.85; }
-      100% { transform: translateY(0) scale(1); opacity: 1; }
-    }
-    .curtain-left {
-      animation: curtainLeftOpen 2.2s cubic-bezier(0.77, 0, 0.175, 1) 0.5s forwards;
-    }
-    .curtain-right {
-      animation: curtainRightOpen 2.2s cubic-bezier(0.77, 0, 0.175, 1) 0.5s forwards;
-    }
-    .animated-card-body {
-      animation: cardSlideUp 2.4s ease-out 0.8s forwards;
-    }
   </style>
 </head>
 <body class="dark-bg" style="margin: 0; padding: 0; width: 100% !important; background-color: ${bodyBg}; font-family: ${fontStack}; color: ${primaryText}; line-height: 1.6;">
@@ -688,39 +682,19 @@ const generateInvitationHtml = ({
             </td>
           </tr>
 
-          <!-- ─── 1. FULL INVITATION ANIMATED STAGE CARD (VELVET CURTAIN & ENVELOPE CARD SLIDE) ─── -->
+          <!-- ─── 1. CLEAN INVITATION CARD IMAGE ─── -->
           ${imageUrl ? `
           <tr>
-            <td align="center" style="padding: 6px 16px 20px 16px;">
-              <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 0 auto; max-width: 500px;">
-                <tr>
-                  <td align="center" style="position: relative; overflow: hidden; border-radius: 12px; background: linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%); padding: 12px; box-shadow: 0 12px 32px rgba(0,0,0,0.25);">
-                    <!-- Red Velvet Stage Curtains -->
-                    <div class="curtain-left" style="position: absolute; top:0; left:0; width:50%; height:100%; z-index:10; background: linear-gradient(135deg, #881337, #BE123C, #4C0519); border-right: 3px solid #F59E0B; pointer-events: none;"></div>
-                    <div class="curtain-right" style="position: absolute; top:0; right:0; width:50%; height:100%; z-index:10; background: linear-gradient(135deg, #4C0519, #BE123C, #881337); border-left: 3px solid #F59E0B; pointer-events: none;"></div>
-
-                    <div class="animated-card-body" style="position: relative; z-index: 5;">
-                      ${previewLink ? `<a href="${previewLink}" target="_blank" style="display: block; text-decoration: none; border: none; outline: none;">` : ""}
-                        <img 
-                          src="${imageUrl}" 
-                          alt="${cleanAltText}" 
-                          width="100%" 
-                          border="0"
-                          style="display: block; max-width: 500px; width: 100%; height: auto; margin: 0 auto; border-radius: 8px; outline: none; border: none; text-decoration: none; box-shadow: 0 8px 24px rgba(0,0,0,0.3);" 
-                        />
-                      ${previewLink ? `</a>` : ""}
-                    </div>
-
-                    ${previewLink ? `
-                    <div style="margin-top: 14px; text-align: center; position: relative; z-index: 12;">
-                      <a href="${previewLink}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%); color: #ffffff; text-decoration: none; font-size: 13px; font-weight: 700; padding: 10px 22px; border-radius: 30px; box-shadow: 0 4px 14px rgba(217, 119, 6, 0.4); text-transform: uppercase; letter-spacing: 1px;">
-                        ✨ Tap to Unfold Interactive 3D Card
-                      </a>
-                    </div>
-                    ` : ""}
-                  </td>
-                </tr>
-              </table>
+            <td align="center" style="padding: 10px 16px 20px 16px;">
+              ${previewLink ? `<a href="${previewLink}" target="_blank" style="display: block; text-decoration: none; border: none; outline: none;">` : ""}
+                <img 
+                  src="${imageUrl}" 
+                  alt="${cleanAltText}" 
+                  width="100%" 
+                  border="0"
+                  style="display: block; max-width: 500px; width: 100%; height: auto; margin: 0 auto; border-radius: 12px; outline: none; border: none; text-decoration: none; box-shadow: 0 6px 24px rgba(0,0,0,0.12);" 
+                />
+              ${previewLink ? `</a>` : ""}
             </td>
           </tr>
           ` : `
@@ -1200,10 +1174,10 @@ const sendInvitationEmails = async ({
 
   // ─── RESOLVE EVENT GIFTING & REGISTRIES (EVITE-STYLE) ───
   const effectiveGifting = (() => {
-    if (invitation?.gifting) return invitation.gifting;
-    if (invitation?.designData?.gifting) return invitation.designData.gifting;
-    if (event?.gifting) return event.gifting;
-    if (event?.designData?.gifting) return event.designData.gifting;
+    if (invitation?.gifting !== undefined && invitation?.gifting !== null) return invitation.gifting;
+    if (event?.gifting !== undefined && event?.gifting !== null) return event.gifting;
+    if (invitation?.designData?.gifting !== undefined && invitation?.designData?.gifting !== null) return invitation.designData.gifting;
+    if (event?.designData?.gifting !== undefined && event?.designData?.gifting !== null) return event.designData.gifting;
 
     const legacyW = invitation?.designData?.wishlists || event?.wishlists || [];
     const legacyC = invitation?.designData?.charities || event?.charities || [];

@@ -1022,12 +1022,48 @@ const sendInvitationToGuests = async (req, res) => {
       mapUrl: req.body.mapUrl || req.body.map_url || req.body.eventDetails?.mapUrl || event?.mapUrl || event?.map_url || "",
       mapImageUrl: req.body.mapImageUrl || req.body.map_image_url || req.body.eventDetails?.mapImageUrl || event?.mapImageUrl || event?.map_image_url || "",
       rsvpSettings: rsvpSettings || event?.rsvpSettings || null,
-      rsvpDeadline: req.body.rsvpDeadline || req.body.deadlineDate || rsvpSettings?.deadlineDate || rsvpSettings?.rsvpDeadline || event?.rsvpDeadline || null,
-      rsvpDeadlineDate: req.body.rsvpDeadlineDate || req.body.deadlineDate || rsvpSettings?.deadlineDate || rsvpSettings?.rsvpDeadlineDate || null,
-      rsvpDeadlineTime: req.body.rsvpDeadlineTime || req.body.deadlineTime || rsvpSettings?.deadlineTime || rsvpSettings?.rsvpDeadlineTime || null,
-      rsvpDeadlineEnabled: req.body.rsvpDeadlineEnabled !== undefined ? req.body.rsvpDeadlineEnabled : (req.body.deadlineEnabled !== undefined ? req.body.deadlineEnabled : rsvpSettings?.rsvpDeadlineEnabled ?? rsvpSettings?.deadlineEnabled),
-      deadlineEnabled: req.body.deadlineEnabled !== undefined ? req.body.deadlineEnabled : (req.body.rsvpDeadlineEnabled !== undefined ? req.body.rsvpDeadlineEnabled : rsvpSettings?.deadlineEnabled ?? rsvpSettings?.rsvpDeadlineEnabled),
+      rsvpDeadline: req.body.rsvpDeadline || req.body.deadlineDate || req.body.eventDetails?.rsvpDeadline || req.body.eventDetails?.rsvpDeadlineDate || req.body.eventDetails?.deadlineDate || rsvpSettings?.deadlineDate || rsvpSettings?.rsvpDeadline || event?.rsvpDeadline || null,
+      rsvpDeadlineDate: req.body.rsvpDeadlineDate || req.body.deadlineDate || req.body.eventDetails?.rsvpDeadlineDate || req.body.eventDetails?.deadlineDate || rsvpSettings?.deadlineDate || rsvpSettings?.rsvpDeadlineDate || null,
+      rsvpDeadlineTime: req.body.rsvpDeadlineTime || req.body.deadlineTime || req.body.eventDetails?.rsvpDeadlineTime || req.body.eventDetails?.deadlineTime || rsvpSettings?.deadlineTime || rsvpSettings?.rsvpDeadlineTime || null,
+      rsvpDeadlineEnabled: req.body.rsvpDeadlineEnabled !== undefined ? req.body.rsvpDeadlineEnabled : (req.body.eventDetails?.rsvpDeadlineEnabled !== undefined ? req.body.eventDetails.rsvpDeadlineEnabled : (req.body.deadlineEnabled !== undefined ? req.body.deadlineEnabled : rsvpSettings?.rsvpDeadlineEnabled ?? rsvpSettings?.deadlineEnabled)),
+      deadlineEnabled: req.body.deadlineEnabled !== undefined ? req.body.deadlineEnabled : (req.body.eventDetails?.deadlineEnabled !== undefined ? req.body.eventDetails.deadlineEnabled : (req.body.rsvpDeadlineEnabled !== undefined ? req.body.rsvpDeadlineEnabled : rsvpSettings?.deadlineEnabled ?? rsvpSettings?.rsvpDeadlineEnabled)),
+      gifting: req.body.gifting || req.body.eventDetails?.gifting || invitation?.gifting || event?.gifting || null,
     };
+
+    // Extract or reconstruct gifting from payload or eventDetails
+    const resolvedGifting = req.body.gifting || req.body.eventDetails?.gifting || (
+      (req.body.registries || req.body.eventDetails?.registries || req.body.wishlists || req.body.eventDetails?.wishlists)
+        ? {
+            enabled: true,
+            items: [
+              ...(req.body.registries || req.body.eventDetails?.registries || req.body.wishlists || req.body.eventDetails?.wishlists || []).map(r => ({
+                type: 'wishlist',
+                provider: (r.platform || r.store || 'other').toLowerCase(),
+                title: r.title || 'Gift Registry',
+                url: r.url || '',
+                description: r.note || (r.recipient ? `For ${r.recipient}` : ''),
+                enabled: true
+              })),
+              ...(req.body.charities || req.body.eventDetails?.charities || []).map(c => ({
+                type: 'charity',
+                provider: 'other',
+                title: c.name || c.title || 'Charity',
+                url: c.url || '',
+                description: c.description || '',
+                enabled: true
+              })),
+              ...(req.body.wishFunds || req.body.eventDetails?.wishFunds || req.body.personalFunds || req.body.eventDetails?.personalFunds || []).map(f => ({
+                type: 'fundraiser',
+                provider: 'other',
+                title: f.title || 'Wish Fund',
+                url: f.url || '',
+                description: f.note || f.description || '',
+                enabled: true
+              }))
+            ]
+          }
+        : null
+    );
 
     // Pass both resolved URL and raw snapshot data so email service can resolve
     // hosted public URLs for the invitation card image
@@ -1042,7 +1078,7 @@ const sendInvitationToGuests = async (req, res) => {
       ...(req.body.decorations ? { decorations: req.body.decorations } : {}),
       ...(req.body.envelope ? { envelope: req.body.envelope } : {}),
       ...(req.body.effects ? { effects: req.body.effects } : {}),
-      ...(req.body.gifting ? { gifting: req.body.gifting } : {}),
+      ...(resolvedGifting !== undefined && resolvedGifting !== null ? { gifting: resolvedGifting } : {}),
       ...(req.body.designData ? { designData: req.body.designData } : {}),
       templateId: req.body.templateId || invitation.templateId || null,
     };
@@ -1065,9 +1101,21 @@ const sendInvitationToGuests = async (req, res) => {
     const targetEventId = invitation?.eventId || eventId;
     if (targetEventId) {
       try {
+        const rawDeadline = effectiveEvent.rsvpDeadlineDate || effectiveEvent.rsvpDeadline;
+        let dbDeadline = null;
+        if (rawDeadline) {
+          const parsed = new Date(rawDeadline);
+          if (!isNaN(parsed.getTime())) {
+            dbDeadline = parsed;
+          }
+        }
         await db.query(
-          `UPDATE events SET status = 'published', updated_at = NOW() WHERE id = $1 AND (status = 'draft' OR status IS NULL)`,
-          [targetEventId]
+          `UPDATE events SET 
+             status = CASE WHEN status = 'draft' OR status IS NULL THEN 'published' ELSE status END,
+             rsvp_deadline = COALESCE($2, rsvp_deadline),
+             updated_at = NOW() 
+           WHERE id = $1`,
+          [targetEventId, dbDeadline]
         );
       } catch (pubErr) {
         console.warn("[InvitationController] Error auto-publishing event on guest send:", pubErr.message);

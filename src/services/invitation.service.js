@@ -449,7 +449,7 @@ const submitPublicRSVPData = async ({
   const existingGuest = await prisma.guest.findFirst({
     where: {
       eventId,
-      email: cleanEmail,
+      email: { equals: cleanEmail, mode: "insensitive" },
     },
   });
 
