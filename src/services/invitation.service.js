@@ -17,6 +17,9 @@ const findInvitationsByUserId = async (userId) => {
         select: {
           title: true,
           selectedTemplateId: true,
+          canvasState: true,
+          previewUrl: true,
+          coverImage: true,
           designSettings: true,
         },
       },
@@ -29,6 +32,9 @@ const findInvitationsByUserId = async (userId) => {
   return invitations.map((inv) => ({
     ...inv,
     templateId: inv.event?.selectedTemplateId || null,
+    selectedTemplateId: inv.event?.selectedTemplateId || null,
+    canvasState: inv.event?.canvasState || null,
+    previewUrl: inv.event?.previewUrl || inv.imageUrl || inv.event?.coverImage || null,
     designSettings: inv.event?.designSettings || null,
     eventTitle: inv.event?.title || null,
     event: undefined,
@@ -54,6 +60,9 @@ const findInvitationById = async (id, userId) => {
         select: {
           title: true,
           selectedTemplateId: true,
+          canvasState: true,
+          previewUrl: true,
+          coverImage: true,
           designSettings: true,
         },
       },
@@ -65,6 +74,9 @@ const findInvitationById = async (id, userId) => {
   return {
     ...invitation,
     templateId: invitation.event?.selectedTemplateId || null,
+    selectedTemplateId: invitation.event?.selectedTemplateId || null,
+    canvasState: invitation.event?.canvasState || null,
+    previewUrl: invitation.event?.previewUrl || invitation.imageUrl || invitation.event?.coverImage || null,
     designSettings: invitation.event?.designSettings || null,
     eventTitle: invitation.event?.title || null,
     event: undefined,
@@ -90,6 +102,9 @@ const findInvitationByEventId = async (eventId, userId) => {
         select: {
           title: true,
           selectedTemplateId: true,
+          canvasState: true,
+          previewUrl: true,
+          coverImage: true,
           designSettings: true,
         },
       },
@@ -101,6 +116,9 @@ const findInvitationByEventId = async (eventId, userId) => {
   return {
     ...invitation,
     templateId: invitation.event?.selectedTemplateId || null,
+    selectedTemplateId: invitation.event?.selectedTemplateId || null,
+    canvasState: invitation.event?.canvasState || null,
+    previewUrl: invitation.event?.previewUrl || invitation.imageUrl || invitation.event?.coverImage || null,
     designSettings: invitation.event?.designSettings || null,
     eventTitle: invitation.event?.title || null,
     event: undefined,
@@ -167,23 +185,31 @@ const createInvitation = async (data, userId) => {
     },
   });
 
-  if (eventId && (imageUrl || data.templateId)) {
+  const effectiveTpl = data.templateId || data.selectedTemplateId || null;
+  const effectiveImg = data.previewUrl || imageUrl || null;
+  const effectiveCanvas = data.canvasState || (data.layers ? { templateId: effectiveTpl, layers: data.layers } : null);
+
+  if (eventId && (effectiveImg || effectiveTpl || effectiveCanvas)) {
     try {
       await prisma.event.update({
         where: { id: eventId },
         data: {
-          ...(imageUrl ? { coverImage: imageUrl } : {}),
-          ...(data.templateId ? { selectedTemplateId: data.templateId } : {}),
+          ...(effectiveImg ? { coverImage: effectiveImg, previewUrl: effectiveImg } : {}),
+          ...(effectiveTpl ? { selectedTemplateId: effectiveTpl } : {}),
+          ...(effectiveCanvas ? { canvasState: effectiveCanvas } : {}),
         },
       });
     } catch (evErr) {
-      console.warn("Could not sync event coverImage/selectedTemplateId:", evErr.message);
+      console.warn("Could not sync event coverImage/selectedTemplateId/canvasState:", evErr.message);
     }
   }
 
   return {
     ...invitation,
-    templateId: data.templateId || null,
+    templateId: effectiveTpl,
+    selectedTemplateId: effectiveTpl,
+    previewUrl: effectiveImg || invitation.imageUrl || null,
+    canvasState: effectiveCanvas,
   };
 };
 
@@ -220,6 +246,10 @@ const updateInvitation = async (id, data, userId) => {
   } = data;
 
   try {
+    const effectiveTpl = data.templateId || data.selectedTemplateId || undefined;
+    const effectiveImg = data.previewUrl || imageUrl || undefined;
+    const effectiveCanvas = data.canvasState || (data.layers ? { templateId: effectiveTpl, layers: data.layers } : undefined);
+
     const invitation = await prisma.invitation.update({
       where: { id },
       data: {
@@ -234,7 +264,7 @@ const updateInvitation = async (id, data, userId) => {
         fontWeight,
         fontFamily,
         textAlignment,
-        imageUrl: imageUrl !== undefined ? imageUrl : undefined,
+        imageUrl: effectiveImg !== undefined ? effectiveImg : undefined,
         buttonText,
         buttonColor,
         buttonRadius,
@@ -247,23 +277,27 @@ const updateInvitation = async (id, data, userId) => {
       },
     });
 
-    if (invitation.eventId && (imageUrl || data.templateId)) {
+    if (invitation.eventId && (effectiveImg || effectiveTpl || effectiveCanvas)) {
       try {
         await prisma.event.update({
           where: { id: invitation.eventId },
           data: {
-            ...(imageUrl ? { coverImage: imageUrl } : {}),
-            ...(data.templateId ? { selectedTemplateId: data.templateId } : {}),
+            ...(effectiveImg ? { coverImage: effectiveImg, previewUrl: effectiveImg } : {}),
+            ...(effectiveTpl ? { selectedTemplateId: effectiveTpl } : {}),
+            ...(effectiveCanvas ? { canvasState: effectiveCanvas } : {}),
           },
         });
       } catch (evErr) {
-        console.warn("Could not sync event coverImage/selectedTemplateId:", evErr.message);
+        console.warn("Could not sync event coverImage/selectedTemplateId/canvasState:", evErr.message);
       }
     }
 
     return {
       ...invitation,
-      templateId: data.templateId || null,
+      templateId: effectiveTpl || null,
+      selectedTemplateId: effectiveTpl || null,
+      previewUrl: effectiveImg || invitation.imageUrl || null,
+      canvasState: effectiveCanvas || null,
     };
   } catch (error) {
     if (error.code === "P2025") {

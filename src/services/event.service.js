@@ -23,12 +23,16 @@ const findEventsByUserId = async (userId) => {
       COALESCE(e.geofence_radius, 150)::int AS "geofenceRadius",
       TO_CHAR(e.event_date, 'YYYY-MM-DD') AS "eventDate", 
       e.event_time AS "eventTime", 
-      COALESCE(NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "coverImage", 
-      COALESCE(NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "imageUrl", 
-      COALESCE(NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "thumbnail", 
-      COALESCE(NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "thumbnailUrl", 
-      COALESCE(NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "uploadedFileUrl", 
+      COALESCE(NULLIF(e.preview_url, ''), NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "coverImage", 
+      COALESCE(NULLIF(e.preview_url, ''), NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "imageUrl", 
+      COALESCE(NULLIF(e.preview_url, ''), NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "thumbnail", 
+      COALESCE(NULLIF(e.preview_url, ''), NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "thumbnailUrl", 
+      COALESCE(NULLIF(e.preview_url, ''), NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "uploadedFileUrl", 
+      COALESCE(NULLIF(e.preview_url, ''), NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "previewUrl", 
+      COALESCE(NULLIF(e.preview_url, ''), NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "templatePreviewUrl", 
       e.selected_template_id AS "selectedTemplateId",
+      e.selected_template_id AS "templateId",
+      e.canvas_state AS "canvasState",
       e.host_name AS "hostName",
       inv.id AS "invitationId",
       inv.title AS "invitationTitle",
@@ -125,12 +129,16 @@ const findEventByIdAndUserId = async (id, userId) => {
       COALESCE(e.geofence_radius, 150)::int AS "geofenceRadius",
       TO_CHAR(e.event_date, 'YYYY-MM-DD') AS "eventDate", 
       e.event_time AS "eventTime", 
-      COALESCE(NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "coverImage", 
-      COALESCE(NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "imageUrl", 
-      COALESCE(NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "thumbnail", 
-      COALESCE(NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "thumbnailUrl", 
-      COALESCE(NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "uploadedFileUrl", 
+      COALESCE(NULLIF(e.preview_url, ''), NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "coverImage", 
+      COALESCE(NULLIF(e.preview_url, ''), NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "imageUrl", 
+      COALESCE(NULLIF(e.preview_url, ''), NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "thumbnail", 
+      COALESCE(NULLIF(e.preview_url, ''), NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "thumbnailUrl", 
+      COALESCE(NULLIF(e.preview_url, ''), NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "uploadedFileUrl", 
+      COALESCE(NULLIF(e.preview_url, ''), NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "previewUrl", 
+      COALESCE(NULLIF(e.preview_url, ''), NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "templatePreviewUrl", 
       e.selected_template_id AS "selectedTemplateId",
+      e.selected_template_id AS "templateId",
+      e.canvas_state AS "canvasState",
       e.host_name AS "hostName",
       inv.id AS "invitationId",
       inv.title AS "invitationTitle",
@@ -246,8 +254,14 @@ const createEvent = async (eventData, userId) => {
     eventTime,
     coverImage,
     selectedTemplateId,
+    templateId,
+    canvasState,
+    previewUrl,
     status
   } = eventData;
+
+  const effectiveTemplateId = selectedTemplateId || templateId || null;
+  const effectivePreviewUrl = previewUrl || coverImage || null;
 
   let parsedEventDate = new Date(eventDate);
   if (isNaN(parsedEventDate.getTime())) {
@@ -285,8 +299,10 @@ const createEvent = async (eventData, userId) => {
       country: country || null,
       eventDate: parsedEventDate,
       eventTime: parsedEventTime,
-      coverImage: coverImage || null,
-      selectedTemplateId: selectedTemplateId || null,
+      coverImage: effectivePreviewUrl || coverImage || null,
+      selectedTemplateId: effectiveTemplateId,
+      canvasState: canvasState || null,
+      previewUrl: effectivePreviewUrl,
       status: status || 'draft',
       createdBy: Number(userId),
     }
@@ -309,7 +325,14 @@ const createEvent = async (eventData, userId) => {
       ? `${String(createdEvent.eventTime.getUTCHours()).padStart(2, '0')}:${String(createdEvent.eventTime.getUTCMinutes()).padStart(2, '0')}:${String(createdEvent.eventTime.getUTCSeconds()).padStart(2, '0')}`
       : createdEvent.eventTime,
     coverImage: createdEvent.coverImage,
+    imageUrl: createdEvent.coverImage,
+    thumbnail: createdEvent.coverImage,
+    thumbnailUrl: createdEvent.coverImage,
+    previewUrl: createdEvent.previewUrl || createdEvent.coverImage,
+    templatePreviewUrl: createdEvent.previewUrl || createdEvent.coverImage,
     selectedTemplateId: createdEvent.selectedTemplateId,
+    templateId: createdEvent.selectedTemplateId,
+    canvasState: createdEvent.canvasState,
     status: createdEvent.status,
     createdBy: createdEvent.createdBy,
     createdAt: createdEvent.createdAt,
@@ -350,8 +373,23 @@ const updateEvent = async (id, eventData, userId) => {
     hotelRecommendations,
     nearbyParking,
     coverImage,
+    selectedTemplateId,
+    templateId,
+    canvasState,
+    previewUrl,
     status
   } = eventData;
+
+  const effectiveTemplateId = (selectedTemplateId !== undefined && selectedTemplateId !== null)
+    ? selectedTemplateId
+    : ((templateId !== undefined && templateId !== null) ? templateId : null);
+  const effectivePreviewUrl = (previewUrl !== undefined && previewUrl !== null)
+    ? previewUrl
+    : ((coverImage !== undefined && coverImage !== null) ? coverImage : null);
+  let effectiveCanvasState = canvasState !== undefined ? canvasState : null;
+  if (effectiveCanvasState && typeof effectiveCanvasState === "object") {
+    effectiveCanvasState = JSON.stringify(effectiveCanvasState);
+  }
 
   let formattedDate = eventDate;
   if (eventDate) {
@@ -377,33 +415,36 @@ const updateEvent = async (id, eventData, userId) => {
 
   const result = await db.query(
     `UPDATE events SET 
-      title = $1, 
-      description = $2, 
-      event_type = $3, 
-      venue = $4, 
-      address = $5, 
-      city = $6, 
-      state = $7, 
-      country = $8, 
-      event_date = $9, 
-      event_time = $10, 
-      cover_image = $11, 
+      title = COALESCE($1, title), 
+      description = COALESCE($2, description), 
+      event_type = COALESCE($3, event_type), 
+      venue = COALESCE($4, venue), 
+      address = COALESCE($5, address), 
+      city = COALESCE($6, city), 
+      state = COALESCE($7, state), 
+      country = COALESCE($8, country), 
+      event_date = COALESCE($9::date, event_date), 
+      event_time = COALESCE($10::time, event_time), 
+      cover_image = COALESCE($11, cover_image), 
       status = COALESCE($12, status, 'draft'),
-      host_name = $13,
-      email_subject = $14,
-      email_description = $15,
-      map_url = $16,
-      directions = $17,
-      parking_instructions = $18,
-      entry_instructions = $19,
-      floor_number = $20,
-      room_number = $21,
-      security_gate_info = $22,
-      emergency_contact = $23,
-      hotel_recommendations = $24,
-      nearby_parking = $25,
+      host_name = COALESCE($13, host_name),
+      email_subject = COALESCE($14, email_subject),
+      email_description = COALESCE($15, email_description),
+      map_url = COALESCE($16, map_url),
+      directions = COALESCE($17, directions),
+      parking_instructions = COALESCE($18, parking_instructions),
+      entry_instructions = COALESCE($19, entry_instructions),
+      floor_number = COALESCE($20, floor_number),
+      room_number = COALESCE($21, room_number),
+      security_gate_info = COALESCE($22, security_gate_info),
+      emergency_contact = COALESCE($23, emergency_contact),
+      hotel_recommendations = COALESCE($24, hotel_recommendations),
+      nearby_parking = COALESCE($25, nearby_parking),
+      selected_template_id = COALESCE($26, selected_template_id),
+      canvas_state = COALESCE($27::jsonb, canvas_state),
+      preview_url = COALESCE($28, preview_url),
       updated_at = CURRENT_TIMESTAMP
-     WHERE id = $26 AND created_by = $27
+     WHERE id = $29 AND (created_by = $30 OR $30 IS NULL)
      RETURNING 
       id, 
       title, 
@@ -416,8 +457,15 @@ const updateEvent = async (id, eventData, userId) => {
       country, 
       TO_CHAR(event_date, 'YYYY-MM-DD') AS "eventDate", 
       event_time AS "eventTime", 
-      cover_image AS "coverImage", 
+      COALESCE(preview_url, cover_image) AS "coverImage", 
+      COALESCE(preview_url, cover_image) AS "imageUrl", 
+      COALESCE(preview_url, cover_image) AS "thumbnail", 
+      COALESCE(preview_url, cover_image) AS "thumbnailUrl", 
+      COALESCE(preview_url, cover_image) AS "previewUrl", 
+      COALESCE(preview_url, cover_image) AS "templatePreviewUrl", 
       selected_template_id AS "selectedTemplateId",
+      selected_template_id AS "templateId",
+      canvas_state AS "canvasState",
       status, 
       host_name AS "hostName",
       email_subject AS "emailSubject",
@@ -446,7 +494,7 @@ const updateEvent = async (id, eventData, userId) => {
       country || null,
       formattedDate,
       formattedTime,
-      coverImage || null,
+      effectivePreviewUrl || coverImage || null,
       status !== undefined && status !== null ? status : null,
       hostName || null,
       emailSubject || null,
@@ -461,8 +509,11 @@ const updateEvent = async (id, eventData, userId) => {
       emergencyContact || null,
       hotelRecommendations || null,
       nearbyParking || null,
+      effectiveTemplateId || null,
+      effectiveCanvasState || null,
+      effectivePreviewUrl || null,
       id,
-      userId
+      userId || null
     ]
   );
   return result.rows[0] || null;
@@ -505,12 +556,16 @@ const findEventById = async (id, userId) => {
       e.country, 
       TO_CHAR(e.event_date, 'YYYY-MM-DD') AS "eventDate", 
       e.event_time AS "eventTime", 
-      COALESCE(NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "coverImage", 
-      COALESCE(NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "imageUrl", 
-      COALESCE(NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "thumbnail", 
-      COALESCE(NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "thumbnailUrl", 
-      COALESCE(NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "uploadedFileUrl", 
+      COALESCE(NULLIF(e.preview_url, ''), NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "coverImage", 
+      COALESCE(NULLIF(e.preview_url, ''), NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "imageUrl", 
+      COALESCE(NULLIF(e.preview_url, ''), NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "thumbnail", 
+      COALESCE(NULLIF(e.preview_url, ''), NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "thumbnailUrl", 
+      COALESCE(NULLIF(e.preview_url, ''), NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "uploadedFileUrl", 
+      COALESCE(NULLIF(e.preview_url, ''), NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "previewUrl", 
+      COALESCE(NULLIF(e.preview_url, ''), NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "templatePreviewUrl", 
       e.selected_template_id AS "selectedTemplateId",
+      e.selected_template_id AS "templateId",
+      e.canvas_state AS "canvasState",
       e.host_name AS "hostName",
       inv.id AS "invitationId",
       inv.title AS "invitationTitle",

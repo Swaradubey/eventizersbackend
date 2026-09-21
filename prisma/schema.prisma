@@ -72,6 +72,8 @@ model Event {
   nearbyParking String?       @map("nearby_parking")
   coverImage   String?       @map("cover_image")
   selectedTemplateId String?   @map("selected_template_id")
+  canvasState  Json?         @map("canvas_state")
+  previewUrl   String?       @map("preview_url")
   status       String        @default("draft")
   createdBy    Int           @map("created_by")
   user         User          @relation(fields: [createdBy], references: [id], onDelete: Cascade)

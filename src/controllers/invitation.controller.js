@@ -831,18 +831,53 @@ const sendInvitation = async (req, res) => {
       trackingBaseUrl,
     });
 
-    // Mark status as published
-    await invitationService.updateInvitation(id, { ...invitation, status: "published" }, userId);
+    const effectiveTplId = req.body.templateId || invitation.templateId || null;
+    const effectiveSnapshotUrl = resolvedSnapshotUrl || sendResult.previewUrl || invitation.imageUrl || null;
+    let canvasStateJson = null;
+    if (req.body.canvasState) {
+      canvasStateJson = typeof req.body.canvasState === "object" ? JSON.stringify(req.body.canvasState) : req.body.canvasState;
+    } else if (req.body.layers || req.body.textElements) {
+      canvasStateJson = JSON.stringify({
+        templateId: effectiveTplId,
+        layers: req.body.layers || req.body.textElements,
+        card: req.body.card,
+        cardBg: req.body.cardBg,
+        envelope: req.body.envelope,
+        stageBackdrop: req.body.stageBackdrop,
+        effects: req.body.effects,
+        backside: req.body.backside,
+        previewUrl: effectiveSnapshotUrl,
+      });
+    }
 
-    // Auto-publish associated event if draft or un-published
+    // Mark status as published and save image on invitation
+    await invitationService.updateInvitation(
+      id,
+      {
+        ...invitation,
+        status: "published",
+        imageUrl: effectiveSnapshotUrl || invitation.imageUrl,
+        templateId: effectiveTplId || invitation.templateId,
+      },
+      userId
+    );
+
+    // Auto-publish associated event and persist selectedTemplateId, canvasState, previewUrl, coverImage
     if (invitation.eventId) {
       try {
         await db.query(
-          `UPDATE events SET status = 'published', updated_at = NOW() WHERE id = $1 AND (status = 'draft' OR status IS NULL)`,
-          [invitation.eventId]
+          `UPDATE events SET 
+             status = CASE WHEN status = 'draft' OR status IS NULL THEN 'published' ELSE status END,
+             selected_template_id = COALESCE($2, selected_template_id),
+             canvas_state = COALESCE($3::jsonb, canvas_state),
+             preview_url = COALESCE($4, preview_url),
+             cover_image = COALESCE($4, cover_image),
+             updated_at = NOW() 
+           WHERE id = $1`,
+          [invitation.eventId, effectiveTplId, canvasStateJson, effectiveSnapshotUrl]
         );
       } catch (pubErr) {
-        console.warn("[InvitationController] Error auto-publishing event:", pubErr.message);
+        console.warn("[InvitationController] Error auto-publishing / syncing event on send:", pubErr.message);
       }
     }
 
@@ -1096,7 +1131,35 @@ const sendInvitationToGuests = async (req, res) => {
       trackingBaseUrl,
     });
 
-    await invitationService.updateInvitation(invitationId, { ...invitation, status: "published" }, userId);
+    const effectiveGuestTplId = req.body.templateId || invitation.templateId || null;
+    const effectiveGuestSnapshotUrl = resolvedSnapshotUrl || (cardSnapshotUrl || snapshotUrl) || invitation.imageUrl || null;
+    let canvasStateJson = null;
+    if (req.body.canvasState) {
+      canvasStateJson = typeof req.body.canvasState === "object" ? JSON.stringify(req.body.canvasState) : req.body.canvasState;
+    } else if (req.body.layers || req.body.textElements) {
+      canvasStateJson = JSON.stringify({
+        templateId: effectiveGuestTplId,
+        layers: req.body.layers || req.body.textElements,
+        card: req.body.card,
+        cardBg: req.body.cardBg,
+        envelope: req.body.envelope,
+        stageBackdrop: req.body.stageBackdrop,
+        effects: req.body.effects,
+        backside: req.body.backside,
+        previewUrl: effectiveGuestSnapshotUrl,
+      });
+    }
+
+    await invitationService.updateInvitation(
+      invitationId,
+      {
+        ...invitation,
+        status: "published",
+        imageUrl: effectiveGuestSnapshotUrl || invitation.imageUrl,
+        templateId: effectiveGuestTplId || invitation.templateId,
+      },
+      userId
+    );
 
     const targetEventId = invitation?.eventId || eventId;
     if (targetEventId) {
@@ -1113,12 +1176,16 @@ const sendInvitationToGuests = async (req, res) => {
           `UPDATE events SET 
              status = CASE WHEN status = 'draft' OR status IS NULL THEN 'published' ELSE status END,
              rsvp_deadline = COALESCE($2, rsvp_deadline),
+             selected_template_id = COALESCE($3, selected_template_id),
+             canvas_state = COALESCE($4::jsonb, canvas_state),
+             preview_url = COALESCE($5, preview_url),
+             cover_image = COALESCE($5, cover_image),
              updated_at = NOW() 
            WHERE id = $1`,
-          [targetEventId, dbDeadline]
+          [targetEventId, dbDeadline, effectiveGuestTplId, canvasStateJson, effectiveGuestSnapshotUrl]
         );
       } catch (pubErr) {
-        console.warn("[InvitationController] Error auto-publishing event on guest send:", pubErr.message);
+        console.warn("[InvitationController] Error auto-publishing / syncing event on guest send:", pubErr.message);
       }
     }
 

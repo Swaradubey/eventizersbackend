@@ -444,27 +444,44 @@ const updateEvent = async (req, res) => {
       req.body.coverImage = uploadRes.url;
     } else {
       const rawImage =
+        req.body.previewUrl ||
         req.body.coverImage ||
         req.body.imageUrl ||
         req.body.thumbnail ||
         req.body.thumbnailUrl ||
         req.body.uploadedFileUrl ||
-        req.body.previewUrl ||
+        req.body.cardSnapshotUrl ||
+        req.body.snapshotUrl ||
+        req.body.snapshot ||
         (req.body.designData && typeof req.body.designData === "object" ? req.body.designData.previewUrl : null);
 
       if (rawImage && typeof rawImage === "string") {
         const trimmedImg = rawImage.trim();
         if (trimmedImg.startsWith("blob:")) {
           delete req.body.coverImage;
+          delete req.body.previewUrl;
         } else if (trimmedImg.startsWith("data:") || trimmedImg.length > 500) {
           const base64Res = await saveBase64Image(trimmedImg, req, "event_cover");
           if (base64Res && base64Res.url) {
             req.body.coverImage = base64Res.url;
+            req.body.previewUrl = base64Res.url;
           }
         } else if (trimmedImg) {
           req.body.coverImage = trimmedImg;
+          req.body.previewUrl = trimmedImg;
         }
       }
+    }
+
+    if (req.body.templateId && !req.body.selectedTemplateId) {
+      req.body.selectedTemplateId = req.body.templateId;
+    }
+    if (!req.body.canvasState && req.body.layers) {
+      req.body.canvasState = {
+        templateId: req.body.selectedTemplateId || req.body.templateId,
+        layers: req.body.layers,
+        previewUrl: req.body.previewUrl || req.body.coverImage,
+      };
     }
 
     const { id } = req.params;
@@ -486,6 +503,18 @@ const updateEvent = async (req, res) => {
         if (req.body.status === undefined && existing.status) {
           req.body.status = existing.status;
         }
+        if (!req.body.selectedTemplateId && existing.selectedTemplateId) {
+          req.body.selectedTemplateId = existing.selectedTemplateId;
+        }
+        if (!req.body.canvasState && existing.canvasState) {
+          req.body.canvasState = existing.canvasState;
+        }
+        if (!req.body.coverImage && existing.coverImage) {
+          req.body.coverImage = existing.coverImage;
+        }
+        if (!req.body.previewUrl && existing.previewUrl) {
+          req.body.previewUrl = existing.previewUrl;
+        }
       }
     }
 
@@ -501,7 +530,7 @@ const updateEvent = async (req, res) => {
       return res.status(404).json({ error: "Event not found or unauthorized access." });
     }
 
-    const resolvedCover = updatedEvent.coverImage || req.body.coverImage || null;
+    const resolvedCover = updatedEvent.coverImage || updatedEvent.previewUrl || req.body.coverImage || req.body.previewUrl || null;
     const eventWithImages = {
       ...updatedEvent,
       coverImage: resolvedCover,
@@ -509,6 +538,11 @@ const updateEvent = async (req, res) => {
       thumbnail: resolvedCover,
       thumbnailUrl: resolvedCover,
       uploadedFileUrl: resolvedCover,
+      previewUrl: updatedEvent.previewUrl || resolvedCover,
+      templatePreviewUrl: updatedEvent.templatePreviewUrl || updatedEvent.previewUrl || resolvedCover,
+      templateId: updatedEvent.selectedTemplateId || req.body.selectedTemplateId || null,
+      selectedTemplateId: updatedEvent.selectedTemplateId || req.body.selectedTemplateId || null,
+      canvasState: updatedEvent.canvasState || req.body.canvasState || null,
     };
 
     // Handle rsvpSettings if included in payload
