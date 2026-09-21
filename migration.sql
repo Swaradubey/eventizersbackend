@@ -95,9 +95,12 @@ CREATE TABLE IF NOT EXISTS invitations (
   button_color VARCHAR(50) DEFAULT '#5B5FEF',
   button_radius INTEGER DEFAULT 8,
   status VARCHAR(50) DEFAULT 'draft',
+  template_id VARCHAR(255),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+ALTER TABLE invitations ADD COLUMN IF NOT EXISTS template_id VARCHAR(255);
 
 -- Create ticket_tiers table
 CREATE TABLE IF NOT EXISTS ticket_tiers (

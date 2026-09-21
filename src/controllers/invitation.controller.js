@@ -260,7 +260,7 @@ const createInvitation = async (req, res) => {
           await prisma.event.update({
             where: { id: eventId },
             data: {
-              ...(cleanImageUrl ? { coverImage: cleanImageUrl } : {}),
+              ...(cleanImageUrl ? { coverImage: cleanImageUrl, previewUrl: cleanImageUrl } : {}),
               ...(req.body.templateId ? { selectedTemplateId: req.body.templateId } : {}),
             },
           });
@@ -324,7 +324,7 @@ const createInvitation = async (req, res) => {
         await prisma.event.update({
           where: { id: eventId },
           data: {
-            ...(cleanImageUrl ? { coverImage: cleanImageUrl } : {}),
+            ...(cleanImageUrl ? { coverImage: cleanImageUrl, previewUrl: cleanImageUrl } : {}),
             ...(req.body.templateId ? { selectedTemplateId: req.body.templateId } : {}),
           },
         });
@@ -462,7 +462,7 @@ const updateInvitation = async (req, res) => {
         await prisma.event.update({
           where: { id: existingInvitation.eventId },
           data: {
-            ...(cleanImageUrl ? { coverImage: cleanImageUrl } : {}),
+            ...(cleanImageUrl ? { coverImage: cleanImageUrl, previewUrl: cleanImageUrl } : {}),
             ...(req.body.templateId ? { selectedTemplateId: req.body.templateId } : {}),
           },
         });

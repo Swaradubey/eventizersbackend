@@ -10,15 +10,50 @@ const prisma = require("../config/prisma");
  */
 const getEvents = async (req, res) => {
   try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({
+        success: false,
+        error: "Session expired or unauthorized. Please sign in again.",
+        events: [],
+        data: [],
+        counts: { all: 0, active: 0, draft: 0, completed: 0 }
+      });
+    }
+
     const userId = req.user.id;
-    const events = await eventService.findEventsByUserId(userId);
+    const { status, limit, page } = req.query;
+    const events = await eventService.findEventsByUserId(userId, { status, limit, page });
+    const safeEvents = Array.isArray(events) ? events : [];
+
+    const counts = {
+      all: safeEvents.length,
+      active: safeEvents.filter((e) => {
+        const s = (e.status || "").toLowerCase().trim();
+        return s === "active" || s === "published";
+      }).length,
+      draft: safeEvents.filter((e) => (e.status || "").toLowerCase().trim() === "draft").length,
+      completed: safeEvents.filter((e) => {
+        const s = (e.status || "").toLowerCase().trim();
+        return s === "completed" || s === "archived";
+      }).length,
+    };
+
     return res.status(200).json({
       success: true,
-      events
+      events: safeEvents,
+      data: safeEvents,
+      counts
     });
   } catch (error) {
-    console.error("Get Events Error:", error);
-    return res.status(500).json({ error: "Server error retrieving events." });
+    console.error("Events fetch error:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Server error retrieving events.",
+      message: error.message || "An unexpected error occurred while retrieving events.",
+      events: [],
+      data: [],
+      counts: { all: 0, active: 0, draft: 0, completed: 0 }
+    });
   }
 };
 
@@ -445,6 +480,8 @@ const updateEvent = async (req, res) => {
     } else {
       const rawImage =
         req.body.previewUrl ||
+        req.body.templatePreviewUrl ||
+        req.body.previewImage ||
         req.body.coverImage ||
         req.body.imageUrl ||
         req.body.thumbnail ||
@@ -453,22 +490,26 @@ const updateEvent = async (req, res) => {
         req.body.cardSnapshotUrl ||
         req.body.snapshotUrl ||
         req.body.snapshot ||
-        (req.body.designData && typeof req.body.designData === "object" ? req.body.designData.previewUrl : null);
+        (req.body.designData && typeof req.body.designData === "object" ? req.body.designData.previewUrl : null) ||
+        (req.body.canvasState && typeof req.body.canvasState === "object" ? req.body.canvasState.previewUrl : null);
 
       if (rawImage && typeof rawImage === "string") {
         const trimmedImg = rawImage.trim();
         if (trimmedImg.startsWith("blob:")) {
           delete req.body.coverImage;
           delete req.body.previewUrl;
+          delete req.body.templatePreviewUrl;
         } else if (trimmedImg.startsWith("data:") || trimmedImg.length > 500) {
           const base64Res = await saveBase64Image(trimmedImg, req, "event_cover");
           if (base64Res && base64Res.url) {
             req.body.coverImage = base64Res.url;
             req.body.previewUrl = base64Res.url;
+            req.body.templatePreviewUrl = base64Res.url;
           }
         } else if (trimmedImg) {
           req.body.coverImage = trimmedImg;
           req.body.previewUrl = trimmedImg;
+          req.body.templatePreviewUrl = trimmedImg;
         }
       }
     }
@@ -489,7 +530,7 @@ const updateEvent = async (req, res) => {
     const userId = req.user.id;
 
     // For partial updates (e.g. status='published' or design updates), fallback to existing event fields if missing
-    if (!title || !eventDate || !eventTime || !venue || req.body.status === undefined) {
+    if (!title || !eventDate || !eventTime || !venue || req.body.status === undefined || !req.body.coverImage || !req.body.previewUrl || !req.body.selectedTemplateId) {
       const existing = await eventService.findEventByIdAndUserId(id, userId) || await eventService.findEventById(id);
       if (existing) {
         title = title || existing.title || "Special Event";
@@ -503,17 +544,18 @@ const updateEvent = async (req, res) => {
         if (req.body.status === undefined && existing.status) {
           req.body.status = existing.status;
         }
-        if (!req.body.selectedTemplateId && existing.selectedTemplateId) {
-          req.body.selectedTemplateId = existing.selectedTemplateId;
+        if (!req.body.selectedTemplateId && (existing.selectedTemplateId || existing.templateId)) {
+          req.body.selectedTemplateId = existing.selectedTemplateId || existing.templateId;
         }
         if (!req.body.canvasState && existing.canvasState) {
           req.body.canvasState = existing.canvasState;
         }
-        if (!req.body.coverImage && existing.coverImage) {
-          req.body.coverImage = existing.coverImage;
+        const existingImg = existing.previewUrl || existing.coverImage || existing.imageUrl || existing.thumbnail || null;
+        if (!req.body.coverImage && existingImg) {
+          req.body.coverImage = existingImg;
         }
-        if (!req.body.previewUrl && existing.previewUrl) {
-          req.body.previewUrl = existing.previewUrl;
+        if (!req.body.previewUrl && existingImg) {
+          req.body.previewUrl = existingImg;
         }
       }
     }
@@ -785,6 +827,14 @@ const sendEventInvitations = async (req, res) => {
       snapshotUrl,
       cardImageBase64,
       snapshot,
+      previewUrl,
+      templatePreviewUrl,
+      previewImage,
+      thumbnail,
+      thumbnailUrl,
+      templateId,
+      selectedTemplateId,
+      canvasState,
     } = req.body || {};
 
     // Parse options whether sent at top-level or nested inside options object
@@ -802,17 +852,78 @@ const sendEventInvitations = async (req, res) => {
       return res.status(404).json({ success: false, error: "Event not found or unauthorized access." });
     }
 
-    // Auto-publish event if currently in draft mode so sending invitations is never blocked
-    if (event.status === "draft" || !event.status || event.status === "pending") {
+    // Resolve snapshot image URL (convert Base64 if needed) for event persistence and email dispatch
+    let resolvedSnapshotUrl = null;
+    const rawSnapshotCandidate =
+      cardSnapshotUrl ||
+      snapshotUrl ||
+      previewUrl ||
+      templatePreviewUrl ||
+      previewImage ||
+      thumbnail ||
+      thumbnailUrl ||
+      snapshot ||
+      cardImageBase64 ||
+      null;
+
+    if (rawSnapshotCandidate && typeof rawSnapshotCandidate === "string") {
+      const trimmedSnap = rawSnapshotCandidate.trim();
+      if (trimmedSnap.startsWith("http://") || trimmedSnap.startsWith("https://") || trimmedSnap.startsWith("/uploads/") || trimmedSnap.startsWith("/assets/") || trimmedSnap.startsWith("/templates/")) {
+        resolvedSnapshotUrl = trimmedSnap;
+      } else if (trimmedSnap.startsWith("data:") || trimmedSnap.length > 300) {
+        try {
+          const uploadRes = await saveBase64Image(trimmedSnap, req, "event_cover");
+          if (uploadRes && uploadRes.url) {
+            resolvedSnapshotUrl = uploadRes.url;
+          }
+        } catch (uploadErr) {
+          console.warn("[EventController] Could not save Base64 snapshot in sendEventInvitations:", uploadErr.message);
+        }
+      }
+    }
+
+    const effectiveTplId = selectedTemplateId || templateId || event.selectedTemplateId || event.templateId || null;
+    let canvasStateJson = null;
+    if (canvasState) {
+      canvasStateJson = typeof canvasState === "object" ? JSON.stringify(canvasState) : canvasState;
+    }
+
+    // Auto-publish event and persist snapshot preview URL so active event keeps its thumbnail!
+    try {
+      await db.query(
+        `UPDATE events SET 
+           status = 'published',
+           preview_url = COALESCE($2, preview_url),
+           cover_image = COALESCE($2, cover_image),
+           selected_template_id = COALESCE($3, selected_template_id),
+           canvas_state = COALESCE($4::jsonb, canvas_state),
+           updated_at = NOW() 
+         WHERE id = $1`,
+        [id, resolvedSnapshotUrl, effectiveTplId, canvasStateJson]
+      );
+      event.status = "published";
+      if (resolvedSnapshotUrl) {
+        event.previewUrl = resolvedSnapshotUrl;
+        event.coverImage = resolvedSnapshotUrl;
+      }
+      console.log(`[EventController] Published event ${id} and saved previewUrl: ${resolvedSnapshotUrl || "(retained)"}`);
+    } catch (pubErr) {
+      console.warn("[EventController] Could not auto-publish / sync event snapshot on send:", pubErr.message);
+    }
+
+    if (resolvedSnapshotUrl) {
       try {
         await db.query(
-          `UPDATE events SET status = 'published', updated_at = NOW() WHERE id = $1`,
-          [id]
+          `UPDATE invitations SET 
+             image_url = COALESCE($2, image_url), 
+             status = 'published', 
+             template_id = COALESCE($3, template_id),
+             updated_at = NOW() 
+           WHERE event_id = $1`,
+          [id, resolvedSnapshotUrl, effectiveTplId]
         );
-        event.status = "published";
-        console.log(`[EventController] Auto-published event ${id} from draft to 'published' on invitation send.`);
-      } catch (pubErr) {
-        console.warn("[EventController] Could not auto-publish event on send:", pubErr.message);
+      } catch (invUpErr) {
+        console.warn("[EventController] Could not sync invitation imageUrl on send:", invUpErr.message);
       }
     }
 
@@ -1047,10 +1158,15 @@ const sendEventInvitations = async (req, res) => {
             [id, guestIds]
           );
         }
-        // Update event status to published if it was draft
+        // Update event status to published and preserve previewUrl
         await db.query(
-          `UPDATE events SET status = 'published', updated_at = NOW() WHERE id = $1 AND status = 'draft'`,
-          [id]
+          `UPDATE events SET 
+             status = 'published', 
+             preview_url = COALESCE($2, preview_url),
+             cover_image = COALESCE($2, cover_image),
+             updated_at = NOW() 
+           WHERE id = $1`,
+          [id, resolvedSnapshotUrl || null]
         );
       } catch (dbErr) {
         console.warn("[EventController] Error updating guest/event status:", dbErr.message);

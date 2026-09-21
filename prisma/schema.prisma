@@ -111,6 +111,7 @@ model Invitation {
   fontFamily      String   @default("sans-serif") @map("font_family")
   textAlignment   String   @default("center") @map("text_alignment")
   imageUrl        String?  @map("image_url")
+  templateId      String?  @map("template_id")
   buttonText      String   @default("RSVP Now") @map("button_text")
   buttonColor     String   @default("#5B5FEF") @map("button_color")
   buttonRadius    Int      @default(8) @map("button_radius")

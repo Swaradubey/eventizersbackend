@@ -6,9 +6,14 @@ const prisma = require("../config/prisma");
  * @param {number} userId
  * @returns {Promise<Array>}
  */
-const findEventsByUserId = async (userId) => {
-  const result = await db.query(
-    `SELECT 
+const findEventsByUserId = async (userId, options = {}) => {
+  if (!userId) {
+    return [];
+  }
+  const numericUserId = parseInt(userId, 10) || userId;
+  const statusFilter = options?.status ? String(options.status).toLowerCase().trim() : null;
+
+  let query = `SELECT 
       e.id, 
       e.title, 
       e.description, 
@@ -23,18 +28,87 @@ const findEventsByUserId = async (userId) => {
       COALESCE(e.geofence_radius, 150)::int AS "geofenceRadius",
       TO_CHAR(e.event_date, 'YYYY-MM-DD') AS "eventDate", 
       e.event_time AS "eventTime", 
-      COALESCE(NULLIF(e.preview_url, ''), NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "coverImage", 
-      COALESCE(NULLIF(e.preview_url, ''), NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "imageUrl", 
-      COALESCE(NULLIF(e.preview_url, ''), NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "thumbnail", 
-      COALESCE(NULLIF(e.preview_url, ''), NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "thumbnailUrl", 
-      COALESCE(NULLIF(e.preview_url, ''), NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "uploadedFileUrl", 
-      COALESCE(NULLIF(e.preview_url, ''), NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "previewUrl", 
-      COALESCE(NULLIF(e.preview_url, ''), NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "templatePreviewUrl", 
-      e.selected_template_id AS "selectedTemplateId",
-      e.selected_template_id AS "templateId",
+      COALESCE(
+        NULLIF(e.preview_url, ''),
+        NULLIF(inv.image_url, ''),
+        NULLIF(e.cover_image, ''),
+        NULLIF(e.canvas_state->>'previewUrl', ''),
+        NULLIF(e.canvas_state->>'thumbnailUrl', ''),
+        NULLIF(e.canvas_state->>'imageUrl', '')
+      ) AS "coverImage", 
+      COALESCE(
+        NULLIF(e.preview_url, ''),
+        NULLIF(inv.image_url, ''),
+        NULLIF(e.cover_image, ''),
+        NULLIF(e.canvas_state->>'previewUrl', ''),
+        NULLIF(e.canvas_state->>'thumbnailUrl', ''),
+        NULLIF(e.canvas_state->>'imageUrl', '')
+      ) AS "imageUrl", 
+      COALESCE(
+        NULLIF(e.preview_url, ''),
+        NULLIF(inv.image_url, ''),
+        NULLIF(e.cover_image, ''),
+        NULLIF(e.canvas_state->>'previewUrl', ''),
+        NULLIF(e.canvas_state->>'thumbnailUrl', ''),
+        NULLIF(e.canvas_state->>'imageUrl', '')
+      ) AS "thumbnail", 
+      COALESCE(
+        NULLIF(e.preview_url, ''),
+        NULLIF(inv.image_url, ''),
+        NULLIF(e.cover_image, ''),
+        NULLIF(e.canvas_state->>'previewUrl', ''),
+        NULLIF(e.canvas_state->>'thumbnailUrl', ''),
+        NULLIF(e.canvas_state->>'imageUrl', '')
+      ) AS "thumbnailUrl", 
+      COALESCE(
+        NULLIF(e.preview_url, ''),
+        NULLIF(inv.image_url, ''),
+        NULLIF(e.cover_image, ''),
+        NULLIF(e.canvas_state->>'previewUrl', ''),
+        NULLIF(e.canvas_state->>'thumbnailUrl', ''),
+        NULLIF(e.canvas_state->>'imageUrl', '')
+      ) AS "uploadedFileUrl", 
+      COALESCE(
+        NULLIF(e.preview_url, ''),
+        NULLIF(inv.image_url, ''),
+        NULLIF(e.cover_image, ''),
+        NULLIF(e.canvas_state->>'previewUrl', ''),
+        NULLIF(e.canvas_state->>'thumbnailUrl', ''),
+        NULLIF(e.canvas_state->>'imageUrl', '')
+      ) AS "previewUrl", 
+      COALESCE(
+        NULLIF(e.preview_url, ''),
+        NULLIF(inv.image_url, ''),
+        NULLIF(e.cover_image, ''),
+        NULLIF(e.canvas_state->>'previewUrl', ''),
+        NULLIF(e.canvas_state->>'thumbnailUrl', ''),
+        NULLIF(e.canvas_state->>'imageUrl', '')
+      ) AS "templatePreviewUrl", 
+      COALESCE(
+        NULLIF(e.preview_url, ''),
+        NULLIF(inv.image_url, ''),
+        NULLIF(e.cover_image, ''),
+        NULLIF(e.canvas_state->>'previewUrl', ''),
+        NULLIF(e.canvas_state->>'thumbnailUrl', ''),
+        NULLIF(e.canvas_state->>'imageUrl', '')
+      ) AS "previewImage", 
+      COALESCE(
+        NULLIF(e.selected_template_id, ''),
+        NULLIF(inv.template_id, ''),
+        NULLIF(e.canvas_state->>'templateId', ''),
+        NULLIF(e.canvas_state->>'activeTemplateId', '')
+      ) AS "selectedTemplateId",
+      COALESCE(
+        NULLIF(e.selected_template_id, ''),
+        NULLIF(inv.template_id, ''),
+        NULLIF(e.canvas_state->>'templateId', ''),
+        NULLIF(e.canvas_state->>'activeTemplateId', '')
+      ) AS "templateId",
       e.canvas_state AS "canvasState",
       e.host_name AS "hostName",
       inv.id AS "invitationId",
+      inv.image_url AS "invitationImageUrl",
+      inv.template_id AS "invitationTemplateId",
       inv.title AS "invitationTitle",
       inv.subtitle AS "invitationSubtitle",
       inv.main_text AS "invitationMainText",
@@ -80,30 +154,78 @@ const findEventsByUserId = async (userId) => {
        FROM guests
        GROUP BY event_id
      ) stats ON e.id = stats.event_id
-     WHERE e.created_by = $1
-     ORDER BY e.created_at DESC`,
-    [userId]
-  );
-  return result.rows.map((row) => ({
-    ...row,
-    invitation: row.invitationId ? {
-      id: row.invitationId,
-      title: row.invitationTitle,
-      subtitle: row.invitationSubtitle,
-      mainText: row.invitationMainText,
-      message: row.invitationMessage,
-      fontFamily: row.invitationFontFamily,
-      fontWeight: row.invitationFontWeight,
-      textColor: row.invitationTextColor,
-      accentColor: row.invitationAccentColor,
-      backgroundColor: row.invitationBackgroundColor,
-      textAlignment: row.invitationTextAlignment,
-      eventTitle: row.invitationEventTitle,
-      eventDate: row.invitationEventDate,
-      eventTime: row.invitationEventTime,
-      eventVenue: row.invitationEventVenue,
-    } : null,
-  }));
+     WHERE e.created_by = $1`;
+
+  const queryParams = [numericUserId];
+
+  if (statusFilter && statusFilter !== "all") {
+    if (statusFilter === "active") {
+      query += ` AND LOWER(COALESCE(e.status, 'draft')) IN ('active', 'published')`;
+    } else if (statusFilter === "draft") {
+      query += ` AND LOWER(COALESCE(e.status, 'draft')) = 'draft'`;
+    } else if (statusFilter === "completed") {
+      query += ` AND LOWER(COALESCE(e.status, 'draft')) IN ('completed', 'archived')`;
+    } else {
+      queryParams.push(statusFilter);
+      query += ` AND LOWER(e.status) = $${queryParams.length}`;
+    }
+  }
+
+  query += ` ORDER BY e.created_at DESC`;
+
+  if (options?.limit) {
+    const limitNum = parseInt(options.limit, 10);
+    if (!isNaN(limitNum) && limitNum > 0) {
+      queryParams.push(limitNum);
+      query += ` LIMIT $${queryParams.length}`;
+      if (options?.page) {
+        const pageNum = parseInt(options.page, 10);
+        if (!isNaN(pageNum) && pageNum > 1) {
+          const offset = (pageNum - 1) * limitNum;
+          queryParams.push(offset);
+          query += ` OFFSET $${queryParams.length}`;
+        }
+      }
+    }
+  }
+
+  const result = await db.query(query, queryParams);
+  if (!result || !result.rows) {
+    return [];
+  }
+  return result.rows.map((row) => {
+    const effectiveTpl = row.selectedTemplateId || row.templateId || null;
+    const effectivePreview = row.previewUrl || row.templatePreviewUrl || row.coverImage || null;
+    return {
+      ...row,
+      previewImage: effectivePreview,
+      template: effectiveTpl ? {
+        id: effectiveTpl,
+        previewUrl: effectivePreview,
+        thumbnailUrl: effectivePreview,
+      } : (row.template || null),
+      invitation: row.invitationId ? {
+        id: row.invitationId,
+        title: row.invitationTitle,
+        subtitle: row.invitationSubtitle,
+        mainText: row.invitationMainText,
+        message: row.invitationMessage,
+        fontFamily: row.invitationFontFamily,
+        fontWeight: row.invitationFontWeight,
+        textColor: row.invitationTextColor,
+        accentColor: row.invitationAccentColor,
+        backgroundColor: row.invitationBackgroundColor,
+        textAlignment: row.invitationTextAlignment,
+        eventTitle: row.invitationEventTitle,
+        eventDate: row.invitationEventDate,
+        eventTime: row.invitationEventTime,
+        eventVenue: row.invitationEventVenue,
+        imageUrl: row.invitationImageUrl || effectivePreview,
+        previewUrl: row.invitationImageUrl || effectivePreview,
+        templateId: row.invitationTemplateId || effectiveTpl,
+      } : null,
+    };
+  });
 };
 
 /**
@@ -129,18 +251,87 @@ const findEventByIdAndUserId = async (id, userId) => {
       COALESCE(e.geofence_radius, 150)::int AS "geofenceRadius",
       TO_CHAR(e.event_date, 'YYYY-MM-DD') AS "eventDate", 
       e.event_time AS "eventTime", 
-      COALESCE(NULLIF(e.preview_url, ''), NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "coverImage", 
-      COALESCE(NULLIF(e.preview_url, ''), NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "imageUrl", 
-      COALESCE(NULLIF(e.preview_url, ''), NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "thumbnail", 
-      COALESCE(NULLIF(e.preview_url, ''), NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "thumbnailUrl", 
-      COALESCE(NULLIF(e.preview_url, ''), NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "uploadedFileUrl", 
-      COALESCE(NULLIF(e.preview_url, ''), NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "previewUrl", 
-      COALESCE(NULLIF(e.preview_url, ''), NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "templatePreviewUrl", 
-      e.selected_template_id AS "selectedTemplateId",
-      e.selected_template_id AS "templateId",
+      COALESCE(
+        NULLIF(e.preview_url, ''),
+        NULLIF(inv.image_url, ''),
+        NULLIF(e.cover_image, ''),
+        NULLIF(e.canvas_state->>'previewUrl', ''),
+        NULLIF(e.canvas_state->>'thumbnailUrl', ''),
+        NULLIF(e.canvas_state->>'imageUrl', '')
+      ) AS "coverImage", 
+      COALESCE(
+        NULLIF(e.preview_url, ''),
+        NULLIF(inv.image_url, ''),
+        NULLIF(e.cover_image, ''),
+        NULLIF(e.canvas_state->>'previewUrl', ''),
+        NULLIF(e.canvas_state->>'thumbnailUrl', ''),
+        NULLIF(e.canvas_state->>'imageUrl', '')
+      ) AS "imageUrl", 
+      COALESCE(
+        NULLIF(e.preview_url, ''),
+        NULLIF(inv.image_url, ''),
+        NULLIF(e.cover_image, ''),
+        NULLIF(e.canvas_state->>'previewUrl', ''),
+        NULLIF(e.canvas_state->>'thumbnailUrl', ''),
+        NULLIF(e.canvas_state->>'imageUrl', '')
+      ) AS "thumbnail", 
+      COALESCE(
+        NULLIF(e.preview_url, ''),
+        NULLIF(inv.image_url, ''),
+        NULLIF(e.cover_image, ''),
+        NULLIF(e.canvas_state->>'previewUrl', ''),
+        NULLIF(e.canvas_state->>'thumbnailUrl', ''),
+        NULLIF(e.canvas_state->>'imageUrl', '')
+      ) AS "thumbnailUrl", 
+      COALESCE(
+        NULLIF(e.preview_url, ''),
+        NULLIF(inv.image_url, ''),
+        NULLIF(e.cover_image, ''),
+        NULLIF(e.canvas_state->>'previewUrl', ''),
+        NULLIF(e.canvas_state->>'thumbnailUrl', ''),
+        NULLIF(e.canvas_state->>'imageUrl', '')
+      ) AS "uploadedFileUrl", 
+      COALESCE(
+        NULLIF(e.preview_url, ''),
+        NULLIF(inv.image_url, ''),
+        NULLIF(e.cover_image, ''),
+        NULLIF(e.canvas_state->>'previewUrl', ''),
+        NULLIF(e.canvas_state->>'thumbnailUrl', ''),
+        NULLIF(e.canvas_state->>'imageUrl', '')
+      ) AS "previewUrl", 
+      COALESCE(
+        NULLIF(e.preview_url, ''),
+        NULLIF(inv.image_url, ''),
+        NULLIF(e.cover_image, ''),
+        NULLIF(e.canvas_state->>'previewUrl', ''),
+        NULLIF(e.canvas_state->>'thumbnailUrl', ''),
+        NULLIF(e.canvas_state->>'imageUrl', '')
+      ) AS "templatePreviewUrl", 
+      COALESCE(
+        NULLIF(e.preview_url, ''),
+        NULLIF(inv.image_url, ''),
+        NULLIF(e.cover_image, ''),
+        NULLIF(e.canvas_state->>'previewUrl', ''),
+        NULLIF(e.canvas_state->>'thumbnailUrl', ''),
+        NULLIF(e.canvas_state->>'imageUrl', '')
+      ) AS "previewImage", 
+      COALESCE(
+        NULLIF(e.selected_template_id, ''),
+        NULLIF(inv.template_id, ''),
+        NULLIF(e.canvas_state->>'templateId', ''),
+        NULLIF(e.canvas_state->>'activeTemplateId', '')
+      ) AS "selectedTemplateId",
+      COALESCE(
+        NULLIF(e.selected_template_id, ''),
+        NULLIF(inv.template_id, ''),
+        NULLIF(e.canvas_state->>'templateId', ''),
+        NULLIF(e.canvas_state->>'activeTemplateId', '')
+      ) AS "templateId",
       e.canvas_state AS "canvasState",
       e.host_name AS "hostName",
       inv.id AS "invitationId",
+      inv.image_url AS "invitationImageUrl",
+      inv.template_id AS "invitationTemplateId",
       inv.title AS "invitationTitle",
       inv.subtitle AS "invitationSubtitle",
       inv.main_text AS "invitationMainText",
@@ -191,8 +382,16 @@ const findEventByIdAndUserId = async (id, userId) => {
   );
   const row = result.rows[0] || null;
   if (!row) return null;
+  const effectiveTpl = row.selectedTemplateId || row.templateId || null;
+  const effectivePreview = row.previewUrl || row.templatePreviewUrl || row.coverImage || null;
   const event = {
     ...row,
+    previewImage: effectivePreview,
+    template: effectiveTpl ? {
+      id: effectiveTpl,
+      previewUrl: effectivePreview,
+      thumbnailUrl: effectivePreview,
+    } : (row.template || null),
     invitation: row.invitationId ? {
       id: row.invitationId,
       title: row.invitationTitle,
@@ -209,6 +408,9 @@ const findEventByIdAndUserId = async (id, userId) => {
       eventDate: row.invitationEventDate,
       eventTime: row.invitationEventTime,
       eventVenue: row.invitationEventVenue,
+      imageUrl: row.invitationImageUrl || effectivePreview,
+      previewUrl: row.invitationImageUrl || effectivePreview,
+      templateId: row.invitationTemplateId || effectiveTpl,
     } : null,
   };
   if (event) {
@@ -556,18 +758,87 @@ const findEventById = async (id, userId) => {
       e.country, 
       TO_CHAR(e.event_date, 'YYYY-MM-DD') AS "eventDate", 
       e.event_time AS "eventTime", 
-      COALESCE(NULLIF(e.preview_url, ''), NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "coverImage", 
-      COALESCE(NULLIF(e.preview_url, ''), NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "imageUrl", 
-      COALESCE(NULLIF(e.preview_url, ''), NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "thumbnail", 
-      COALESCE(NULLIF(e.preview_url, ''), NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "thumbnailUrl", 
-      COALESCE(NULLIF(e.preview_url, ''), NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "uploadedFileUrl", 
-      COALESCE(NULLIF(e.preview_url, ''), NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "previewUrl", 
-      COALESCE(NULLIF(e.preview_url, ''), NULLIF(inv.image_url, ''), NULLIF(e.cover_image, '')) AS "templatePreviewUrl", 
-      e.selected_template_id AS "selectedTemplateId",
-      e.selected_template_id AS "templateId",
+      COALESCE(
+        NULLIF(e.preview_url, ''),
+        NULLIF(inv.image_url, ''),
+        NULLIF(e.cover_image, ''),
+        NULLIF(e.canvas_state->>'previewUrl', ''),
+        NULLIF(e.canvas_state->>'thumbnailUrl', ''),
+        NULLIF(e.canvas_state->>'imageUrl', '')
+      ) AS "coverImage", 
+      COALESCE(
+        NULLIF(e.preview_url, ''),
+        NULLIF(inv.image_url, ''),
+        NULLIF(e.cover_image, ''),
+        NULLIF(e.canvas_state->>'previewUrl', ''),
+        NULLIF(e.canvas_state->>'thumbnailUrl', ''),
+        NULLIF(e.canvas_state->>'imageUrl', '')
+      ) AS "imageUrl", 
+      COALESCE(
+        NULLIF(e.preview_url, ''),
+        NULLIF(inv.image_url, ''),
+        NULLIF(e.cover_image, ''),
+        NULLIF(e.canvas_state->>'previewUrl', ''),
+        NULLIF(e.canvas_state->>'thumbnailUrl', ''),
+        NULLIF(e.canvas_state->>'imageUrl', '')
+      ) AS "thumbnail", 
+      COALESCE(
+        NULLIF(e.preview_url, ''),
+        NULLIF(inv.image_url, ''),
+        NULLIF(e.cover_image, ''),
+        NULLIF(e.canvas_state->>'previewUrl', ''),
+        NULLIF(e.canvas_state->>'thumbnailUrl', ''),
+        NULLIF(e.canvas_state->>'imageUrl', '')
+      ) AS "thumbnailUrl", 
+      COALESCE(
+        NULLIF(e.preview_url, ''),
+        NULLIF(inv.image_url, ''),
+        NULLIF(e.cover_image, ''),
+        NULLIF(e.canvas_state->>'previewUrl', ''),
+        NULLIF(e.canvas_state->>'thumbnailUrl', ''),
+        NULLIF(e.canvas_state->>'imageUrl', '')
+      ) AS "uploadedFileUrl", 
+      COALESCE(
+        NULLIF(e.preview_url, ''),
+        NULLIF(inv.image_url, ''),
+        NULLIF(e.cover_image, ''),
+        NULLIF(e.canvas_state->>'previewUrl', ''),
+        NULLIF(e.canvas_state->>'thumbnailUrl', ''),
+        NULLIF(e.canvas_state->>'imageUrl', '')
+      ) AS "previewUrl", 
+      COALESCE(
+        NULLIF(e.preview_url, ''),
+        NULLIF(inv.image_url, ''),
+        NULLIF(e.cover_image, ''),
+        NULLIF(e.canvas_state->>'previewUrl', ''),
+        NULLIF(e.canvas_state->>'thumbnailUrl', ''),
+        NULLIF(e.canvas_state->>'imageUrl', '')
+      ) AS "templatePreviewUrl", 
+      COALESCE(
+        NULLIF(e.preview_url, ''),
+        NULLIF(inv.image_url, ''),
+        NULLIF(e.cover_image, ''),
+        NULLIF(e.canvas_state->>'previewUrl', ''),
+        NULLIF(e.canvas_state->>'thumbnailUrl', ''),
+        NULLIF(e.canvas_state->>'imageUrl', '')
+      ) AS "previewImage", 
+      COALESCE(
+        NULLIF(e.selected_template_id, ''),
+        NULLIF(inv.template_id, ''),
+        NULLIF(e.canvas_state->>'templateId', ''),
+        NULLIF(e.canvas_state->>'activeTemplateId', '')
+      ) AS "selectedTemplateId",
+      COALESCE(
+        NULLIF(e.selected_template_id, ''),
+        NULLIF(inv.template_id, ''),
+        NULLIF(e.canvas_state->>'templateId', ''),
+        NULLIF(e.canvas_state->>'activeTemplateId', '')
+      ) AS "templateId",
       e.canvas_state AS "canvasState",
       e.host_name AS "hostName",
       inv.id AS "invitationId",
+      inv.image_url AS "invitationImageUrl",
+      inv.template_id AS "invitationTemplateId",
       inv.title AS "invitationTitle",
       inv.subtitle AS "invitationSubtitle",
       inv.main_text AS "invitationMainText",
@@ -593,8 +864,16 @@ const findEventById = async (id, userId) => {
   );
   const row = result.rows[0] || null;
   if (!row) return null;
+  const effectiveTpl = row.selectedTemplateId || row.templateId || null;
+  const effectivePreview = row.previewUrl || row.templatePreviewUrl || row.coverImage || null;
   const event = {
     ...row,
+    previewImage: effectivePreview,
+    template: effectiveTpl ? {
+      id: effectiveTpl,
+      previewUrl: effectivePreview,
+      thumbnailUrl: effectivePreview,
+    } : (row.template || null),
     invitation: row.invitationId ? {
       id: row.invitationId,
       title: row.invitationTitle,
@@ -611,6 +890,9 @@ const findEventById = async (id, userId) => {
       eventDate: row.invitationEventDate,
       eventTime: row.invitationEventTime,
       eventVenue: row.invitationEventVenue,
+      imageUrl: row.invitationImageUrl || effectivePreview,
+      previewUrl: row.invitationImageUrl || effectivePreview,
+      templateId: row.invitationTemplateId || effectiveTpl,
     } : null,
   };
   if (event) {
