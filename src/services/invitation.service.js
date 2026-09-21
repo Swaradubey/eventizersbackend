@@ -189,14 +189,32 @@ const createInvitation = async (data, userId) => {
   const effectiveImg = data.previewUrl || imageUrl || null;
   const effectiveCanvas = data.canvasState || (data.layers ? { templateId: effectiveTpl, layers: data.layers } : null);
 
-  if (eventId && (effectiveImg || effectiveTpl || effectiveCanvas)) {
+  // Build complete canvasState including all rich design fields for Event record sync
+  const fullCanvasState = effectiveCanvas ? {
+    ...effectiveCanvas,
+    templateId: effectiveCanvas.templateId || effectiveTpl || null,
+    // Ensure all design layers are preserved in canvasState
+    textLayers: effectiveCanvas.textLayers || effectiveCanvas.layers || data.textElements || undefined,
+    card: effectiveCanvas.card || data.card || undefined,
+    cardBg: effectiveCanvas.cardBg || data.cardBg || undefined,
+    background: effectiveCanvas.background || data.background || undefined,
+    envelope: effectiveCanvas.envelope || data.envelope || undefined,
+    stageBackdrop: effectiveCanvas.stageBackdrop || data.stageBackdrop || undefined,
+    effects: effectiveCanvas.effects || data.effects || undefined,
+    backside: effectiveCanvas.backside || data.backside || undefined,
+    decorations: effectiveCanvas.decorations || data.decorations || undefined,
+    isLandscape: effectiveCanvas.isLandscape !== undefined ? effectiveCanvas.isLandscape : data.isLandscape,
+    previewUrl: effectiveCanvas.previewUrl || effectiveImg || undefined,
+  } : null;
+
+  if (eventId && (effectiveImg || effectiveTpl || fullCanvasState)) {
     try {
       await prisma.event.update({
         where: { id: eventId },
         data: {
           ...(effectiveImg ? { coverImage: effectiveImg, previewUrl: effectiveImg } : {}),
           ...(effectiveTpl ? { selectedTemplateId: effectiveTpl } : {}),
-          ...(effectiveCanvas ? { canvasState: effectiveCanvas } : {}),
+          ...(fullCanvasState ? { canvasState: fullCanvasState } : {}),
         },
       });
     } catch (evErr) {
@@ -209,7 +227,7 @@ const createInvitation = async (data, userId) => {
     templateId: effectiveTpl,
     selectedTemplateId: effectiveTpl,
     previewUrl: effectiveImg || invitation.imageUrl || null,
-    canvasState: effectiveCanvas,
+    canvasState: fullCanvasState,
   };
 };
 
@@ -250,6 +268,24 @@ const updateInvitation = async (id, data, userId) => {
     const effectiveImg = data.previewUrl || imageUrl || undefined;
     const effectiveCanvas = data.canvasState || (data.layers ? { templateId: effectiveTpl, layers: data.layers } : undefined);
 
+    // Build complete canvasState including all rich design fields for Event record sync
+    const fullCanvasState = effectiveCanvas ? {
+      ...effectiveCanvas,
+      templateId: effectiveCanvas.templateId || effectiveTpl || null,
+      // Ensure all design layers are preserved in canvasState
+      textLayers: effectiveCanvas.textLayers || effectiveCanvas.layers || data.textElements || undefined,
+      card: effectiveCanvas.card || data.card || undefined,
+      cardBg: effectiveCanvas.cardBg || data.cardBg || undefined,
+      background: effectiveCanvas.background || data.background || undefined,
+      envelope: effectiveCanvas.envelope || data.envelope || undefined,
+      stageBackdrop: effectiveCanvas.stageBackdrop || data.stageBackdrop || undefined,
+      effects: effectiveCanvas.effects || data.effects || undefined,
+      backside: effectiveCanvas.backside || data.backside || undefined,
+      decorations: effectiveCanvas.decorations || data.decorations || undefined,
+      isLandscape: effectiveCanvas.isLandscape !== undefined ? effectiveCanvas.isLandscape : data.isLandscape,
+      previewUrl: effectiveCanvas.previewUrl || effectiveImg || undefined,
+    } : undefined;
+
     const invitation = await prisma.invitation.update({
       where: { id },
       data: {
@@ -277,14 +313,14 @@ const updateInvitation = async (id, data, userId) => {
       },
     });
 
-    if (invitation.eventId && (effectiveImg || effectiveTpl || effectiveCanvas)) {
+    if (invitation.eventId && (effectiveImg || effectiveTpl || fullCanvasState)) {
       try {
         await prisma.event.update({
           where: { id: invitation.eventId },
           data: {
             ...(effectiveImg ? { coverImage: effectiveImg, previewUrl: effectiveImg } : {}),
             ...(effectiveTpl ? { selectedTemplateId: effectiveTpl } : {}),
-            ...(effectiveCanvas ? { canvasState: effectiveCanvas } : {}),
+            ...(fullCanvasState ? { canvasState: fullCanvasState } : {}),
           },
         });
       } catch (evErr) {
@@ -297,7 +333,7 @@ const updateInvitation = async (id, data, userId) => {
       templateId: effectiveTpl || null,
       selectedTemplateId: effectiveTpl || null,
       previewUrl: effectiveImg || invitation.imageUrl || null,
-      canvasState: effectiveCanvas || null,
+      canvasState: fullCanvasState || null,
     };
   } catch (error) {
     if (error.code === "P2025") {

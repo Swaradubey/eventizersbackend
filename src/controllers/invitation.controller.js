@@ -315,6 +315,19 @@ const createInvitation = async (req, res) => {
         eventTime: eventTime || null,
         eventVenue: eventVenue || null,
         templateId: req.body.templateId || undefined,
+        // Pass rich design state for Event.canvasState sync
+        canvasState: req.body.canvasState || undefined,
+        textElements: req.body.textElements || undefined,
+        card: req.body.card || undefined,
+        cardBg: req.body.cardBg || undefined,
+        background: req.body.background || undefined,
+        decorations: req.body.decorations || undefined,
+        envelope: req.body.envelope || undefined,
+        stageBackdrop: req.body.stageBackdrop || undefined,
+        effects: req.body.effects || undefined,
+        backside: req.body.backside || undefined,
+        isLandscape: req.body.isLandscape,
+        previewUrl: req.body.previewUrl || undefined,
       },
       userId
     );
@@ -453,6 +466,19 @@ const updateInvitation = async (req, res) => {
         eventTime: eventTime !== undefined ? eventTime : existingInvitation.eventTime,
         eventVenue: eventVenue !== undefined ? eventVenue : existingInvitation.eventVenue,
         templateId: req.body.templateId || undefined,
+        // Pass rich design state for Event.canvasState sync
+        canvasState: req.body.canvasState || undefined,
+        textElements: req.body.textElements || undefined,
+        card: req.body.card || undefined,
+        cardBg: req.body.cardBg || undefined,
+        background: req.body.background || undefined,
+        decorations: req.body.decorations || undefined,
+        envelope: req.body.envelope || undefined,
+        stageBackdrop: req.body.stageBackdrop || undefined,
+        effects: req.body.effects || undefined,
+        backside: req.body.backside || undefined,
+        isLandscape: req.body.isLandscape,
+        previewUrl: req.body.previewUrl || undefined,
       },
       userId
     );
