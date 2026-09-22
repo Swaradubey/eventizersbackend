@@ -3,33 +3,29 @@ const path = require('path');
 const eventService = require('../services/event.service');
 const prisma = require('../config/prisma');
 
-// Ensure dotenv is loaded in non-Vercel environments
-if (!process.env.GEMINI_API_KEY) {
-  try {
-    require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
-  } catch (_) { }
+// Ensure dotenv is loaded
+try {
+  require('dotenv').config();
+  require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
+} catch (_) {}
+
+function isKeyValid() {
+  const key = process.env.GEMINI_API_KEY;
+  return Boolean(key && key !== 'your_gemini_api_key_here' && key !== '');
 }
 
-// Read the Gemini API key from the .env file only — no fallback providers
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-
-// Startup check — log only whether key is loaded, not the key itself
-const keyIsValid =
-  GEMINI_API_KEY &&
-  GEMINI_API_KEY !== 'your_gemini_api_key_here' &&
-  GEMINI_API_KEY !== '';
-
-console.log(`Gemini API key loaded: ${keyIsValid ? 'yes' : 'no'}`);
+console.log(`Gemini API key loaded: ${isKeyValid() ? 'yes' : 'no'}`);
 
 // Read Gemini model name from env, fall back to a known-good model
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 console.log(`Gemini model used: ${GEMINI_MODEL}`);
 
-// Single shared Gemini client — initialized once using the .env API key
+// Single shared Gemini client — initialized using the API key
 let aiInstance = null;
 function getAiClient() {
-  if (!aiInstance && keyIsValid) {
-    aiInstance = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+  const key = process.env.GEMINI_API_KEY;
+  if (!aiInstance && isKeyValid()) {
+    aiInstance = new GoogleGenAI({ apiKey: key });
   }
   return aiInstance;
 }
@@ -605,7 +601,7 @@ const scanInvitationImage = async (req, res) => {
       return res.status(400).json({ error: 'No image data provided. Send imageBase64 in the request body.' });
     }
 
-    if (!keyIsValid) {
+    if (!isKeyValid()) {
       return res.status(500).json({ error: 'Gemini API key is not configured.' });
     }
 
