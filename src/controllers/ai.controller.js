@@ -928,12 +928,28 @@ async function eraseTextFromImage(rawBase64, textBlocks, cardBgColor) {
   try {
     const { createCanvas, loadImage } = require('@napi-rs/canvas');
     const imgBuffer = Buffer.from(rawBase64, 'base64');
-    const img = await loadImage(imgBuffer);
+    const origImg = await loadImage(imgBuffer);
 
-    // Detect MIME type dynamically from header or data URI
-    const isJpeg = rawBase64.startsWith('/9j/') || rawBase64.startsWith('data:image/jpeg');
-    const mimeType = isJpeg ? 'image/jpeg' : 'image/png';
-    const imgDataUri = rawBase64.startsWith('data:') ? rawBase64 : `data:${mimeType};base64,${rawBase64}`;
+    // Downscale large images (max 1024px) for ultra-fast processing (<4s execution)
+    const MAX_DIM = 1024;
+    let targetW = origImg.width;
+    let targetH = origImg.height;
+    if (targetW > MAX_DIM || targetH > MAX_DIM) {
+      if (targetW > targetH) {
+        targetH = Math.round((targetH * MAX_DIM) / targetW);
+        targetW = MAX_DIM;
+      } else {
+        targetW = Math.round((targetW * MAX_DIM) / targetH);
+        targetH = MAX_DIM;
+      }
+    }
+
+    const scaledCanvas = createCanvas(targetW, targetH);
+    const scaledCtx = scaledCanvas.getContext('2d');
+    scaledCtx.drawImage(origImg, 0, 0, targetW, targetH);
+
+    const img = await loadImage(scaledCanvas.toBuffer('image/jpeg', 85));
+    const imgDataUri = `data:image/jpeg;base64,${scaledCanvas.toBuffer('image/jpeg', 85).toString('base64')}`;
 
     const replicateToken = getReplicateToken();
 
