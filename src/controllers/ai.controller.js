@@ -10,8 +10,8 @@ try {
 } catch (_) {}
 
 // Fallback credentials (base64 encoded) to ensure Vercel production never fails if env variables are unlinked
-const FALLBACK_GEMINI_KEY = Buffer.from('QUl6YVN5Q284Ml9pSno0OVRNTTQ5UXpEd2dBeFBFR1hLN1lqR1E=', 'base64').toString('utf8');
-const FALLBACK_REPLICATE_TOKEN = Buffer.from('cjhfNzI4bDd6cU1SeTVXRk5GMm54bEtZTW9uTHNUSkgxbzFoc2dtdA==', 'base64').toString('utf8');
+const FALLBACK_GEMINI_KEY = Buffer.from('QUl6YVN5Q284Ml9pSno0OUxUTTQ5UXpEd2dBeFBFUUdYSzdZakdR', 'base64').toString('utf8');
+const FALLBACK_REPLICATE_TOKEN = Buffer.from('cjhfNzI4bDd6cU1SeTVXRk5GMm54bEtZTW9uTHNUSkgxbzFoc2RtdA==', 'base64').toString('utf8');
 
 function getGeminiKey() {
   const k = process.env.GEMINI_API_KEY;
