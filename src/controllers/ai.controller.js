@@ -22,7 +22,7 @@ const keyIsValid =
 console.log(`Gemini API key loaded: ${keyIsValid ? 'yes' : 'no'}`);
 
 // Read Gemini model name from env, fall back to a known-good model
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 console.log(`Gemini model used: ${GEMINI_MODEL}`);
 
 // Single shared Gemini client — initialized once using the .env API key
@@ -36,7 +36,7 @@ function getAiClient() {
 
 /**
  * Classifies an error as a known Gemini HTTP status.
- * Returns 429, 401, 403, 404, or null.
+ * Returns 429, 401, 403, 404, 503, or null.
  */
 function classifyGeminiError(error) {
   const errMsg = (error.message || error.toString() || '').toLowerCase();
@@ -54,6 +54,17 @@ function classifyGeminiError(error) {
     errMsg.includes('too many requests')
   ) {
     return 429;
+  }
+
+  if (
+    statusCode === 503 ||
+    statusCode === 500 ||
+    errMsg.includes('503') ||
+    errMsg.includes('unavailable') ||
+    errMsg.includes('high demand') ||
+    errMsg.includes('overloaded')
+  ) {
+    return 503;
   }
 
   if (
@@ -89,15 +100,14 @@ function classifyGeminiError(error) {
 }
 
 /**
- * Calls the Gemini API with automatic model fallback and exponential backoff on 429 errors.
+ * Calls the Gemini API with automatic model fallback and exponential backoff on 429/503 errors.
  */
 async function callGeminiWithRetry(client, aiPrompt) {
   const modelsToTry = [
-    process.env.GEMINI_MODEL,
-    'gemini-3.6-flash',
+    process.env.GEMINI_MODEL || 'gemini-2.5-flash',
     'gemini-2.5-flash',
-    'gemini-flash-latest',
-    'gemini-3.5-flash',
+    'gemini-2.0-flash',
+    'gemini-1.5-flash',
   ].filter((m, i, arr) => m && arr.indexOf(m) === i);
 
   let lastError = null;
@@ -117,16 +127,16 @@ async function callGeminiWithRetry(client, aiPrompt) {
         lastError = error;
         const code = classifyGeminiError(error);
 
-        if (code === 429 && attempt < MAX_RETRIES) {
+        if ((code === 429 || code === 503) && attempt < MAX_RETRIES) {
           const delay = BASE_DELAY_MS * Math.pow(2, attempt - 1);
           console.warn(
-            `Gemini (${modelName}) 429 rate limit hit. Retrying attempt ${attempt + 1}/${MAX_RETRIES} in ${delay}ms...`
+            `Gemini (${modelName}) ${code} error hit. Retrying attempt ${attempt + 1}/${MAX_RETRIES} in ${delay}ms...`
           );
           await new Promise((resolve) => setTimeout(resolve, delay));
           continue;
         }
 
-        if (code === 429 || code === 404) {
+        if (code === 429 || code === 404 || code === 503) {
           console.warn(`Model ${modelName} encountered error code ${code} (${error.message}). Trying next available model...`);
           break;
         }
@@ -839,31 +849,45 @@ async function extractBufferFromReplicateOutput(output) {
     }
     return Buffer.from(output, 'base64');
   }
-  if (typeof output.getReader === 'function') {
-    const reader = output.getReader();
-    const chunks = [];
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      chunks.push(value);
-    }
-    return Buffer.concat(chunks);
+  // Check URL methods/properties first before reading streams
+  if (typeof output.url === 'function' || output.url) {
+    try {
+      const u = typeof output.url === 'function' ? output.url() : output.url;
+      if (u) {
+        const urlStr = String(u);
+        if (urlStr.startsWith('http://') || urlStr.startsWith('https://')) {
+          const fetchRes = await fetch(urlStr);
+          return Buffer.from(await fetchRes.arrayBuffer());
+        }
+      }
+    } catch (_) {}
   }
   if (typeof output.blob === 'function') {
-    const blob = await output.blob();
-    return Buffer.from(await blob.arrayBuffer());
+    try {
+      const blob = await output.blob();
+      return Buffer.from(await blob.arrayBuffer());
+    } catch (_) {}
   }
-  if (typeof output.url === 'function' || output.url) {
-    const u = typeof output.url === 'function' ? output.url() : output.url;
-    const fetchRes = await fetch(u);
-    return Buffer.from(await fetchRes.arrayBuffer());
+  if (typeof output.getReader === 'function') {
+    try {
+      const reader = output.getReader();
+      const chunks = [];
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+      }
+      return Buffer.concat(chunks);
+    } catch (_) {}
   }
   if (typeof output.toString === 'function') {
-    const str = output.toString();
-    if (str && (str.startsWith('http://') || str.startsWith('https://'))) {
-      const fetchRes = await fetch(str);
-      return Buffer.from(await fetchRes.arrayBuffer());
-    }
+    try {
+      const str = output.toString();
+      if (str && (str.startsWith('http://') || str.startsWith('https://'))) {
+        const fetchRes = await fetch(str);
+        return Buffer.from(await fetchRes.arrayBuffer());
+      }
+    } catch (_) {}
   }
   return null;
 }
@@ -874,13 +898,21 @@ async function extractBufferFromReplicateOutput(output) {
  */
 async function eraseTextFromImage(rawBase64, textBlocks, cardBgColor) {
   try {
+    const { createCanvas, loadImage } = require('@napi-rs/canvas');
+    const imgBuffer = Buffer.from(rawBase64, 'base64');
+    const img = await loadImage(imgBuffer);
+
+    // Detect MIME type dynamically from header or data URI
+    const isJpeg = rawBase64.startsWith('/9j/') || rawBase64.startsWith('data:image/jpeg');
+    const mimeType = isJpeg ? 'image/jpeg' : 'image/png';
+    const imgDataUri = rawBase64.startsWith('data:') ? rawBase64 : `data:${mimeType};base64,${rawBase64}`;
+
     const replicateToken = process.env.REPLICATE_API_TOKEN;
 
     // 1. Replicate AI Inpainting / Text Removal
     if (replicateToken && replicateToken !== 'your_replicate_api_token') {
       const Replicate = require('replicate');
       const replicate = new Replicate({ auth: replicateToken });
-      const imgDataUri = `data:image/jpeg;base64,${rawBase64}`;
 
       // Approach A: FLUX.1 Kontext Text-Removal (Erases ALL text seamlessly without rectangular box patches)
       try {
@@ -905,10 +937,6 @@ async function eraseTextFromImage(rawBase64, textBlocks, cardBgColor) {
 
       // Approach B: LaMa (Large Mask Inpainting) with generated mask
       try {
-        const { createCanvas, loadImage } = require('@napi-rs/canvas');
-        const imgBuffer = Buffer.from(rawBase64, 'base64');
-        const img = await loadImage(imgBuffer);
-
         const maskCanvas = createCanvas(img.width, img.height);
         const maskCtx = maskCanvas.getContext('2d');
         maskCtx.fillStyle = '#000000';
@@ -998,8 +1026,7 @@ async function eraseTextFromImage(rawBase64, textBlocks, cardBgColor) {
       ctx.fill();
     }
 
-    const cleanBuffer = canvas.toBuffer('image/jpeg', 95);
-    return `data:image/jpeg;base64,${cleanBuffer.toString('base64')}`;
+    return `data:image/png;base64,${canvas.toBuffer('image/png').toString('base64')}`;
   } catch (err) {
     console.error('eraseTextFromImage helper error:', err);
     return null;

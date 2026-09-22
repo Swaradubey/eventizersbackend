@@ -17,8 +17,10 @@ const findUserByEmail = async (email) => {
  * @returns {Promise<Object|null>}
  */
 const findUserById = async (id) => {
+  const parsedId = parseInt(id, 10);
+  if (isNaN(parsedId)) return null;
   return await prisma.user.findUnique({
-    where: { id: parseInt(id, 10) },
+    where: { id: parsedId },
   });
 };
 

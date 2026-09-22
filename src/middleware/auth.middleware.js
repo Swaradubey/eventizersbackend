@@ -27,7 +27,10 @@ const authMiddleware = async (req, res, next) => {
     const decoded = jwt.verify(token, jwtSecret);
 
     // Fetch user details from DB
-    const user = await authService.findUserById(decoded.id);
+    let user = await authService.findUserById(decoded.id);
+    if (!user && decoded.email) {
+      user = await authService.findUserByEmail(decoded.email);
+    }
     if (!user) {
       return res.status(401).json({ error: "Access Denied. User not found." });
     }

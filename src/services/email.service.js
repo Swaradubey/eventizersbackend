@@ -1329,11 +1329,16 @@ const sendInvitationEmails = async ({
             console.warn("[EmailService] Error reading local card file:", readErr.message);
           }
         } else {
-          // Check if candidate is already a direct, valid public HTTPS URL
-          const publicUrl = resolvePublicImageUrl(cand, trackBase, baseUrl);
-          if (publicUrl) {
-            htmlCardImageSrc = publicUrl;
-            break;
+          // If this is just a blank template background scene (e.g. assets/templates/...),
+          // DO NOT treat it as a finished card image with text! Fall through to renderInvitationCardPng.
+          const isBlankTemplateAsset = /assets\/templates\//i.test(cand) || /template.*scene/i.test(cand);
+          if (!isBlankTemplateAsset) {
+            // Check if candidate is already a direct, valid public HTTPS URL
+            const publicUrl = resolvePublicImageUrl(cand, trackBase, baseUrl);
+            if (publicUrl) {
+              htmlCardImageSrc = publicUrl;
+              break;
+            }
           }
         }
       }
