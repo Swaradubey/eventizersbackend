@@ -123,6 +123,7 @@ async function callGeminiWithRetry(client, aiPrompt) {
   ].filter((m, i, arr) => m && arr.indexOf(m) === i);
 
   let lastError = null;
+  let currentClient = client || new GoogleGenAI({ apiKey: getGeminiKey() });
 
   for (const modelName of modelsToTry) {
     const MAX_RETRIES = 2;
@@ -130,7 +131,7 @@ async function callGeminiWithRetry(client, aiPrompt) {
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
-        const response = await client.models.generateContent({
+        const response = await currentClient.models.generateContent({
           model: modelName,
           contents: aiPrompt,
         });
@@ -138,6 +139,21 @@ async function callGeminiWithRetry(client, aiPrompt) {
       } catch (error) {
         lastError = error;
         const code = classifyGeminiError(error);
+
+        if (code === 401) {
+          console.warn(`[Gemini] 401 Key Invalid hit for primary key. Auto-recovering with fallback key...`);
+          try {
+            const fallbackClient = new GoogleGenAI({ apiKey: FALLBACK_GEMINI_KEY });
+            const fallbackRes = await fallbackClient.models.generateContent({
+              model: 'gemini-2.5-flash',
+              contents: aiPrompt,
+            });
+            return fallbackRes;
+          } catch (fbErr) {
+            console.error('[Gemini] Fallback key attempt also failed:', fbErr.message);
+            lastError = fbErr;
+          }
+        }
 
         if ((code === 429 || code === 503) && attempt < MAX_RETRIES) {
           const delay = BASE_DELAY_MS * Math.pow(2, attempt - 1);
@@ -148,7 +164,7 @@ async function callGeminiWithRetry(client, aiPrompt) {
           continue;
         }
 
-        if (code === 429 || code === 404 || code === 503) {
+        if (code === 429 || code === 404 || code === 503 || code === 401) {
           console.warn(`Model ${modelName} encountered error code ${code} (${error.message}). Trying next available model...`);
           break;
         }
