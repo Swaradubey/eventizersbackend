@@ -1116,119 +1116,117 @@ function getCategorizedFallback(prompt = "") {
 }
 
 /**
- * Run a Replicate prediction with a hard timeout.
- * If the model doesn't finish within `timeoutMs`, returns null so the
- * caller can fall back gracefully instead of holding the connection open.
- */
-async function runReplicateWithTimeout(replicate, model, input, timeoutMs = 90_000) {
-  return Promise.race([
-    replicate.run(model, { input }),
-    new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("REPLICATE_TIMEOUT")), timeoutMs)
-    ),
-  ]);
-}
-
-/**
- * Generate a dynamic event invitation template image using Replicate AI.
- * Calls black-forest-labs/flux-schnell with an enriched aesthetic prompt.
+ * Generate a dynamic event invitation template image using Gemini Imagen.
+ * Uses imagen-3.0-generate-002 via @google/genai to create a luxury
+ * invitation card background image.
+ *
+ * NOTE: Replicate is intentionally NOT used here anymore.
+ * Replicate is kept ONLY inside eraseTextFromImage (OCR scan inpainting).
  *
  * Response codes:
- *   200 – success (image URL or curated fallback)
- *   504 – Replicate generation timed out (returns fallback image so the
- *         frontend can still proceed, but signals the timeout)
+ *   200 – success (base64 data URI or curated fallback URL)
  *   500 – unexpected processing error
  */
 const generateEventTemplate = async (req, res) => {
-  const rawPrompt = (req.body?.prompt || req.body?.userPrompt || "Event Celebration").trim();
-  const rawEventType = req.body?.eventType || "Event";
-  const rawTitle = req.body?.title || rawPrompt.split(" for ")[0].split(" with ")[0].slice(0, 50) || "Grand Celebration";
-  const rawDate = req.body?.date || "Saturday, 25 October • 6:00 PM";
-  const rawVenue = req.body?.venue || "The Grand Palace Hall, City Center";
+  const rawPrompt = (req.body?.prompt || req.body?.userPrompt || 'Event Celebration').trim();
+  const rawEventType = req.body?.eventType || 'Event';
+  const rawTitle =
+    req.body?.title ||
+    rawPrompt.split(' for ')[0].split(' with ')[0].slice(0, 50) ||
+    'Grand Celebration';
+  const rawDate = req.body?.date || 'Saturday, 25 October • 6:00 PM';
+  const rawVenue = req.body?.venue || 'The Grand Palace Hall, City Center';
 
   let finalImageUrl = null;
-  let timedOut = false;
 
   try {
-    const replicateToken = getReplicateToken();
+    const geminiKey = getGeminiKey();
 
-    if (!replicateToken || replicateToken.length <= 10) {
-      console.warn("[Replicate] Token not configured. Applying curated aesthetic fallback.");
+    if (!geminiKey || geminiKey.length <= 10) {
+      console.warn('[Gemini Imagen] API key not configured. Using curated fallback.');
       finalImageUrl = getCategorizedFallback(rawPrompt);
     } else {
-      const Replicate = require("replicate");
-      const replicate = new Replicate({ auth: replicateToken });
+      // Build an aesthetic, detailed prompt for Imagen
+      const styleHints = (() => {
+        const t = rawEventType.toLowerCase();
+        if (t.includes('wedding') || t.includes('marriage')) {
+          return 'soft romantic blush and ivory palette, delicate floral arch, golden hour bokeh';
+        }
+        if (t.includes('birthday') || t.includes('bday')) {
+          return 'vibrant confetti bursts, festive ribbon textures, celebratory gradient';
+        }
+        if (t.includes('corporate') || t.includes('summit') || t.includes('launch')) {
+          return 'sleek dark navy and gold corporate aesthetic, geometric lines, professional';
+        }
+        if (t.includes('baby') || t.includes('shower')) {
+          return 'pastel mint and blush tones, cute balloon elements, soft watercolor texture';
+        }
+        if (t.includes('anniversary')) {
+          return 'deep rose gold and champagne palette, elegant bokeh, timeless romance';
+        }
+        if (t.includes('dinner') || t.includes('gala') || t.includes('cocktail')) {
+          return 'moody candlelit amber and obsidian luxury, fine dining atmosphere';
+        }
+        if (t.includes('graduation') || t.includes('convocation')) {
+          return 'rich navy and gold academic palette, subtle confetti, achievement motifs';
+        }
+        return 'elegant luxury celebration, vibrant premium color palette, sophisticated';
+      })();
 
-      const enrichedPrompt = `Vertical 9:16 luxury invitation card background, elegant modern event flyer, aesthetic colors, empty blank space in center for typography: ${rawPrompt}`;
+      const imagenPrompt =
+        `A stunning vertical 9:16 luxury event invitation card background image, ` +
+        `${styleHints}, for a ${rawEventType} event titled "${rawTitle}". ` +
+        `The center area should have ample negative space for text overlay. ` +
+        `Ultra-high quality, cinematic lighting, premium print design, no text or lettering, ` +
+        `photorealistic textures, beautifully composed. Context: ${rawPrompt}`;
 
-      console.log("[Replicate] Starting generation for prompt:", rawPrompt);
+      console.log('[Gemini Imagen] Generating template image for event type:', rawEventType);
 
-      let output = null;
       try {
-        output = await runReplicateWithTimeout(
-          replicate,
-          "black-forest-labs/flux-schnell",
-          {
-            prompt: enrichedPrompt,
-            aspect_ratio: "9:16",
-            output_format: "png",
-            num_outputs: 1,
+        const imagenClient = new GoogleGenAI({ apiKey: geminiKey });
+        const imagenResponse = await imagenClient.models.generateImages({
+          model: 'imagen-3.0-generate-002',
+          prompt: imagenPrompt,
+          config: {
+            numberOfImages: 1,
+            aspectRatio: '3:4',
+            outputMimeType: 'image/jpeg',
           },
-          90_000
-        );
-      } catch (runErr) {
-        if (runErr.message === "REPLICATE_TIMEOUT") {
-          console.warn("[Replicate] Generation timed out after 90 s — falling back to curated image.");
-          timedOut = true;
+        });
+
+        const imgData =
+          imagenResponse?.generatedImages?.[0]?.image?.imageBytes ||
+          imagenResponse?.images?.[0]?.bytesBase64Encoded ||
+          imagenResponse?.generatedImages?.[0]?.bytesBase64Encoded;
+
+        if (imgData) {
+          finalImageUrl = `data:image/jpeg;base64,${imgData}`;
+          console.log('[Gemini Imagen] Image generated successfully, bytes:', imgData.length);
         } else {
-          console.warn("[Replicate] replicate.run error:", runErr.message);
+          console.warn('[Gemini Imagen] No image bytes in response, using curated fallback.');
+          finalImageUrl = getCategorizedFallback(rawPrompt);
         }
-      }
-
-      console.log("[Replicate] Raw resolved output:", output);
-
-      // Extract image URL from diverse Replicate SDK output representations
-      if (output) {
-        if (Array.isArray(output) && output.length > 0) {
-          const firstItem = output[0];
-          if (typeof firstItem === "string") {
-            finalImageUrl = firstItem;
-          } else if (firstItem && typeof firstItem.url === "function") {
-            try { finalImageUrl = String(firstItem.url()); } catch (_) {}
-          } else if (firstItem && firstItem.url) {
-            finalImageUrl = typeof firstItem.url === "string" ? firstItem.url : String(firstItem.url);
-          } else if (firstItem && typeof firstItem.toString === "function") {
-            const s = firstItem.toString();
-            if (s && s.startsWith("http")) finalImageUrl = s;
-          }
-        } else if (typeof output === "string") {
-          finalImageUrl = output;
-        } else if (output && typeof output.url === "function") {
-          try { finalImageUrl = String(output.url()); } catch (_) {}
-        } else if (output?.url) {
-          finalImageUrl = typeof output.url === "string" ? output.url : String(output.url);
-        }
-
-        // Secondary fallback to resolveReplicateOutputUrl
-        if (!finalImageUrl) {
-          try {
-            finalImageUrl = await resolveReplicateOutputUrl(output);
-          } catch (_) {}
-        }
+      } catch (imagenErr) {
+        console.warn('[Gemini Imagen] Generation failed:', imagenErr.message, '— using curated fallback.');
+        finalImageUrl = getCategorizedFallback(rawPrompt);
       }
     }
 
-    // If Replicate output is null, empty, or invalid, apply categorized fallback
-    if (!finalImageUrl || finalImageUrl === "null" || typeof finalImageUrl !== "string" || !finalImageUrl.startsWith("http")) {
-      console.warn("[Replicate] Model returned null/empty. Applying curated aesthetic fallback.");
+    // Final safety guard
+    if (!finalImageUrl) {
       finalImageUrl = getCategorizedFallback(rawPrompt);
     }
 
-    console.log("[Replicate] Template ready:", finalImageUrl.substring(0, 100));
+    const isDataUri = finalImageUrl.startsWith('data:');
+    console.log(
+      '[Gemini Imagen] Template ready:',
+      isDataUri ? `[base64 data URI, ${finalImageUrl.length} chars]` : finalImageUrl.substring(0, 100)
+    );
 
-    const payload = {
+    return res.status(200).json({
       success: true,
       imageUrl: finalImageUrl,
+      generatedBy: 'gemini-imagen',
       details: {
         title: rawTitle,
         date: rawDate,
@@ -1241,34 +1239,25 @@ const generateEventTemplate = async (req, res) => {
         venue: rawVenue,
         eventType: rawEventType,
       },
-    };
-
-    // Signal timeout to the frontend even though we returned a fallback image
-    if (timedOut) {
-      return res.status(504).json({
-        ...payload,
-        warning: "AI image generation timed out. A curated template was used instead.",
-      });
-    }
-
-    return res.status(200).json(payload);
+    });
   } catch (err) {
-    console.error("[Replicate] Exception caught:", err.message);
+    console.error('[Gemini Imagen] Exception caught:', err.message);
     const fallbackUrl = getCategorizedFallback(rawPrompt);
     return res.status(500).json({
       success: true,
       imageUrl: fallbackUrl,
-      warning: "AI image generation failed. A curated template was used instead.",
+      generatedBy: 'fallback',
+      warning: 'AI image generation failed. A curated template was used instead.',
       details: {
-        title: rawTitle || "Special Event",
-        date: rawDate || "Saturday, 25 October • 6:00 PM",
-        venue: rawVenue || "Skyline Ballroom & Gardens",
-        subtitle: "Celebration",
+        title: rawTitle || 'Special Event',
+        date: rawDate || 'Saturday, 25 October • 6:00 PM',
+        venue: rawVenue || 'Skyline Ballroom & Gardens',
+        subtitle: 'Celebration',
       },
       meta: {
-        title: rawTitle || "Special Event",
-        date: rawDate || "Saturday, 25 October • 6:00 PM",
-        venue: rawVenue || "Skyline Ballroom & Gardens",
+        title: rawTitle || 'Special Event',
+        date: rawDate || 'Saturday, 25 October • 6:00 PM',
+        venue: rawVenue || 'Skyline Ballroom & Gardens',
         eventType: rawEventType,
       },
     });
