@@ -13,7 +13,7 @@ router.get('/', async (req, res, next) => {
   try {
     let dbTemplates = [];
     try {
-      dbTemplates = await prisma.templates.findMany();
+      dbTemplates = await prisma.template.findMany();
     } catch (dbErr) {
       console.warn("DB query for templates failed, using fallback:", dbErr.message);
     }
@@ -67,7 +67,7 @@ router.get('/', async (req, res, next) => {
 router.post('/', authenticate, isAdmin, async (req, res, next) => {
   try {
     const { name, thumbnailUrl, htmlContent, price } = req.body;
-    const template = await prisma.templates.create({
+    const template = await prisma.template.create({
       data: { name, thumbnailUrl, htmlContent, price }
     });
     res.status(201).json(template);

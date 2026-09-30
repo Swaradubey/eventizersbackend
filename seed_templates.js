@@ -311,7 +311,7 @@ async function seed() {
 
     // 1. Delete all old templates from DB that are not in the 12 active templates
     const activeIds = templatesData.map(t => t.id);
-    const deleteResult = await prisma.templates.deleteMany({
+    const deleteResult = await prisma.template.deleteMany({
       where: {
         id: { notIn: activeIds }
       }
@@ -320,7 +320,7 @@ async function seed() {
 
     // 2. Upsert the 12 active templates
     for (const t of templatesData) {
-      await prisma.templates.upsert({
+      await prisma.template.upsert({
         where: { id: t.id },
         update: {
           name: t.name,
@@ -339,7 +339,7 @@ async function seed() {
       console.log(`Upserted template: ${t.name} (${t.id})`);
     }
 
-    const totalCount = await prisma.templates.count();
+    const totalCount = await prisma.template.count();
     console.log(`\nSeeding completed successfully! Total templates in DB: ${totalCount}`);
   } catch (err) {
     console.error("Seeding templates failed:", err.message || err);

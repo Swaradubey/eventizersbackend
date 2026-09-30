@@ -298,6 +298,14 @@ const { saveUploadedFile, saveBase64Image } = require("../utils/fileStorage");
  */
 const createEvent = async (req, res) => {
   try {
+    if (!prisma || !prisma.template) {
+      console.error("[CRITICAL] Prisma client or target model is undefined at createEvent.");
+      return res.status(500).json({
+        success: false,
+        message: "Database connection instance error. Please ensure Prisma client is generated."
+      });
+    }
+
     const uploadedFile = (req.files && req.files.length > 0) ? req.files[0] : req.file;
     if (uploadedFile) {
       const uploadRes = await saveUploadedFile(uploadedFile, req, "event_cover");
@@ -373,8 +381,13 @@ const createEvent = async (req, res) => {
     };
 
     // Automatically create invitation if templateId is provided or if uploaded cover image exists
+    let template = null;
     if (effectiveTemplateId) {
-      const template = await prisma.templates.findUnique({ where: { id: effectiveTemplateId } });
+      try {
+        template = await prisma.template.findUnique({ where: { id: effectiveTemplateId } });
+      } catch (tplErr) {
+        console.warn("[WARN] Template lookup failed for id:", effectiveTemplateId, tplErr.message);
+      }
       if (template) {
         let design = {};
         try {
