@@ -1,13 +1,8 @@
-const dns = require('dns');
-if (dns.setDefaultResultOrder) {
-  dns.setDefaultResultOrder('ipv4first');
-}
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+﻿
+const newTemplatesDataBackend = [
 
-// The 12 active templates currently in use in the gallery
-const templatesData = [
   // === ADULT BIRTHDAY ===
+
   {
     id: "tpl-chic-dinner-cake",
     name: "Chic Dinner & Cake Celebration",
@@ -43,6 +38,7 @@ const templatesData = [
       ]
     })
   },
+
   {
     id: "tpl-modern-gold-black-balloon",
     name: "Modern Gold & Black Balloon Bash",
@@ -54,13 +50,13 @@ const templatesData = [
       imageUrl: "/assets/templates/modern-gold-black-balloon-mockup.svg",
       backdrop: {
         type: "texture",
-        value: "/assets/backdrops/white-embossed-floral.svg",
-        color: "#F3EDE2",
-        gradient: "linear-gradient(135deg, #F3EDE2 0%, #E2D7C3 100%)"
+        value: "/assets/backdrops/subtle-white-marble.svg",
+        color: "#F8F9FA",
+        gradient: "linear-gradient(135deg, #F8F9FA 0%, #EAECEF 100%)"
       },
       envelope: {
-        outerColor: "#1A1A1A",
-        flapColor: "#1A1A1A",
+        outerColor: "#111111",
+        flapColor: "#111111",
         linerCss: "linear-gradient(135deg, #D4AF37 0%, #FFF2A1 25%, #AA771C 50%, #FDF4B8 75%, #B8860B 100%)",
         linerColor: "#D4AF37",
         isOpen: true,
@@ -81,6 +77,7 @@ const templatesData = [
   },
 
   // === BIRTHDAY ===
+
   {
     id: "tpl-gold-ribbons-confetti",
     name: "Gold Ribbons & Confetti",
@@ -102,6 +99,7 @@ const templatesData = [
       ]
     })
   },
+
   {
     id: "tpl-sparkle-balloons",
     name: "Sparkle Balloons",
@@ -122,6 +120,7 @@ const templatesData = [
       ]
     })
   },
+
   {
     id: "tpl-celestial-flora",
     name: "Celestial Flora",
@@ -145,6 +144,7 @@ const templatesData = [
   },
 
   // === WEDDING ===
+
   {
     id: "tpl-abstract-nature-party",
     name: "Abstract Nature Party",
@@ -165,6 +165,7 @@ const templatesData = [
       ]
     })
   },
+
   {
     id: "tpl-bright-blooms-garden",
     name: "Bright Blooms Garden",
@@ -185,6 +186,7 @@ const templatesData = [
       ]
     })
   },
+
   {
     id: "tpl-vibrant-blooms-wedding",
     name: "Vibrant Blooms Wedding",
@@ -205,6 +207,7 @@ const templatesData = [
       ]
     })
   },
+
   {
     id: "tpl-lily-of-the-valley",
     name: "Lily of the Valley",
@@ -227,6 +230,7 @@ const templatesData = [
   },
 
   // === BRIDAL SHOWER ===
+
   {
     id: "blush-burgundy-blooms",
     name: "Blush & Burgundy Blooms",
@@ -246,6 +250,7 @@ const templatesData = [
       ]
     })
   },
+
   {
     id: "something-blue",
     name: "Something Blue",
@@ -266,6 +271,7 @@ const templatesData = [
       ]
     })
   },
+
   {
     id: "autumn-blooms",
     name: "Autumn Blooms",
@@ -285,69 +291,7 @@ const templatesData = [
       ]
     })
   }
+
 ];
 
-async function connectWithRetry(maxRetries = 5, delayMs = 6000) {
-  for (let i = 1; i <= maxRetries; i++) {
-    try {
-      await prisma.$connect();
-      console.log(`DB connected on attempt ${i}`);
-      return;
-    } catch (e) {
-      console.log(`Connection attempt ${i}/${maxRetries} failed: ${e.message.split('\n')[0]}`);
-      if (i < maxRetries) {
-        console.log(`Retrying in ${delayMs / 1000}s... (NeonDB may be waking up)`);
-        await new Promise(r => setTimeout(r, delayMs));
-      }
-    }
-  }
-  throw new Error("Could not connect to DB after " + maxRetries + " attempts");
-}
-
-async function seed() {
-  console.log(`Starting to seed ${templatesData.length} gallery templates...`);
-  try {
-    await connectWithRetry();
-
-    // 1. Delete all old templates from DB that are not in the 12 active templates
-    const activeIds = templatesData.map(t => t.id);
-    const deleteResult = await prisma.templates.deleteMany({
-      where: {
-        id: { notIn: activeIds }
-      }
-    });
-    console.log(`Removed ${deleteResult.count} old templates from DB.`);
-
-    // 2. Upsert the 12 active templates
-    for (const t of templatesData) {
-      await prisma.templates.upsert({
-        where: { id: t.id },
-        update: {
-          name: t.name,
-          category: t.category,
-          content: t.content,
-          isPremium: t.isPremium
-        },
-        create: {
-          id: t.id,
-          name: t.name,
-          category: t.category,
-          content: t.content,
-          isPremium: t.isPremium
-        }
-      });
-      console.log(`Upserted template: ${t.name} (${t.id})`);
-    }
-
-    const totalCount = await prisma.templates.count();
-    console.log(`\nSeeding completed successfully! Total templates in DB: ${totalCount}`);
-  } catch (err) {
-    console.error("Seeding templates failed:", err.message || err);
-  } finally {
-    await prisma.$disconnect();
-  }
-}
-
-seed();
-
-module.exports = { templatesData };
+module.exports = { newTemplatesDataBackend };

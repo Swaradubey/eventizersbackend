@@ -374,7 +374,7 @@ const createEvent = async (req, res) => {
 
     // Automatically create invitation if templateId is provided or if uploaded cover image exists
     if (effectiveTemplateId) {
-      const template = await prisma.template.findUnique({ where: { id: effectiveTemplateId } });
+      const template = await prisma.templates.findUnique({ where: { id: effectiveTemplateId } });
       if (template) {
         let design = {};
         try {

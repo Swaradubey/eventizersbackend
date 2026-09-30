@@ -13,7 +13,7 @@ router.get('/', async (req, res, next) => {
   try {
     let dbTemplates = [];
     try {
-      dbTemplates = await prisma.template.findMany();
+      dbTemplates = await prisma.templates.findMany();
     } catch (dbErr) {
       console.warn("DB query for templates failed, using fallback:", dbErr.message);
     }
@@ -29,9 +29,14 @@ router.get('/', async (req, res, next) => {
         name: t.name,
         category: t.category,
         isPremium: t.isPremium || false,
+        badge: contentObj.badge || (t.isPremium ? "Premium" : "Free"),
         thumbnailUrl: contentObj.thumbnailUrl || contentObj.imageUrl || t.thumbnailUrl || null,
         imageUrl: contentObj.imageUrl || t.imageUrl || null,
         coverImage: contentObj.imageUrl || null,
+        backdrop: contentObj.backdrop || null,
+        envelope: contentObj.envelope || null,
+        card: contentObj.card || null,
+        defaultTextLayers: contentObj.defaultTextLayers || [],
         emoji: contentObj.emoji || t.emoji || null,
         gradient: contentObj.gradient || null,
         accentColor: contentObj.accentColor || null,
@@ -62,7 +67,7 @@ router.get('/', async (req, res, next) => {
 router.post('/', authenticate, isAdmin, async (req, res, next) => {
   try {
     const { name, thumbnailUrl, htmlContent, price } = req.body;
-    const template = await prisma.template.create({
+    const template = await prisma.templates.create({
       data: { name, thumbnailUrl, htmlContent, price }
     });
     res.status(201).json(template);
