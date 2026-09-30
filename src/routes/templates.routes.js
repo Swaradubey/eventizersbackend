@@ -9,55 +9,141 @@ const router = express.Router();
 const { newTemplatesDataBackend } = require('../config/newTemplatesBackend');
 
 // Get all templates
+
+// Helper to format relative asset paths into absolute URLs for mobile apps
+const makeAbsoluteUrl = (url, req) => {
+  if (!url || typeof url !== 'string') return url || null;
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) return url;
+  try {
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'http';
+    const host = req.get('host') || 'localhost:5000';
+    return `${protocol}://${host}${url.startsWith('/') ? '' : '/'}${url}`;
+  } catch (_) {
+    return url;
+  }
+};
+
+// Format template with dual URLs (relative for web, absolute for mobile)
+const formatTemplateForClient = (t, req) => {
+  let contentObj = {};
+  try {
+    contentObj = typeof t.content === 'string' ? JSON.parse(t.content) : (t.content || {});
+  } catch (_) {}
+
+  const rawThumb = contentObj.thumbnailUrl || contentObj.imageUrl || t.thumbnailUrl || null;
+  const rawImage = contentObj.imageUrl || t.imageUrl || null;
+
+  const cardObj = contentObj.card || t.card || null;
+  const formattedCard = cardObj ? {
+    ...cardObj,
+    artworkUrl: cardObj.artworkUrl || null,
+    fullArtworkUrl: makeAbsoluteUrl(cardObj.artworkUrl, req),
+    backgroundColor: cardObj.backgroundColor || "#ffffff",
+    aspectRatio: cardObj.aspectRatio || "5x7",
+  } : null;
+
+  const backdropObj = contentObj.backdrop || t.backdrop || null;
+  const formattedBackdrop = backdropObj ? {
+    ...backdropObj,
+    fullValue: backdropObj.type === "texture" ? makeAbsoluteUrl(backdropObj.value, req) : backdropObj.value,
+  } : null;
+
+  const envelopeObj = contentObj.envelope || t.envelope || null;
+  const formattedEnvelope = envelopeObj ? {
+    ...envelopeObj,
+    fullLinerPatternUrl: envelopeObj.linerPatternUrl ? makeAbsoluteUrl(envelopeObj.linerPatternUrl, req) : undefined,
+  } : null;
+
+  return {
+    id: t.id,
+    name: t.name || t.title || "Invitation Template",
+    title: t.title || t.name || "Invitation Template",
+    category: t.category || "General",
+    isPremium: Boolean(t.isPremium),
+    badge: contentObj.badge || (t.isPremium ? "Premium" : "Free"),
+    thumbnailUrl: rawThumb,
+    fullThumbnailUrl: makeAbsoluteUrl(rawThumb, req),
+    imageUrl: rawImage,
+    fullImageUrl: makeAbsoluteUrl(rawImage, req),
+    coverImage: rawImage,
+    fullCoverImage: makeAbsoluteUrl(rawImage, req),
+    backdrop: formattedBackdrop,
+    envelope: formattedEnvelope,
+    card: formattedCard,
+    defaultTextLayers: contentObj.defaultTextLayers || t.defaultTextLayers || [],
+    emoji: contentObj.emoji || t.emoji || null,
+    gradient: contentObj.gradient || null,
+    accentColor: contentObj.accentColor || null,
+    host: contentObj.host || null,
+    venue: contentObj.venue || null,
+    description: contentObj.description || null,
+    textElements: contentObj.textElements || t.textElements || [],
+    content: t.content,
+    htmlContent: t.content,
+  };
+};
+
+// Get all templates
 router.get('/', async (req, res, next) => {
   try {
     let dbTemplates = [];
     try {
-      dbTemplates = await prisma.template.findMany();
+      if (prisma && prisma.template) {
+        dbTemplates = await prisma.template.findMany();
+      }
     } catch (dbErr) {
       console.warn("DB query for templates failed, using fallback:", dbErr.message);
     }
 
-    // Format newTemplatesBackend.js templates
-    const formatTemplate = (t) => {
-      let contentObj = {};
-      try {
-        contentObj = typeof t.content === 'string' ? JSON.parse(t.content) : (t.content || {});
-      } catch (_) {}
-      return {
-        id: t.id,
-        name: t.name,
-        category: t.category,
-        isPremium: t.isPremium || false,
-        badge: contentObj.badge || (t.isPremium ? "Premium" : "Free"),
-        thumbnailUrl: contentObj.thumbnailUrl || contentObj.imageUrl || t.thumbnailUrl || null,
-        imageUrl: contentObj.imageUrl || t.imageUrl || null,
-        coverImage: contentObj.imageUrl || null,
-        backdrop: contentObj.backdrop || null,
-        envelope: contentObj.envelope || null,
-        card: contentObj.card || null,
-        defaultTextLayers: contentObj.defaultTextLayers || [],
-        emoji: contentObj.emoji || t.emoji || null,
-        gradient: contentObj.gradient || null,
-        accentColor: contentObj.accentColor || null,
-        host: contentObj.host || null,
-        venue: contentObj.venue || null,
-        description: contentObj.description || null,
-        textElements: contentObj.textElements || t.textElements || [],
-        content: t.content,
-        htmlContent: t.content,
-      };
-    };
-
-    // Build a map of newTemplates by id
-    const newTemplatesFormatted = (newTemplatesDataBackend || []).map(formatTemplate);
-    const newTemplatesMap = {};
-    for (const t of newTemplatesFormatted) {
-      newTemplatesMap[t.id] = t;
+    const fallbackFormatted = (newTemplatesDataBackend || []).map((t) => formatTemplateForClient(t, req));
+    
+    // Combine db templates (if any) with fallback templates
+    if (dbTemplates && dbTemplates.length > 0) {
+      const dbFormatted = dbTemplates.map((t) => formatTemplateForClient(t, req));
+      const combined = [...dbFormatted];
+      const seenIds = new Set(dbFormatted.map(t => t.id));
+      for (const t of fallbackFormatted) {
+        if (!seenIds.has(t.id)) {
+          combined.push(t);
+        }
+      }
+      return res.json(combined);
     }
 
-    // Return new structured Evite templates
-    return res.json(newTemplatesFormatted);
+    return res.json(fallbackFormatted);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Get single template by ID
+router.get('/:id', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const cleanId = String(id).trim().toLowerCase();
+
+    // Try finding in DB first
+    try {
+      if (prisma && prisma.template) {
+        const dbTpl = await prisma.template.findUnique({ where: { id } });
+        if (dbTpl) {
+          return res.json(formatTemplateForClient(dbTpl, req));
+        }
+      }
+    } catch (_) {}
+
+    // Find in predefined backend templates
+    const fallbackList = (newTemplatesDataBackend || []).map((t) => formatTemplateForClient(t, req));
+    const matched = fallbackList.find(t => 
+      t.id.toLowerCase() === cleanId || 
+      t.id.toLowerCase().replace(/-/g, '') === cleanId.replace(/-/g, '')
+    );
+
+    if (matched) {
+      return res.json(matched);
+    }
+
+    return res.status(404).json({ error: `Template with ID '${id}' not found` });
   } catch (err) {
     next(err);
   }

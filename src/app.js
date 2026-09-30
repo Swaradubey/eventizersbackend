@@ -198,6 +198,9 @@ app.use("/api/cron", cronRoutes);
 
 // Serve uploads folder statically (uses /tmp on serverless, ./uploads locally)
 const { UPLOADS_DIR } = require("./utils/fileStorage");
+const path = require("path");
+const fs = require("fs");
+
 app.use("/uploads", express.static(UPLOADS_DIR, {
   maxAge: "7d",
   setHeaders: (res) => {
@@ -205,6 +208,41 @@ app.use("/uploads", express.static(UPLOADS_DIR, {
     res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
   }
 }));
+
+// Serve static frontend assets (/assets, /templates) for mobile apps & web
+const candidatePublicDirs = [
+  path.join(__dirname, "../../../public"),
+  path.join(__dirname, "../../../invitehub/public"),
+  path.join(__dirname, "../../public"),
+  path.join(process.cwd(), "public"),
+  path.join(process.cwd(), "invitehub/public"),
+];
+
+for (const pDir of candidatePublicDirs) {
+  if (fs.existsSync(pDir)) {
+    const assetsPath = path.join(pDir, "assets");
+    if (fs.existsSync(assetsPath)) {
+      app.use("/assets", express.static(assetsPath, {
+        maxAge: "7d",
+        setHeaders: (res) => {
+          res.setHeader("Access-Control-Allow-Origin", "*");
+          res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+        }
+      }));
+    }
+    const templatesPath = path.join(pDir, "templates");
+    if (fs.existsSync(templatesPath)) {
+      app.use("/templates", express.static(templatesPath, {
+        maxAge: "7d",
+        setHeaders: (res) => {
+          res.setHeader("Access-Control-Allow-Origin", "*");
+          res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+        }
+      }));
+    }
+    break;
+  }
+}
 
 // 404 Route handler
 const notFound = (req, res, next) => {
