@@ -1,4 +1,4 @@
-// Re-export the canonical 12-template gallery config.
+// Re-export the canonical 13-template gallery config.
 // All existing requires (templates.routes.js, seed_templates.js, event.controller.js)
 // continue to work without any changes.
 const { newTemplatesDataBackend } = require('./newTemplatesDataBackend');
