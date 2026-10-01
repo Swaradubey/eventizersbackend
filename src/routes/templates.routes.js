@@ -59,6 +59,7 @@ const formatTemplateForClient = (t, req) => {
     name: t.name || t.title || "Invitation Template",
     title: t.title || t.name || "Invitation Template",
     category: t.category || "General",
+    tags: contentObj.tags || t.tags || [],
     isPremium: Boolean(t.isPremium),
     badge: contentObj.badge || (t.isPremium ? "Premium" : "Free"),
     thumbnailUrl: rawThumb,

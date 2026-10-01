@@ -1,6 +1,6 @@
 /**
  * Canonical Backend Templates Configuration
- * Exactly 16 Templates:
+ * Exactly 18 Templates:
  *  1. botanical-sketch-art (Botanical Sketch (Art))
  *  2. tpl-chic-dinner-cake (Chic Dinner & Cake Celebration)
  *  3. tpl-modern-gold-black-balloon (Modern Gold & Black Balloon Bash)
@@ -17,6 +17,8 @@
  * 14. o-tannenbaum (O Tannenbaum)
  * 15. metallic-paint-splatter (Metallic Paint Splatter)
  * 16. golden-foliage-holiday (Golden Foliage Holiday)
+ * 17. citrus-splash (Citrus Splash)
+ * 18. garden-blooms (Garden Blooms)
  */
 
 const newTemplatesDataBackend = [
@@ -746,6 +748,404 @@ const newTemplatesDataBackend = [
           fontWeight: "500",
           textAlign: "center",
           top: 66,
+          left: 50
+        }
+      ]
+    })
+  },
+
+  // -------------------------------------------------------------
+  // 17. CITRUS SPLASH
+  // -------------------------------------------------------------
+  {
+    id: "citrus-splash",
+    name: "Citrus Splash",
+    title: "Farewell Party",
+    category: "Corporate",
+    tags: ["Corporate", "Farewell", "Party"],
+    isPremium: true,
+    badge: "Premium",
+    thumbnailUrl: "/assets/templates/citrus-splash-mockup.svg",
+    imageUrl: "/assets/templates/citrus-splash-mockup.svg",
+    mockupUrl: "/assets/templates/citrus-splash-mockup.svg",
+    backdrop: {
+      type: "texture",
+      value: "/assets/backdrops/olive-green-texture.svg",
+      color: "#414A20",
+      gradient: "linear-gradient(135deg, #4C5627 0%, #414A20 50%, #242911 100%)"
+    },
+    envelope: {
+      outerColor: "#A5835F",
+      flapColor: "#B3936F",
+      position: "left",
+      linerColor: "#FDFBF5",
+      linerCss: "repeating-linear-gradient(45deg, #EFE5D2 0px, #EFE5D2 8px, #FDFBF5 8px, #FDFBF5 16px)",
+      shadowColor: "rgba(0,0,0,0.32)",
+      isOpen: true,
+      isOpenUpward: true
+    },
+    card: {
+      artworkUrl: "/assets/templates/citrus-splash-bg.svg",
+      borderIllustration: "/assets/templates/citrus-splash-bg.svg",
+      decorativeBorderSvgUrl: "/assets/templates/citrus-splash-bg.svg",
+      backgroundColor: "#FFFDF4",
+      aspectRatio: "5x7",
+      border: "1px solid rgba(0,0,0,0.06)",
+      cssConfig: {
+        backgroundColor: "#FFFDF4",
+        borderRadius: "14px",
+        paperShadow: "0 14px 30px -6px rgba(0, 0, 0, 0.28)"
+      }
+    },
+    defaultTextLayers: [
+      {
+        id: "cs-intro",
+        key: "intro",
+        text: "you are invited to a",
+        fontFamily: "'Inter', sans-serif",
+        fontSize: 10.5,
+        letterSpacing: 1.5,
+        color: "#525636",
+        fontWeight: "500",
+        textAlign: "center",
+        top: 32,
+        left: 50
+      },
+      {
+        id: "cs-title",
+        key: "title",
+        text: "FAREWELL\nPARTY",
+        fontFamily: "'Playfair Display', Georgia, serif",
+        fontSize: 26,
+        letterSpacing: 3,
+        lineHeight: 1.25,
+        color: "#28361B",
+        fontWeight: "700",
+        textAlign: "center",
+        top: 44,
+        left: 50
+      },
+      {
+        id: "cs-subtitle",
+        key: "subtitle",
+        text: "to honor and thank",
+        fontFamily: "'Playfair Display', Georgia, serif",
+        fontStyle: "italic",
+        fontSize: 12.5,
+        color: "#525636",
+        fontWeight: "400",
+        textAlign: "center",
+        top: 58,
+        left: 50
+      },
+      {
+        id: "cs-honoree",
+        key: "name",
+        text: "Elena Thomas",
+        fontFamily: "'Playfair Display', Georgia, serif",
+        fontSize: 22,
+        letterSpacing: 1.5,
+        color: "#28361B",
+        fontWeight: "600",
+        textAlign: "center",
+        top: 68,
+        left: 50
+      }
+    ],
+    content: JSON.stringify({
+      badge: "Premium",
+      isPremium: true,
+      tags: ["Corporate", "Farewell", "Party"],
+      thumbnailUrl: "/assets/templates/citrus-splash-mockup.svg",
+      imageUrl: "/assets/templates/citrus-splash-mockup.svg",
+      mockupUrl: "/assets/templates/citrus-splash-mockup.svg",
+      backdrop: {
+        type: "texture",
+        value: "/assets/backdrops/olive-green-texture.svg",
+        color: "#414A20",
+        gradient: "linear-gradient(135deg, #4C5627 0%, #414A20 50%, #242911 100%)"
+      },
+      envelope: {
+        outerColor: "#A5835F",
+        flapColor: "#B3936F",
+        position: "left",
+        linerColor: "#FDFBF5",
+        linerCss: "repeating-linear-gradient(45deg, #EFE5D2 0px, #EFE5D2 8px, #FDFBF5 8px, #FDFBF5 16px)",
+        shadowColor: "rgba(0,0,0,0.32)",
+        isOpen: true,
+        isOpenUpward: true
+      },
+      card: {
+        artworkUrl: "/assets/templates/citrus-splash-bg.svg",
+        borderIllustration: "/assets/templates/citrus-splash-bg.svg",
+        backgroundColor: "#FFFDF4",
+        aspectRatio: "5x7"
+      },
+      defaultTextLayers: [
+        {
+          id: "cs-intro",
+          key: "intro",
+          text: "you are invited to a",
+          fontFamily: "'Inter', sans-serif",
+          fontSize: 10.5,
+          letterSpacing: 1.5,
+          color: "#525636",
+          fontWeight: "500",
+          textAlign: "center",
+          top: 32,
+          left: 50
+        },
+        {
+          id: "cs-title",
+          key: "title",
+          text: "FAREWELL\nPARTY",
+          fontFamily: "'Playfair Display', Georgia, serif",
+          fontSize: 26,
+          letterSpacing: 3,
+          lineHeight: 1.25,
+          color: "#28361B",
+          fontWeight: "700",
+          textAlign: "center",
+          top: 44,
+          left: 50
+        },
+        {
+          id: "cs-subtitle",
+          key: "subtitle",
+          text: "to honor and thank",
+          fontFamily: "'Playfair Display', Georgia, serif",
+          fontStyle: "italic",
+          fontSize: 12.5,
+          color: "#525636",
+          fontWeight: "400",
+          textAlign: "center",
+          top: 58,
+          left: 50
+        },
+        {
+          id: "cs-honoree",
+          key: "name",
+          text: "Elena Thomas",
+          fontFamily: "'Playfair Display', Georgia, serif",
+          fontSize: 22,
+          letterSpacing: 1.5,
+          color: "#28361B",
+          fontWeight: "600",
+          textAlign: "center",
+          top: 68,
+          left: 50
+        }
+      ]
+    })
+  },
+
+  // -------------------------------------------------------------
+  // 18. GARDEN BLOOMS
+  // -------------------------------------------------------------
+  {
+    id: "garden-blooms",
+    name: "Garden Blooms",
+    title: "Annual Charity Gala",
+    category: "Corporate",
+    tags: ["Corporate", "Charity", "Gala", "Annual"],
+    isPremium: true,
+    badge: "Premium",
+    thumbnailUrl: "/assets/templates/garden-blooms-mockup.svg",
+    imageUrl: "/assets/templates/garden-blooms-mockup.svg",
+    mockupUrl: "/assets/templates/garden-blooms-mockup.svg",
+    backdrop: {
+      type: "texture",
+      value: "/assets/backdrops/beige-textured-linen.svg",
+      color: "#E2D9C8",
+      gradient: "linear-gradient(135deg, #EDE6D8 0%, #E2D9C8 50%, #C5BBA7 100%)"
+    },
+    envelope: {
+      outerColor: "#A5835F",
+      flapColor: "#B3936F",
+      position: "left",
+      linerColor: "#58724E",
+      linerCss: "repeating-linear-gradient(90deg, #58724E 0px, #58724E 8px, #FDFBF7 8px, #FDFBF7 16px)",
+      shadowColor: "rgba(0,0,0,0.28)",
+      isOpen: true,
+      isOpenUpward: true
+    },
+    card: {
+      artworkUrl: "/assets/templates/garden-blooms-bg.svg",
+      borderIllustration: "/assets/templates/garden-blooms-bg.svg",
+      decorativeBorderSvgUrl: "/assets/templates/garden-blooms-bg.svg",
+      backgroundColor: "#FFFFFF",
+      aspectRatio: "5x7",
+      border: "1px solid rgba(0,0,0,0.06)",
+      cssConfig: {
+        backgroundColor: "#FFFFFF",
+        borderRadius: "14px",
+        paperShadow: "0 14px 30px -6px rgba(0, 0, 0, 0.28)"
+      }
+    },
+    defaultTextLayers: [
+      {
+        id: "gb-intro",
+        key: "intro",
+        text: "join us for our",
+        fontFamily: "'Inter', sans-serif",
+        fontSize: 10,
+        letterSpacing: 1.2,
+        color: "#555555",
+        fontWeight: "500",
+        textAlign: "center",
+        top: 32,
+        left: 50
+      },
+      {
+        id: "gb-title",
+        key: "title",
+        text: "Annual\nCharity\nGala",
+        fontFamily: "'Playfair Display', Georgia, serif",
+        fontSize: 26,
+        letterSpacing: 2,
+        lineHeight: 1.25,
+        color: "#242424",
+        fontWeight: "600",
+        textAlign: "center",
+        top: 45,
+        left: 50
+      },
+      {
+        id: "gb-datetime",
+        key: "datetime",
+        text: "Friday, September 24 at 7 PM",
+        fontFamily: "'Inter', sans-serif",
+        fontSize: 10.5,
+        letterSpacing: 0.5,
+        color: "#444444",
+        fontWeight: "500",
+        textAlign: "center",
+        top: 60,
+        left: 50
+      },
+      {
+        id: "gb-venue",
+        key: "venue",
+        text: "Marina Ballroom",
+        fontFamily: "'Inter', sans-serif",
+        fontSize: 10.5,
+        letterSpacing: 0.5,
+        color: "#333333",
+        fontWeight: "600",
+        textAlign: "center",
+        top: 68,
+        left: 50
+      },
+      {
+        id: "gb-attire",
+        key: "details",
+        text: "formal attire encouraged",
+        fontFamily: "'Inter', sans-serif",
+        fontStyle: "italic",
+        fontSize: 9.5,
+        letterSpacing: 0.4,
+        color: "#666666",
+        fontWeight: "400",
+        textAlign: "center",
+        top: 76,
+        left: 50
+      }
+    ],
+    content: JSON.stringify({
+      badge: "Premium",
+      isPremium: true,
+      tags: ["Corporate", "Charity", "Gala", "Annual"],
+      thumbnailUrl: "/assets/templates/garden-blooms-mockup.svg",
+      imageUrl: "/assets/templates/garden-blooms-mockup.svg",
+      mockupUrl: "/assets/templates/garden-blooms-mockup.svg",
+      backdrop: {
+        type: "texture",
+        value: "/assets/backdrops/beige-textured-linen.svg",
+        color: "#E2D9C8",
+        gradient: "linear-gradient(135deg, #EDE6D8 0%, #E2D9C8 50%, #C5BBA7 100%)"
+      },
+      envelope: {
+        outerColor: "#A5835F",
+        flapColor: "#B3936F",
+        position: "left",
+        linerColor: "#58724E",
+        linerCss: "repeating-linear-gradient(90deg, #58724E 0px, #58724E 8px, #FDFBF7 8px, #FDFBF7 16px)",
+        shadowColor: "rgba(0,0,0,0.28)",
+        isOpen: true,
+        isOpenUpward: true
+      },
+      card: {
+        artworkUrl: "/assets/templates/garden-blooms-bg.svg",
+        borderIllustration: "/assets/templates/garden-blooms-bg.svg",
+        backgroundColor: "#FFFFFF",
+        aspectRatio: "5x7"
+      },
+      defaultTextLayers: [
+        {
+          id: "gb-intro",
+          key: "intro",
+          text: "join us for our",
+          fontFamily: "'Inter', sans-serif",
+          fontSize: 10,
+          letterSpacing: 1.2,
+          color: "#555555",
+          fontWeight: "500",
+          textAlign: "center",
+          top: 32,
+          left: 50
+        },
+        {
+          id: "gb-title",
+          key: "title",
+          text: "Annual\nCharity\nGala",
+          fontFamily: "'Playfair Display', Georgia, serif",
+          fontSize: 26,
+          letterSpacing: 2,
+          lineHeight: 1.25,
+          color: "#242424",
+          fontWeight: "600",
+          textAlign: "center",
+          top: 45,
+          left: 50
+        },
+        {
+          id: "gb-datetime",
+          key: "datetime",
+          text: "Friday, September 24 at 7 PM",
+          fontFamily: "'Inter', sans-serif",
+          fontSize: 10.5,
+          letterSpacing: 0.5,
+          color: "#444444",
+          fontWeight: "500",
+          textAlign: "center",
+          top: 60,
+          left: 50
+        },
+        {
+          id: "gb-venue",
+          key: "venue",
+          text: "Marina Ballroom",
+          fontFamily: "'Inter', sans-serif",
+          fontSize: 10.5,
+          letterSpacing: 0.5,
+          color: "#333333",
+          fontWeight: "600",
+          textAlign: "center",
+          top: 68,
+          left: 50
+        },
+        {
+          id: "gb-attire",
+          key: "details",
+          text: "formal attire encouraged",
+          fontFamily: "'Inter', sans-serif",
+          fontStyle: "italic",
+          fontSize: 9.5,
+          letterSpacing: 0.4,
+          color: "#666666",
+          fontWeight: "400",
+          textAlign: "center",
+          top: 76,
           left: 50
         }
       ]
