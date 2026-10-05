@@ -32,15 +32,21 @@ const formatTemplateForClient = (t, req) => {
 
   const rawThumb = contentObj.thumbnailUrl || contentObj.imageUrl || t.thumbnailUrl || null;
   const rawImage = contentObj.imageUrl || t.imageUrl || null;
+  const rawBgImage = contentObj.backgroundImage || contentObj.backgroundUrl || (contentObj.card && contentObj.card.artworkUrl) || (contentObj.canvasData && contentObj.canvasData.backgroundImage) || rawImage;
 
   const cardObj = contentObj.card || t.card || null;
   const formattedCard = cardObj ? {
     ...cardObj,
-    artworkUrl: cardObj.artworkUrl || null,
-    fullArtworkUrl: makeAbsoluteUrl(cardObj.artworkUrl, req),
+    artworkUrl: cardObj.artworkUrl || rawBgImage || null,
+    fullArtworkUrl: makeAbsoluteUrl(cardObj.artworkUrl || rawBgImage, req),
     backgroundColor: cardObj.backgroundColor || "#ffffff",
     aspectRatio: cardObj.aspectRatio || "5x7",
-  } : null;
+  } : (rawBgImage ? {
+    artworkUrl: rawBgImage,
+    fullArtworkUrl: makeAbsoluteUrl(rawBgImage, req),
+    backgroundColor: "#ffffff",
+    aspectRatio: "5x7",
+  } : null);
 
   const backdropObj = contentObj.backdrop || t.backdrop || null;
   const formattedBackdrop = backdropObj ? {
@@ -53,6 +59,8 @@ const formatTemplateForClient = (t, req) => {
     ...envelopeObj,
     fullLinerPatternUrl: envelopeObj.linerPatternUrl ? makeAbsoluteUrl(envelopeObj.linerPatternUrl, req) : undefined,
   } : null;
+
+  const resolvedLayers = contentObj.defaultTextLayers || t.defaultTextLayers || (contentObj.canvasData && contentObj.canvasData.layers) || [];
 
   return {
     id: t.id,
@@ -68,10 +76,17 @@ const formatTemplateForClient = (t, req) => {
     fullImageUrl: makeAbsoluteUrl(rawImage, req),
     coverImage: rawImage,
     fullCoverImage: makeAbsoluteUrl(rawImage, req),
+    backgroundImage: rawBgImage,
+    fullBackgroundImage: makeAbsoluteUrl(rawBgImage, req),
+    backgroundUrl: rawBgImage,
+    canvasData: contentObj.canvasData || {
+      backgroundImage: rawBgImage,
+      layers: resolvedLayers,
+    },
     backdrop: formattedBackdrop,
     envelope: formattedEnvelope,
     card: formattedCard,
-    defaultTextLayers: contentObj.defaultTextLayers || t.defaultTextLayers || [],
+    defaultTextLayers: resolvedLayers,
     emoji: contentObj.emoji || t.emoji || null,
     gradient: contentObj.gradient || null,
     accentColor: contentObj.accentColor || null,
@@ -164,6 +179,8 @@ router.post('/', authenticate, isAdmin, async (req, res, next) => {
       imageUrl,
       thumbnailUrl,
       backgroundUrl,
+      backgroundImage,
+      canvasData,
       tags = [],
       aspectRatio = "5x7",
       backgroundColor = "#ffffff",
@@ -174,8 +191,8 @@ router.post('/', authenticate, isAdmin, async (req, res, next) => {
     } = req.body;
 
     const templateName = (title || name || "New Template").trim();
-    // backgroundUrl takes priority over imageUrl/thumbnailUrl for layered templates
-    let finalImage = (backgroundUrl || imageUrl || thumbnailUrl || "").trim();
+    // backgroundImage/backgroundUrl takes priority over imageUrl/thumbnailUrl for layered templates
+    let finalImage = (backgroundImage || backgroundUrl || (canvasData && canvasData.backgroundImage) || imageUrl || thumbnailUrl || "").trim();
 
     // If an external web image URL was provided, automatically download and cache it locally
     // to prevent cross-origin blocking, hotlinking 403s, and ensure it always loads!
@@ -210,7 +227,7 @@ router.post('/', authenticate, isAdmin, async (req, res, next) => {
       ? defaultTextLayers
       : Array.isArray(layers) && layers.length > 0
         ? layers
-        : null;
+        : (canvasData && Array.isArray(canvasData.layers) && canvasData.layers.length > 0 ? canvasData.layers : null);
 
     const resolvedTextLayers = adminLayers || [
       {
@@ -257,6 +274,11 @@ router.post('/', authenticate, isAdmin, async (req, res, next) => {
       thumbnailUrl: finalImage,
       imageUrl: finalImage,
       backgroundUrl: finalImage,
+      backgroundImage: finalImage,
+      canvasData: canvasData || {
+        backgroundImage: finalImage,
+        layers: resolvedTextLayers,
+      },
       category: category || "General",
       tags: Array.isArray(tags) && tags.length > 0 ? tags : [category || "General"],
       description: description || "",
@@ -385,6 +407,54 @@ router.post('/upload', authenticate, upload.any(), async (req, res, next) => {
     return res.status(400).json({ error: 'Please upload a file or provide an image payload' });
   } catch (err) {
     next(err);
+  }
+});
+
+// Lightweight proxy endpoint for external template image links to bypass CORS restrictions
+router.get('/proxy-image', async (req, res) => {
+  try {
+    const { url } = req.query;
+    if (!url || typeof url !== 'string') {
+      return res.status(400).send('Missing url parameter');
+    }
+    const decodedUrl = decodeURIComponent(url);
+    if (!/^https?:\/\//i.test(decodedUrl)) {
+      return res.status(400).send('Invalid url protocol');
+    }
+
+    const https = require('https');
+    const http = require('http');
+    const client = decodedUrl.startsWith('https') ? https : http;
+
+    const proxyReq = client.get(decodedUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+      },
+      timeout: 15000,
+    }, (proxyRes) => {
+      if (proxyRes.statusCode >= 300 && proxyRes.statusCode < 400 && proxyRes.headers.location) {
+        return res.redirect(proxyRes.headers.location);
+      }
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      if (proxyRes.headers['content-type']) {
+        res.setHeader('Content-Type', proxyRes.headers['content-type']);
+      }
+      proxyRes.pipe(res);
+    });
+
+    proxyReq.on('error', (err) => {
+      console.error('[proxy-image] Request error:', err.message);
+      if (!res.headersSent) {
+        res.status(502).send('Error fetching remote image');
+      }
+    });
+  } catch (err) {
+    if (!res.headersSent) {
+      res.status(500).send('Internal server error');
+    }
   }
 });
 
