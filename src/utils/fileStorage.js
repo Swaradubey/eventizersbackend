@@ -1,6 +1,7 @@
 const os = require("os");
 const fs = require("fs");
 const path = require("path");
+const axios = require("axios");
 
 // Use /tmp on serverless environments (Vercel, AWS Lambda), local ./uploads for development
 const isServerless = !!(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
@@ -440,9 +441,133 @@ const saveBase64Image = async (base64String, req, prefix = "snapshot") => {
   return saveUploadedFile({ buffer, mimetype: mimeType, originalname: `${prefix}.png` }, req, prefix);
 };
 
+/**
+ * Download a remote image URL, cache/store it locally in uploads, and return public URL.
+ * Automatically cleans known wrapper URLs (e.g. Google Images, Dropbox, etc.)
+ * @param {string} remoteUrl
+ * @param {Object} [req]
+ * @param {string} [prefix="template_remote"]
+ * @returns {Promise<{ success: boolean, url: string, fileUrl: string, filename: string, isWebpage?: boolean }>}
+ */
+const saveRemoteImage = async (remoteUrl, req, prefix = "template_remote") => {
+  if (!remoteUrl || typeof remoteUrl !== "string") {
+    throw new Error("No remote image URL provided.");
+  }
+
+  let targetUrl = remoteUrl.trim();
+
+  // If already a local upload or relative path, return as is
+  if (targetUrl.startsWith("/uploads/") || targetUrl.startsWith("/assets/") || targetUrl.startsWith("/templates/")) {
+    const baseUrl = getPublicBaseUrl(req);
+    return {
+      success: true,
+      url: targetUrl.startsWith("http") ? targetUrl : `${baseUrl}${targetUrl.startsWith("/") ? "" : "/"}${targetUrl}`,
+      fileUrl: targetUrl.startsWith("http") ? targetUrl : `${baseUrl}${targetUrl.startsWith("/") ? "" : "/"}${targetUrl}`,
+      filename: path.basename(targetUrl),
+    };
+  }
+
+  // 1. Google image search: extract 'imgurl' query param
+  if (targetUrl.includes("google.") && targetUrl.includes("imgurl=")) {
+    try {
+      const parsed = new URL(targetUrl);
+      const direct = parsed.searchParams.get("imgurl");
+      if (direct) targetUrl = decodeURIComponent(direct);
+    } catch (_) {}
+  }
+
+  // 2. Google redirect / url parameter
+  if (targetUrl.includes("google.") && (targetUrl.includes("/url?q=") || targetUrl.includes("/url?url="))) {
+    try {
+      const parsed = new URL(targetUrl);
+      const direct = parsed.searchParams.get("q") || parsed.searchParams.get("url");
+      if (direct) targetUrl = decodeURIComponent(direct);
+    } catch (_) {}
+  }
+
+  // 3. Dropbox sharing link: ensure raw=1
+  if (targetUrl.includes("dropbox.com")) {
+    targetUrl = targetUrl.replace(/\?dl=0/g, "?raw=1").replace(/&dl=0/g, "&raw=1");
+    if (!targetUrl.includes("raw=1")) {
+      targetUrl += (targetUrl.includes("?") ? "&" : "?") + "raw=1";
+    }
+  }
+
+  // 4. Imgur page to direct image
+  if (/^https?:\/\/(?:www\.)?imgur\.com\/([a-zA-Z0-9]+)$/i.test(targetUrl)) {
+    const id = targetUrl.split("/").pop();
+    targetUrl = `https://i.imgur.com/${id}.jpg`;
+  }
+
+  // 5. Download buffer via axios
+  const response = await axios.get(targetUrl, {
+    responseType: "arraybuffer",
+    headers: {
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+      Accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+      "Accept-Language": "en-US,en;q=0.9",
+    },
+    timeout: 15000,
+    maxRedirects: 5,
+  });
+
+  const contentType = (response.headers["content-type"] || "").toLowerCase();
+
+  // If response is HTML, check for og:image or twitter:image
+  if (contentType.includes("text/html")) {
+    const html = Buffer.from(response.data).toString("utf-8");
+    const ogMatch =
+      html.match(/<meta\s+property=["']og:image["']\s+content=["'](.*?)["']/i) ||
+      html.match(/<meta\s+content=["'](.*?)["']\s+property=["']og:image["']/i) ||
+      html.match(/<meta\s+name=["']twitter:image["']\s+content=["'](.*?)["']/i) ||
+      html.match(/<link\s+rel=["']image_src["']\s+href=["'](.*?)["']/i);
+
+    if (ogMatch && ogMatch[1]) {
+      let extractedUrl = ogMatch[1].trim();
+      if (extractedUrl.startsWith("//")) extractedUrl = "https:" + extractedUrl;
+      else if (extractedUrl.startsWith("/")) {
+        const parsedBase = new URL(targetUrl);
+        extractedUrl = `${parsedBase.origin}${extractedUrl}`;
+      }
+      return saveRemoteImage(extractedUrl, req, prefix);
+    }
+
+    const err = new Error(
+      "The provided URL links to a webpage, not a direct image. Please right-click the invitation card on that website, choose 'Copy Image Address', or upload the image directly."
+    );
+    err.isWebpage = true;
+    throw err;
+  }
+
+  if (!contentType.startsWith("image/") && !contentType.includes("application/octet-stream")) {
+    const err = new Error(`The provided link returned content-type '${contentType}' which is not a supported image.`);
+    throw err;
+  }
+
+  // Derive filename
+  let filename = `${prefix}.png`;
+  try {
+    const pathname = new URL(targetUrl).pathname;
+    const base = path.basename(pathname);
+    if (base && base.includes(".")) filename = base;
+  } catch (_) {}
+
+  return saveUploadedFile(
+    {
+      buffer: Buffer.from(response.data),
+      mimetype: contentType,
+      originalname: filename,
+    },
+    req,
+    prefix
+  );
+};
+
 module.exports = {
   saveUploadedFile,
   saveBase64Image,
+  saveRemoteImage,
   uploadToCloudinary,
   getCloudinaryConfig,
   getPublicBaseUrl,
@@ -451,3 +576,4 @@ module.exports = {
   UPLOADS_DIR,
   PUBLIC_ASSET_DIRS,
 };
+

@@ -90,7 +90,9 @@ router.get('/', async (req, res, next) => {
     let dbTemplates = [];
     try {
       if (prisma && prisma.template) {
-        dbTemplates = await prisma.template.findMany();
+        dbTemplates = await prisma.template.findMany({
+          orderBy: { createdAt: 'desc' }
+        });
       }
     } catch (dbErr) {
       console.warn("DB query for templates failed, using fallback:", dbErr.message);
@@ -153,23 +155,182 @@ router.get('/:id', async (req, res, next) => {
 // Create a template (Admin only)
 router.post('/', authenticate, isAdmin, async (req, res, next) => {
   try {
-    const { name, thumbnailUrl, htmlContent, price } = req.body;
+    const {
+      name,
+      title,
+      category = "General",
+      badge = "Free",
+      isPremium = false,
+      imageUrl,
+      thumbnailUrl,
+      tags = [],
+      aspectRatio = "5x7",
+      backgroundColor = "#ffffff",
+      description = "",
+    } = req.body;
+
+    const templateName = (title || name || "New Template").trim();
+    let finalImage = (imageUrl || thumbnailUrl || "").trim();
+
+    // If an external web image URL was provided, automatically download and cache it locally
+    // to prevent cross-origin blocking, hotlinking 403s, and ensure it always loads!
+    if (finalImage.startsWith("http://") || finalImage.startsWith("https://")) {
+      try {
+        const savedRemote = await saveRemoteImage(finalImage, req, "template_artwork");
+        if (savedRemote && (savedRemote.url || savedRemote.fileUrl)) {
+          finalImage = savedRemote.url || savedRemote.fileUrl;
+        }
+      } catch (dlErr) {
+        console.warn("[TemplatesRoutes] Could not cache remote image locally:", dlErr.message);
+        if (dlErr.isWebpage) {
+          return res.status(400).json({
+            error: dlErr.message || "The link provided points to a webpage, not a direct image."
+          });
+        }
+      }
+    }
+
+    // Generate clean slug-based ID
+    const baseSlug = templateName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '');
+    const cleanId = `tpl-${baseSlug || 'custom'}-${Date.now().toString().slice(-4)}`;
+
+    const effectiveIsPremium = Boolean(isPremium || badge?.toLowerCase() === "premium");
+    const effectiveBadge = badge || (effectiveIsPremium ? "Premium" : "Free");
+
+    // Standardized content payload expected by client/designer
+    const contentObj = {
+      badge: effectiveBadge,
+      thumbnailUrl: finalImage,
+      imageUrl: finalImage,
+      category: category || "General",
+      tags: Array.isArray(tags) && tags.length > 0 ? tags : [category || "General"],
+      description: description || "",
+      backdrop: {
+        type: "color",
+        value: "#FAF8F5",
+        color: "#FAF8F5",
+        gradient: "linear-gradient(135deg, #FAF8F5 0%, #EDE9E1 100%)"
+      },
+      envelope: {
+        outerColor: "#F3F0EB",
+        flapColor: "#EAE5DC",
+        linerColor: "#DFD8CD",
+        linerCss: "linear-gradient(135deg, #EAE5DC 0%, #DFD8CD 100%)",
+        isOpen: true,
+        isOpenUpward: true
+      },
+      card: {
+        backgroundColor: backgroundColor || "#FFFFFF",
+        artworkUrl: finalImage,
+        aspectRatio: aspectRatio || "5x7"
+      },
+      defaultTextLayers: [
+        {
+          id: "layer-title",
+          key: "title",
+          text: templateName,
+          fontFamily: "'Playfair Display', Georgia, serif",
+          fontSize: 22,
+          color: "#1A1A1A",
+          fontWeight: "600",
+          textAlign: "center",
+          top: 65,
+          left: 50
+        },
+        {
+          id: "layer-datetime",
+          key: "datetime",
+          text: "Saturday, November 14 • 6:00 PM",
+          fontFamily: "'Inter', sans-serif",
+          fontSize: 13,
+          color: "#4A4A4A",
+          fontWeight: "400",
+          textAlign: "center",
+          top: 76,
+          left: 50
+        },
+        {
+          id: "layer-venue",
+          key: "venue",
+          text: "The Grand Plaza • City Center",
+          fontFamily: "'Inter', sans-serif",
+          fontSize: 12,
+          color: "#7A7A7A",
+          fontWeight: "400",
+          textAlign: "center",
+          top: 84,
+          left: 50
+        }
+      ]
+    };
+
     const template = await prisma.template.create({
-      data: { name, thumbnailUrl, htmlContent, price }
+      data: {
+        id: cleanId,
+        name: templateName,
+        category: category || "General",
+        isPremium: effectiveIsPremium,
+        content: JSON.stringify(contentObj),
+      }
     });
-    res.status(201).json(template);
+
+    const formatted = formatTemplateForClient(template, req);
+    res.status(201).json({
+      success: true,
+      message: "Template created successfully",
+      template: formatted
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Delete a template (Admin only)
+router.delete('/:id', authenticate, isAdmin, async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    await prisma.template.delete({
+      where: { id }
+    });
+    res.json({ success: true, message: `Template '${id}' deleted successfully` });
   } catch (err) {
     next(err);
   }
 });
 
 const multer = require('multer');
-const { saveUploadedFile, saveBase64Image } = require('../utils/fileStorage');
+const { saveUploadedFile, saveBase64Image, saveRemoteImage } = require('../utils/fileStorage');
 
 // Multer configuration using memory storage
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 15 * 1024 * 1024 }, // 15MB limit
+});
+
+// Resolve, validate and pre-cache a remote image link for real-time live preview
+router.post('/resolve-image', async (req, res, next) => {
+  try {
+    const { url } = req.body;
+    if (!url || typeof url !== 'string' || !url.trim()) {
+      return res.status(400).json({ error: "Please provide an image URL" });
+    }
+
+    const savedRemote = await saveRemoteImage(url.trim(), req, "template_preview");
+    return res.json({
+      success: true,
+      url: savedRemote.url || savedRemote.fileUrl,
+      fileUrl: savedRemote.fileUrl,
+      filename: savedRemote.filename
+    });
+  } catch (err) {
+    return res.status(400).json({
+      success: false,
+      error: err.message || "Failed to load image from the provided link"
+    });
+  }
 });
 
 // Upload a template file or canvas snapshot
@@ -211,3 +372,4 @@ router.post('/upload', authenticate, upload.any(), async (req, res, next) => {
 });
 
 module.exports = router;
+
