@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 700" width="100%" height="100%">
+  <defs>
+    <radialGradient id="craspedia-grad" cx="40%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#FFE066"/>
+      <stop offset="60%" stop-color="#E5B232"/>
+      <stop offset="100%" stop-color="#A87910"/>
+    </radialGradient>
+    <linearGradient id="lily-bell-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="80%" stop-color="#F7F5EE"/>
+      <stop offset="100%" stop-color="#E2DECE"/>
+    </linearGradient>
+    <linearGradient id="pink-wildflower" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F2A7B8"/>
+      <stop offset="100%" stop-color="#B8556D"/>
+    </linearGradient>
+
+    <g id="billy-button">
+      <circle cx="0" cy="0" r="14" fill="url(#craspedia-grad)"/>
+      <circle cx="-5" cy="-6" r="1.5" fill="#FFEAA7" opacity="0.8"/>
+      <circle cx="2" cy="-7" r="1.5" fill="#FFEAA7" opacity="0.8"/>
+      <circle cx="-7" cy="1" r="1.5" fill="#FFEAA7" opacity="0.8"/>
+      <circle cx="5" cy="-2" r="1.5" fill="#FFEAA7" opacity="0.8"/>
+      <circle cx="-2" cy="5" r="1.5" fill="#FFEAA7" opacity="0.8"/>
+      <circle cx="4" cy="5" r="1.5" fill="#FFEAA7" opacity="0.8"/>
+    </g>
+
+    <g id="lily-arch">
+      <path d="M 0,60 C 2,30 15,10 35,0" stroke="#5A6F4E" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+      <path d="M 12,38 Q 16,36 18,44" stroke="#5A6F4E" stroke-width="1.2" fill="none"/>
+      <path d="M 14,44 C 12,47 14,54 18,54 C 22,54 24,47 22,44 Z" fill="url(#lily-bell-grad)" stroke="#D6D0BC" stroke-width="0.8"/>
+      <path d="M 22,22 Q 26,20 28,28" stroke="#5A6F4E" stroke-width="1.2" fill="none"/>
+      <path d="M 24,28 C 22,31 24,38 28,38 C 32,38 34,31 32,28 Z" fill="url(#lily-bell-grad)" stroke="#D6D0BC" stroke-width="0.8"/>
+      <path d="M 33,6 Q 37,4 38,12" stroke="#5A6F4E" stroke-width="1.2" fill="none"/>
+      <path d="M 35,12 C 33,15 35,21 38,21 C 41,21 43,15 41,12 Z" fill="url(#lily-bell-grad)" stroke="#D6D0BC" stroke-width="0.8"/>
+    </g>
+
+    <g id="pink-flower">
+      <ellipse cx="0" cy="-10" rx="6" ry="10" fill="url(#pink-wildflower)"/>
+      <ellipse cx="10" cy="-3" rx="6" ry="10" transform="rotate(72 10 -3)" fill="url(#pink-wildflower)"/>
+      <ellipse cx="6" cy="9" rx="6" ry="10" transform="rotate(144 6 9)" fill="url(#pink-wildflower)"/>
+      <ellipse cx="-6" cy="9" rx="6" ry="10" transform="rotate(216 -6 9)" fill="url(#pink-wildflower)"/>
+      <ellipse cx="-10" cy="-3" rx="6" ry="10" transform="rotate(288 -10 -3)" fill="url(#pink-wildflower)"/>
+      <circle cx="0" cy="0" r="4" fill="#F0DC82"/>
+    </g>
+
+    <g id="fern-sprig">
+      <line x1="0" y1="0" x2="0" y2="-70" stroke="#4A5E40" stroke-width="1.8"/>
+      <ellipse cx="-8" cy="-15" rx="3" ry="8" transform="rotate(-40 -8 -15)" fill="#68855B"/>
+      <ellipse cx="8" cy="-20" rx="3" ry="8" transform="rotate(40 8 -20)" fill="#68855B"/>
+      <ellipse cx="-8" cy="-32" rx="3" ry="7" transform="rotate(-40 -8 -32)" fill="#68855B"/>
+      <ellipse cx="8" cy="-37" rx="3" ry="7" transform="rotate(40 8 -37)" fill="#68855B"/>
+      <ellipse cx="-7" cy="-48" rx="2.5" ry="6" transform="rotate(-40 -7 -48)" fill="#7A9A6C"/>
+      <ellipse cx="7" cy="-53" rx="2.5" ry="6" transform="rotate(40 7 -53)" fill="#7A9A6C"/>
+      <ellipse cx="0" cy="-66" rx="2" ry="5" fill="#7A9A6C"/>
+    </g>
+  </defs>
+
+  <rect width="500" height="700" fill="#F7F3E7" rx="4"/>
+  <rect x="25" y="25" width="450" height="650" fill="none" stroke="#E3DCCB" stroke-width="1" stroke-dasharray="2 4"/>
+
+  <g transform="translate(100, 50)"><use href="#lily-arch" transform="scale(0.85) rotate(-30)"/></g>
+  <g transform="translate(180, 42)"><use href="#billy-button" transform="scale(0.85)"/></g>
+  <g transform="translate(240, 48)"><use href="#pink-flower" transform="scale(0.7)"/></g>
+  <g transform="translate(300, 42)"><use href="#billy-button" transform="scale(0.9)"/></g>
+  <g transform="translate(360, 50)"><use href="#lily-arch" transform="scale(-0.85, 0.85) rotate(30)"/></g>
+  <g transform="translate(220, 35)"><use href="#fern-sprig" transform="scale(0.6) rotate(90)"/></g>
+  <g transform="translate(280, 35)"><use href="#fern-sprig" transform="scale(0.6) rotate(-90)"/></g>
+
+  <g transform="translate(120, 650)"><use href="#lily-arch" transform="scale(0.85, -0.85) rotate(-30)"/></g>
+  <g transform="translate(180, 655)"><use href="#billy-button" transform="scale(0.9)"/></g>
+  <g transform="translate(250, 650)"><use href="#pink-flower" transform="scale(0.8)"/></g>
+  <g transform="translate(320, 655)"><use href="#billy-button" transform="scale(0.85)"/></g>
+  <g transform="translate(380, 650)"><use href="#lily-arch" transform="scale(-0.85, -0.85) rotate(30)"/></g>
+  <g transform="translate(220, 665)"><use href="#fern-sprig" transform="scale(0.6) rotate(90)"/></g>
+  <g transform="translate(280, 665)"><use href="#fern-sprig" transform="scale(0.6) rotate(-90)"/></g>
+
+  <g transform="translate(42, 100)"><use href="#fern-sprig" transform="scale(0.7) rotate(15)"/></g>
+  <g transform="translate(48, 160)"><use href="#billy-button" transform="scale(0.8)"/></g>
+  <g transform="translate(45, 230)"><use href="#lily-arch" transform="scale(0.8) rotate(40)"/></g>
+  <g transform="translate(48, 310)"><use href="#pink-flower" transform="scale(0.75)"/></g>
+  <g transform="translate(42, 380)"><use href="#billy-button" transform="scale(0.85)"/></g>
+  <g transform="translate(45, 460)"><use href="#lily-arch" transform="scale(0.8) rotate(30)"/></g>
+  <g transform="translate(48, 540)"><use href="#pink-flower" transform="scale(0.7)"/></g>
+  <g transform="translate(45, 600)"><use href="#fern-sprig" transform="scale(0.7) rotate(-15)"/></g>
+
+  <g transform="translate(458, 100)"><use href="#fern-sprig" transform="scale(0.7) rotate(-15)"/></g>
+  <g transform="translate(452, 160)"><use href="#pink-flower" transform="scale(0.75)"/></g>
+  <g transform="translate(455, 230)"><use href="#billy-button" transform="scale(0.85)"/></g>
+  <g transform="translate(452, 310)"><use href="#lily-arch" transform="scale(-0.8, 0.8) rotate(-40)"/></g>
+  <g transform="translate(458, 380)"><use href="#pink-flower" transform="scale(0.7)"/></g>
+  <g transform="translate(452, 460)"><use href="#billy-button" transform="scale(0.8)"/></g>
+  <g transform="translate(455, 540)"><use href="#lily-arch" transform="scale(-0.8, 0.8) rotate(-30)"/></g>
+  <g transform="translate(458, 600)"><use href="#fern-sprig" transform="scale(0.7) rotate(15)"/></g>
+
+  <g transform="translate(48, 48)"><use href="#billy-button" transform="scale(0.95)"/></g>
+  <g transform="translate(452, 48)"><use href="#billy-button" transform="scale(0.95)"/></g>
+  <g transform="translate(48, 652)"><use href="#billy-button" transform="scale(0.95)"/></g>
+  <g transform="translate(452, 652)"><use href="#billy-button" transform="scale(0.95)"/></g>
+</svg>

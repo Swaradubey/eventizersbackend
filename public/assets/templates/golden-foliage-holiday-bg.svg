@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 700" width="100%" height="100%">
+  <defs>
+    <!-- Metallic Gold Foil Gradient -->
+    <linearGradient id="gfh-gold-bg" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#9E7318"/>
+      <stop offset="20%" stop-color="#D4AF37"/>
+      <stop offset="40%" stop-color="#FFF4B3"/>
+      <stop offset="60%" stop-color="#D4AF37"/>
+      <stop offset="80%" stop-color="#AA771C"/>
+      <stop offset="100%" stop-color="#7C540C"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Deep Hunter Green Base -->
+  <rect width="500" height="700" rx="14" fill="#223326"/>
+
+  <!-- Golden Pine Needles, Cones & Confetti Sprinkles framing the background -->
+  <g stroke="url(#gfh-gold-bg)" fill="none" stroke-linecap="round">
+    <!-- Top Left Branch Cluster -->
+    <g transform="translate(10, 10)">
+      <path d="M 0,0 Q 60,50 50,135 Q 38,195 62,270" stroke-width="2.2"/>
+      <path d="M 14,24 L -10,14 M 26,42 L 2,28 M 38,66 L 9,50 M 45,94 L 14,78 M 43,126 L 9,114 M 38,162 L 5,153 M 45,202 L 12,194 M 54,238 L 22,234" stroke-width="1.8"/>
+      <path d="M 14,21 L 38,7 M 26,38 L 52,21 M 38,60 L 69,42 M 45,86 L 81,65 M 43,118 L 81,98 M 38,154 L 74,134 M 45,192 L 81,174 M 54,228 L 86,214" stroke-width="1.8"/>
+      <g transform="translate(50, 138) rotate(25)" fill="url(#gfh-gold-bg)" stroke="#8A6414" stroke-width="0.8">
+        <ellipse cx="0" cy="0" rx="10" ry="18"/>
+        <path d="M -9,-7 Q 0,-14 9,-7 M -10,0 Q 0,-7 10,0 M -9,7 Q 0,0 9,7 M -6,14 Q 0,7 6,14"/>
+      </g>
+    </g>
+
+    <!-- Top Right Golden Branch Cluster -->
+    <g transform="translate(490, 10) scale(-1, 1)">
+      <path d="M 0,0 Q 60,50 50,135 Q 38,195 62,270" stroke-width="2.2"/>
+      <path d="M 14,24 L -10,14 M 26,42 L 2,28 M 38,66 L 9,50 M 45,94 L 14,78 M 43,126 L 9,114 M 38,162 L 5,153 M 45,202 L 12,194 M 54,238 L 22,234" stroke-width="1.8"/>
+      <path d="M 14,21 L 38,7 M 26,38 L 52,21 M 38,60 L 69,42 M 45,86 L 81,65 M 43,118 L 81,98 M 38,154 L 74,134 M 45,192 L 81,174 M 54,228 L 86,214" stroke-width="1.8"/>
+      <g transform="translate(50, 138) rotate(25)" fill="url(#gfh-gold-bg)" stroke="#8A6414" stroke-width="0.8">
+        <ellipse cx="0" cy="0" rx="10" ry="18"/>
+        <path d="M -9,-7 Q 0,-14 9,-7 M -10,0 Q 0,-7 10,0 M -9,7 Q 0,0 9,7 M -6,14 Q 0,7 6,14"/>
+      </g>
+    </g>
+
+    <!-- Bottom Left Branch Cluster -->
+    <g transform="translate(10, 690) scale(1, -1)">
+      <path d="M 0,0 Q 60,50 50,135 Q 38,195 62,270" stroke-width="2.2"/>
+      <path d="M 14,24 L -10,14 M 26,42 L 2,28 M 38,66 L 9,50 M 45,94 L 14,78 M 43,126 L 9,114 M 38,162 L 5,153 M 45,202 L 12,194" stroke-width="1.8"/>
+      <path d="M 14,21 L 38,7 M 26,38 L 52,21 M 38,60 L 69,42 M 45,86 L 81,65 M 43,118 L 81,98 M 38,154 L 74,134 M 45,192 L 81,174" stroke-width="1.8"/>
+      <g transform="translate(50, 138) rotate(25)" fill="url(#gfh-gold-bg)" stroke="#8A6414" stroke-width="0.8">
+        <ellipse cx="0" cy="0" rx="10" ry="18"/>
+        <path d="M -9,-7 Q 0,-14 9,-7 M -10,0 Q 0,-7 10,0 M -9,7 Q 0,0 9,7 M -6,14 Q 0,7 6,14"/>
+      </g>
+    </g>
+
+    <!-- Bottom Right Branch Cluster -->
+    <g transform="translate(490, 690) scale(-1, -1)">
+      <path d="M 0,0 Q 60,50 50,135 Q 38,195 62,270" stroke-width="2.2"/>
+      <path d="M 14,24 L -10,14 M 26,42 L 2,28 M 38,66 L 9,50 M 45,94 L 14,78 M 43,126 L 9,114 M 38,162 L 5,153 M 45,202 L 12,194" stroke-width="1.8"/>
+      <path d="M 14,21 L 38,7 M 26,38 L 52,21 M 38,60 L 69,42 M 45,86 L 81,65 M 43,118 L 81,98 M 38,154 L 74,134 M 45,192 L 81,174" stroke-width="1.8"/>
+    </g>
+  </g>
+
+  <!-- Gold Confetti Dots -->
+  <g fill="url(#gfh-gold-bg)">
+    <circle cx="45" cy="55" r="2.2"/><circle cx="75" cy="28" r="2.8"/><circle cx="120" cy="45" r="1.8"/><circle cx="165" cy="22" r="2.5"/><circle cx="235" cy="28" r="2.4"/>
+    <circle cx="300" cy="40" r="3"/><circle cx="350" cy="22" r="2.2"/><circle cx="395" cy="50" r="2.6"/><circle cx="430" cy="28" r="2.8"/>
+    <circle cx="30" cy="220" r="2.4"/><circle cx="45" cy="410" r="2.8"/><circle cx="460" cy="235" r="2.2"/><circle cx="475" cy="425" r="2.6"/>
+    <circle cx="55" cy="655" r="2.6"/><circle cx="95" cy="672" r="2.2"/><circle cx="150" cy="658" r="3"/><circle cx="205" cy="675" r="2.4"/><circle cx="280" cy="660" r="2.8"/>
+    <circle cx="340" cy="678" r="2.2"/><circle cx="395" cy="662" r="2.6"/><circle cx="430" cy="642" r="3"/>
+  </g>
+
+  <!-- Centered Crisp Double-Line White Box -->
+  <g>
+    <!-- White Background Container -->
+    <rect x="85" y="85" width="330" height="530" fill="#FFFFFF" rx="2"/>
+    <!-- Outer Crisp Border -->
+    <rect x="94" y="94" width="312" height="512" fill="none" stroke="#2B2B2B" stroke-width="2.2"/>
+    <!-- Inner Hairline Border -->
+    <rect x="100" y="100" width="300" height="500" fill="none" stroke="#8A8A8A" stroke-width="1"/>
+  </g>
+
+  <!-- Card Outer Border -->
+  <rect width="500" height="700" rx="14" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+</svg>

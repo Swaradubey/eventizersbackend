@@ -1,0 +1,316 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 800" width="100%" height="100%">
+  <defs>
+    <!-- Embossed relief filter for realistic paper press floral backdrop -->
+    <filter id="floral-emboss" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="1.2" result="blur"/>
+      <feOffset in="blur" dx="-1.2" dy="-1.2" result="highlight"/>
+      <feOffset in="blur" dx="1.2" dy="1.2" result="shadow"/>
+      <feFlood flood-color="#ffffff" flood-opacity="0.95" result="highlightColor"/>
+      <feComposite in="highlightColor" in2="highlight" operator="in" result="highlightTerm"/>
+      <feFlood flood-color="#b8ada0" flood-opacity="0.4" result="shadowColor"/>
+      <feComposite in="shadowColor" in2="shadow" operator="in" result="shadowTerm"/>
+      <feMerge>
+        <feMergeNode in="shadowTerm"/>
+        <feMergeNode in="highlightTerm"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Seamless Embossed Floral Pattern -->
+    <pattern id="embossed-floral-pattern" width="300" height="300" patternUnits="userSpaceOnUse">
+      <g filter="url(#floral-emboss)" fill="none" stroke="#e8e2d8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <g transform="translate(150, 150)">
+          <circle cx="0" cy="0" r="12" fill="#faf8f5" stroke-width="1.6"/>
+          <path d="M 0,-12 C -10,-28 -20,-36 0,-50 C 20,-36 10,-28 0,-12 Z" fill="#faf8f5"/>
+          <path d="M 0,12 C -10,28 -20,36 0,50 C 20,36 10,28 0,12 Z" fill="#faf8f5"/>
+          <path d="M -12,0 C -28,-10 -36,-20 0,-50 C 36,-20 28,-10 12,0 Z" fill="#faf8f5"/>
+          <path d="M 12,0 C 28,-10 36,-20 50,0 C 36,20 28,10 12,0 Z" fill="#faf8f5"/>
+          <path d="M -8,-8 C -24,-24 -36,-30 -36,-36 C -30,-36 -24,-24 -8,-8 Z" fill="#faf8f5"/>
+          <path d="M 8,-8 C 24,-24 36,-30 36,-36 C 30,-36 24,-24 8,-8 Z" fill="#faf8f5"/>
+          <path d="M -8,8 C -24,24 -36,30 -36,36 C -30,36 -24,24 -8,8 Z" fill="#faf8f5"/>
+          <path d="M 8,8 C 24,24 36,30 36,36 C 30,36 24,24 8,8 Z" fill="#faf8f5"/>
+          <circle cx="0" cy="0" r="5" stroke-width="1"/>
+          <circle cx="0" cy="0" r="2" fill="#e8e2d8"/>
+        </g>
+        <path d="M 150,100 C 150,65 120,35 80,35 C 45,35 30,65 30,95 C 30,130 55,150 80,150 C 100,150 115,140 115,120" stroke-width="1.5"/>
+        <path d="M 150,200 C 150,235 180,265 220,265 C 255,265 270,235 270,205 C 270,170 245,150 220,150 C 200,150 185,160 185,180" stroke-width="1.5"/>
+        <g transform="translate(0, 0)">
+          <circle cx="0" cy="0" r="10" fill="#faf8f5" stroke-width="1.5"/>
+          <path d="M 0,10 C 12,24 20,36 32,32 C 36,20 24,12 10,0" fill="#faf8f5"/>
+        </g>
+        <g transform="translate(300, 300)">
+          <circle cx="0" cy="0" r="10" fill="#faf8f5" stroke-width="1.5"/>
+          <path d="M 0,-10 C -12,-24 -20,-36 -32,-32 C -36,-20 -24,-12 -10,0" fill="#faf8f5"/>
+        </g>
+      </g>
+    </pattern>
+
+    <!-- Metallic Gold Foil Shimmer Gradient -->
+    <linearGradient id="gold-foil-liner" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#C2932E"/>
+      <stop offset="18%" stop-color="#E5C158"/>
+      <stop offset="35%" stop-color="#FFF2A1"/>
+      <stop offset="52%" stop-color="#D4AF37"/>
+      <stop offset="70%" stop-color="#AA771C"/>
+      <stop offset="85%" stop-color="#FDF4B8"/>
+      <stop offset="100%" stop-color="#9A6B12"/>
+    </linearGradient>
+
+    <!-- Gold Foil Speckle/Glitter Filter for realistic textured shimmer -->
+    <filter id="gold-shimmer" x="-20%" y="-20%" width="140%" height="140%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.45" numOctaves="3" result="noise"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0.83  0 0 0 0 0.69  0 0 0 0 0.22  0 0 0 0.28 0" in="noise" result="coloredNoise"/>
+      <feComposite in="SourceGraphic" in2="coloredNoise" operator="over"/>
+    </filter>
+
+    <!-- Envelope Drop Shadow onto floral backdrop -->
+    <filter id="envelope-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="20" flood-color="#000000" flood-opacity="0.35"/>
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000000" flood-opacity="0.18"/>
+    </filter>
+
+    <!-- Exact Card Elevation Shadow: box-shadow: 0 12px 28px -6px rgba(0,0,0,0.3) -->
+    <filter id="card-elevation-shadow" x="-30%" y="-20%" width="160%" height="150%">
+      <feDropShadow dx="0" dy="12" stdDeviation="11" flood-color="#000000" flood-opacity="0.32"/>
+      <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#000000" flood-opacity="0.15"/>
+    </filter>
+
+    <!-- Deckled Edge Displacement for Card Paper -->
+    <filter id="deckled-edge">
+      <feTurbulence type="fractalNoise" baseFrequency="0.08" numOctaves="4" result="noise" />
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="3" xChannelSelector="R" yChannelSelector="G" />
+    </filter>
+
+    <!-- Sparkle Gold Flakes -->
+    <g id="gold-flake">
+      <polygon points="0,-6 4,-1 7,5 1,4 -5,6 -3,0 -7,-4" fill="#D4AF37" opacity="0.85"/>
+    </g>
+    <g id="gold-flake-sm">
+      <polygon points="0,-4 3,-1 5,3 1,3 -3,4 -2,0 -5,-3" fill="#E5C158" opacity="0.8"/>
+    </g>
+  </defs>
+
+  <!-- ========================================================================= -->
+  <!-- 1. BACKDROP: Elegant White Embossed Floral Texture                        -->
+  <!-- ========================================================================= -->
+  <rect width="600" height="800" fill="#FAF7F2"/>
+  <rect width="600" height="800" fill="url(#embossed-floral-pattern)"/>
+  <!-- Ambient soft vignette overlay -->
+  <radialGradient id="backdrop-vignette" cx="50%" cy="50%" r="65%">
+    <stop offset="50%" stop-color="#ffffff" stop-opacity="0"/>
+    <stop offset="100%" stop-color="#E2DDD5" stop-opacity="0.5"/>
+  </radialGradient>
+  <rect width="600" height="800" fill="url(#backdrop-vignette)"/>
+
+  <!-- ========================================================================= -->
+  <!-- 2. ENVELOPE: Deep Matte Black (#111111) with Open Triangular Flap UPWARD  -->
+  <!-- ========================================================================= -->
+  <g filter="url(#envelope-shadow)">
+    <!-- Envelope Pocket Body (Behind the card) -->
+    <rect x="75" y="270" width="450" height="470" rx="14" fill="#111111"/>
+
+    <!-- Open Triangular Flap Pointing UPWARD (Matte Black #111111) -->
+    <!-- Base at y=272 (across envelope body top), Apex pointing UP to y=76 -->
+    <path d="M 75,272 L 300,76 L 525,272 Z" fill="#111111"/>
+
+    <!-- Inner Liner: Metallic Gold Foil / Shimmer Texture (#D4AF37) -->
+    <!-- Inset from black flap border to show matte black envelope paper edge -->
+    <g filter="url(#gold-shimmer)">
+      <path d="M 108,266 L 300,108 L 492,266 Z" fill="url(#gold-foil-liner)"/>
+    </g>
+
+    <!-- Metallic Foil Sheen Overlay on Gold Liner -->
+    <path d="M 108,266 L 300,108 L 300,266 Z" fill="#ffffff" opacity="0.12"/>
+    <path d="M 180,266 L 300,108 L 340,266 Z" fill="#ffffff" opacity="0.08"/>
+
+    <!-- Crease Shadow where flap meets envelope body -->
+    <line x1="75" y1="272" x2="525" y2="272" stroke="#000000" stroke-width="3" opacity="0.45"/>
+    <line x1="108" y1="268" x2="492" y2="268" stroke="#7A550B" stroke-width="1.5" opacity="0.4"/>
+  </g>
+
+  <!-- ========================================================================= -->
+  <!-- 3. CARD LAYER: Centered Over Envelope with Elevation Shadow               -->
+  <!-- Soft elevation shadow: box-shadow: 0 12px 28px -6px rgba(0,0,0,0.3)      -->
+  <!-- ========================================================================= -->
+  <g filter="url(#card-elevation-shadow)">
+    <!-- Deckled/Artisanal Edge Cream Paper Card -->
+    <!-- Centered: x=118 to 482 (width: 364), y=190 to 730 (height: 540) -->
+    <rect x="118" y="190" width="364" height="540" rx="6" fill="#F4EFE6" filter="url(#deckled-edge)"/>
+
+    <!-- Subtle Deckle Edge Paper Inner Border / Texture -->
+    <rect x="124" y="196" width="352" height="528" rx="4" fill="none" stroke="#222222" stroke-width="0.5" stroke-opacity="0.18"/>
+  </g>
+
+  <!-- Gold Leaf Foil Flakes on Card (Matching Reference Image) -->
+  <g transform="translate(142, 218)"><use href="#gold-flake"/></g>
+  <g transform="translate(452, 215)"><use href="#gold-flake"/></g>
+  <g transform="translate(470, 240)"><use href="#gold-flake-sm"/></g>
+  <g transform="translate(132, 690)"><use href="#gold-flake-sm"/></g>
+  <g transform="translate(148, 705)"><use href="#gold-flake"/></g>
+  <g transform="translate(460, 698)"><use href="#gold-flake"/></g>
+
+  <!-- ========================================================================= -->
+  <!-- 4. CARD CONTENT: Typography & Sketch Line Illustration                    -->
+  <!-- ========================================================================= -->
+  <g text-anchor="middle">
+    <!-- "Let's celebrate" (Great Vibes cursive script) -->
+    <text x="300" y="278" font-family="'Great Vibes', 'Alex Brush', 'Brush Script MT', cursive" font-size="44" fill="#1A1A1A" font-weight="normal">
+      Let's celebrate
+    </text>
+
+    <!-- "LAURA'S 30TH BIRTHDAY" (Cinzel / Serif small caps) -->
+    <text x="300" y="322" font-family="'Cinzel', 'Playfair Display', Georgia, serif" font-size="16.5" letter-spacing="3" fill="#1A1A1A" font-weight="700">
+      LAURA'S
+    </text>
+    <text x="300" y="344" font-family="'Cinzel', 'Playfair Display', Georgia, serif" font-size="16.5" letter-spacing="3" fill="#1A1A1A" font-weight="700">
+      30TH BIRTHDAY
+    </text>
+
+    <!-- "AUGUST 31ST AT 7 PM / OUR PLACE" -->
+    <text x="300" y="378" font-family="'Inter', -apple-system, sans-serif" font-size="9" letter-spacing="2" fill="#555555" font-weight="600">
+      AUGUST 31ST AT 7 PM
+    </text>
+    <text x="300" y="394" font-family="'Inter', -apple-system, sans-serif" font-size="9" letter-spacing="2" fill="#555555" font-weight="600">
+      OUR PLACE
+    </text>
+  </g>
+
+  <!-- Minimalist Black Line Sketch Illustration (Candelabra, Cake, Champagne) -->
+  <g stroke="#1A1A1A" stroke-linecap="round" stroke-linejoin="round" fill="none">
+
+    <!-- Table Horizon Line -->
+    <path d="M 148,680 C 190,679 260,680 340,679 C 400,679 435,680 452,680" stroke-width="1.1" opacity="0.6"/>
+
+    <!-- 1. LEFT: CANDELABRA WITH LIT CANDLES -->
+    <g transform="translate(195, 545)">
+      <!-- Candle Flames Glow -->
+      <radialGradient id="cg1" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="#FFD580" stop-opacity="0.6"/>
+        <stop offset="100%" stop-color="#F4EFE6" stop-opacity="0"/>
+      </radialGradient>
+      <!-- Center Flame -->
+      <circle cx="0" cy="-60" r="10" fill="url(#cg1)" stroke="none"/>
+      <path d="M 0,-56 C -2,-61 -2,-66 0,-70 C 2,-66 2,-61 0,-56 Z" fill="#1A1A1A" stroke-width="0.8"/>
+      <!-- Center Candle -->
+      <rect x="-3" y="-52" width="6" height="58" fill="#F4EFE6" stroke-width="1"/>
+      <ellipse cx="0" cy="8" rx="6" ry="2.5" fill="#F4EFE6" stroke-width="1"/>
+
+      <!-- Left Arm & Candle -->
+      <circle cx="-28" cy="-44" r="9" fill="url(#cg1)" stroke="none"/>
+      <path d="M -28,-40 C -30,-45 -30,-49 -28,-53 C -26,-49 -26,-45 -28,-40 Z" fill="#1A1A1A" stroke-width="0.8"/>
+      <rect x="-30.5" y="-36" width="5" height="42" fill="#F4EFE6" stroke-width="1"/>
+      <ellipse cx="-28" cy="8" rx="5" ry="2" fill="#F4EFE6" stroke-width="1"/>
+      <path d="M -28,8 C -28,30 -6,40 0,44" stroke-width="1.3"/>
+
+      <!-- Far Left Arm & Candle -->
+      <circle cx="-48" cy="-28" r="8" fill="url(#cg1)" stroke="none"/>
+      <path d="M -48,-24 C -50,-28 -50,-32 -48,-36 C -46,-32 -46,-28 -48,-24 Z" fill="#1A1A1A" stroke-width="0.8"/>
+      <rect x="-50" y="-20" width="4.5" height="36" fill="#F4EFE6" stroke-width="1"/>
+      <ellipse cx="-48" cy="18" rx="4.5" ry="2" fill="#F4EFE6" stroke-width="1"/>
+      <path d="M -48,18 C -48,46 -12,54 0,58" stroke-width="1.2"/>
+
+      <!-- Right Arm & Candle -->
+      <circle cx="28" cy="-44" r="9" fill="url(#cg1)" stroke="none"/>
+      <path d="M 28,-40 C 26,-45 26,-49 28,-53 C 30,-49 30,-45 28,-40 Z" fill="#1A1A1A" stroke-width="0.8"/>
+      <rect x="25.5" y="-36" width="5" height="42" fill="#F4EFE6" stroke-width="1"/>
+      <ellipse cx="28" cy="8" rx="5" ry="2" fill="#F4EFE6" stroke-width="1"/>
+      <path d="M 28,8 C 28,30 6,40 0,44" stroke-width="1.3"/>
+
+      <!-- Far Right Arm & Candle -->
+      <circle cx="48" cy="-28" r="8" fill="url(#cg1)" stroke="none"/>
+      <path d="M 48,-24 C 46,-28 46,-32 48,-36 C 50,-32 50,-28 48,-24 Z" fill="#1A1A1A" stroke-width="0.8"/>
+      <rect x="45.5" y="-20" width="4.5" height="36" fill="#F4EFE6" stroke-width="1"/>
+      <ellipse cx="48" cy="18" rx="4.5" ry="2" fill="#F4EFE6" stroke-width="1"/>
+      <path d="M 48,18 C 48,46 12,54 0,58" stroke-width="1.2"/>
+
+      <!-- Candlestick Shaft & Ornamental Stand -->
+      <path d="M -2.5,8 L -2.5,90 L 2.5,90 L 2.5,8" stroke-width="1.2"/>
+      <ellipse cx="0" cy="46" rx="6" ry="2.5" fill="#F4EFE6" stroke-width="1.1"/>
+      <ellipse cx="0" cy="74" rx="7.5" ry="3" fill="#F4EFE6" stroke-width="1.2"/>
+      <!-- Base of Candlestick -->
+      <path d="M -5,90 C -12,102 -18,115 -22,126 L 22,126 C 18,115 12,102 5,90 Z" fill="#F4EFE6" stroke-width="1.3"/>
+      <ellipse cx="0" cy="126" rx="22" ry="5.5" fill="#F4EFE6" stroke-width="1.3"/>
+    </g>
+
+    <!-- 2. CENTER: MULTI-TIER CELEBRATION CAKE ON PEDESTAL -->
+    <g transform="translate(300, 560)">
+      <!-- Top Tier Candle -->
+      <circle cx="0" cy="-62" r="7" fill="url(#cg1)" stroke="none"/>
+      <path d="M 0,-58 C -1.5,-62 -1.5,-65 0,-68 C 1.5,-65 1.5,-62 0,-58 Z" fill="#1A1A1A" stroke-width="0.7"/>
+      <rect x="-1.5" y="-54" width="3" height="18" fill="#F4EFE6" stroke-width="0.9"/>
+
+      <!-- Top Tier Flowers/Berries topper -->
+      <ellipse cx="0" cy="-36" rx="14" ry="5" fill="#F4EFE6" stroke-width="1"/>
+      <circle cx="-5" cy="-38" r="2.5" fill="#1A1A1A" stroke="none"/>
+      <circle cx="4" cy="-37" r="2" fill="#1A1A1A" stroke="none"/>
+      <circle cx="0" cy="-40" r="2" fill="#1A1A1A" stroke="none"/>
+
+      <!-- Top Tier Cake Cylinder -->
+      <line x1="-22" y1="-36" x2="-22" y2="-12" stroke-width="1.2"/>
+      <line x1="22" y1="-36" x2="22" y2="-12" stroke-width="1.2"/>
+      <path d="M -22,-12 C -22,-5 22,-5 22,-12" stroke-width="1.2" fill="#F4EFE6"/>
+      <!-- Delicate frosting swags -->
+      <path d="M -20,-24 Q -10,-18 0,-24 Q 10,-18 20,-24" stroke-width="0.8"/>
+
+      <!-- Bottom Tier Cake Cylinder -->
+      <ellipse cx="0" cy="-12" rx="38" ry="9" fill="#F4EFE6" stroke-width="1.3"/>
+      <line x1="-38" y1="-12" x2="-38" y2="28" stroke-width="1.3"/>
+      <line x1="38" y1="-12" x2="38" y2="28" stroke-width="1.3"/>
+      <path d="M -38,28 C -38,40 38,40 38,28" stroke-width="1.3" fill="#F4EFE6"/>
+      <!-- Frosting Pearl Droplets & Swags on Main Tier -->
+      <path d="M -35,5 Q -18,16 0,6 Q 18,16 35,5" stroke-width="1"/>
+      <path d="M -32,15 Q -16,25 0,16 Q 16,25 32,15" stroke-width="0.8" stroke-dasharray="2.5 1.5"/>
+
+      <!-- Scalloped Cake Pedestal Stand -->
+      <ellipse cx="0" cy="28" rx="46" ry="10" fill="#F4EFE6" stroke-width="1.4"/>
+      <path d="M -46,28 C -46,34 46,34 46,28 L 44,34 C 44,40 -44,40 -44,34 Z" fill="#F4EFE6" stroke-width="1.2"/>
+      <!-- Stem -->
+      <path d="M -8,38 C -4,46 -6,60 -12,72 L 12,72 C 6,60 4,46 8,38 Z" fill="#F4EFE6" stroke-width="1.3"/>
+      <!-- Stand Base Foot -->
+      <ellipse cx="0" cy="72" rx="26" ry="6.5" fill="#F4EFE6" stroke-width="1.4"/>
+    </g>
+
+    <!-- 3. RIGHT: TWO CHAMPAGNE FLUTES & BOTTLE -->
+    <g transform="translate(382, 570)">
+      <!-- Left Champagne Flute -->
+      <g transform="translate(-18, 12)">
+        <path d="M -4,-28 L -4,-8 C -4,2 4,2 4,-8 L 4,-28 Z" fill="#F4EFE6" stroke-width="1"/>
+        <line x1="0" y1="2" x2="0" y2="34" stroke-width="1"/>
+        <ellipse cx="0" cy="34" rx="7" ry="2.2" fill="#F4EFE6" stroke-width="1"/>
+        <!-- Champagne liquid & bubbles -->
+        <path d="M -3,-18 C -3,-10 3,-10 3,-18" stroke-width="0.7"/>
+        <circle cx="-1" cy="-14" r="0.8" fill="#1A1A1A" stroke="none"/>
+        <circle cx="1" cy="-20" r="0.8" fill="#1A1A1A" stroke="none"/>
+      </g>
+
+      <!-- Right Champagne Flute -->
+      <g transform="translate(0, 15)">
+        <path d="M -4,-28 L -4,-8 C -4,2 4,2 4,-8 L 4,-28 Z" fill="#F4EFE6" stroke-width="1"/>
+        <line x1="0" y1="2" x2="0" y2="34" stroke-width="1"/>
+        <ellipse cx="0" cy="34" rx="7" ry="2.2" fill="#F4EFE6" stroke-width="1"/>
+        <!-- Champagne liquid & bubbles -->
+        <path d="M -3,-18 C -3,-10 3,-10 3,-18" stroke-width="0.7"/>
+        <circle cx="0" cy="-15" r="0.8" fill="#1A1A1A" stroke="none"/>
+      </g>
+
+      <!-- Champagne Bottle -->
+      <g transform="translate(24, 0)">
+        <!-- Base -->
+        <ellipse cx="0" cy="46" rx="14" ry="4.5" fill="#F4EFE6" stroke-width="1.3"/>
+        <!-- Sides -->
+        <line x1="-14" y1="-8" x2="-14" y2="46" stroke-width="1.3"/>
+        <line x1="14" y1="-8" x2="14" y2="46" stroke-width="1.3"/>
+        <!-- Shoulder -->
+        <path d="M -14,-8 C -14,-30 -5,-40 -5,-55 L 5,-55 C 5,-40 14,-30 14,-8" fill="#F4EFE6" stroke-width="1.3"/>
+        <!-- Neck & Foil Cap -->
+        <rect x="-4.5" y="-68" width="9" height="13" fill="#F4EFE6" stroke-width="1.1"/>
+        <ellipse cx="0" cy="-68" rx="5" ry="1.8" fill="#F4EFE6" stroke-width="1.1"/>
+        <line x1="-4.5" y1="-61" x2="4.5" y2="-61" stroke-width="0.8"/>
+        <!-- Label -->
+        <rect x="-10" y="3" width="20" height="28" rx="1.5" fill="#F4EFE6" stroke-width="1"/>
+        <line x1="-7" y1="12" x2="7" y2="12" stroke-width="0.7"/>
+        <line x1="-5" y1="18" x2="5" y2="18" stroke-width="0.7"/>
+      </g>
+    </g>
+  </g>
+</svg>

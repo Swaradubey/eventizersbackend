@@ -86,6 +86,7 @@ const getPublicBaseUrl = (req) => {
 
   // 2. Public backend URLs (where /uploads are hosted), then app URLs
   const publicCandidates = [
+    process.env.BACKEND_PUBLIC_URL,
     process.env.PUBLIC_BACKEND_URL,
     process.env.BACKEND_URL,
     process.env.PUBLIC_URL,
@@ -99,10 +100,12 @@ const getPublicBaseUrl = (req) => {
     }
   }
 
-  // 3. Detect public tunnel (ngrok / Cloudflare) via request host header
+  const isProduction = process.env.NODE_ENV === "production" || !!process.env.VERCEL;
+
+  // 3. Detect public tunnel or production host via request host header
   if (req && typeof req.get === "function") {
     const host = req.get("host") || "";
-    const protocol = req.protocol || "http";
+    const protocol = req.headers?.["x-forwarded-proto"] || req.protocol || (isProduction ? "https" : "http");
     if (
       host.includes("ngrok") ||
       host.includes("trycloudflare") ||
@@ -120,16 +123,18 @@ const getPublicBaseUrl = (req) => {
       "\n⚠️  [FileStorage] WARNING: No public HTTPS backend URL configured.\n" +
       "   Image URLs will point to localhost which is UNREACHABLE from external email clients.\n" +
       "   To fix this, set one of these env vars to a live public endpoint:\n" +
-      "     PUBLIC_BACKEND_URL, BACKEND_URL, PUBLIC_APP_URL, or use a tunnel (ngrok / Cloudflare).\n"
+      "     BACKEND_PUBLIC_URL, PUBLIC_BACKEND_URL, BACKEND_URL, PUBLIC_APP_URL, or use a tunnel (ngrok / Cloudflare).\n"
     );
   }
 
   if (req && typeof req.get === "function") {
-    const protocol = req.protocol || "http";
-    const host = req.get("host") || "localhost:5000";
-    return `${protocol}://${host}`.replace(/\/+$/, "");
+    const protocol = req.headers?.["x-forwarded-proto"] || req.protocol || (isProduction ? "https" : "http");
+    const host = req.get("host");
+    if (host && !(isProduction && (host.startsWith("localhost") || host.startsWith("127.0.0.1")))) {
+      return `${protocol}://${host}`.replace(/\/+$/, "");
+    }
   }
-  return "http://localhost:5000";
+  return isProduction ? "" : "http://localhost:5000";
 };
 
 /**

@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 700" width="100%" height="100%">
+  <defs>
+    <radialGradient id="mps-gold-radial-bg" cx="35%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#FFF8D1"/>
+      <stop offset="40%" stop-color="#E5C158"/>
+      <stop offset="75%" stop-color="#C2932E"/>
+      <stop offset="100%" stop-color="#8C6314"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Card Base -->
+  <rect width="500" height="700" rx="14" fill="#FAF8F5"/>
+
+  <!-- Splatter Elements: Scattered Metallic Gold Dots, Droplets & Splotches -->
+  <g fill="url(#mps-gold-radial-bg)">
+    <!-- Top border splatters -->
+    <circle cx="40" cy="35" r="9"/>
+    <circle cx="25" cy="55" r="4.5"/>
+    <circle cx="60" cy="22" r="5"/>
+    <circle cx="85" cy="48" r="11"/>
+    <circle cx="105" cy="30" r="4"/>
+    <circle cx="150" cy="42" r="13"/>
+    <circle cx="178" cy="22" r="6.5"/>
+    <circle cx="210" cy="50" r="8"/>
+    <circle cx="250" cy="30" r="12"/>
+    <circle cx="290" cy="50" r="6"/>
+    <circle cx="330" cy="36" r="14"/>
+    <circle cx="360" cy="18" r="5.5"/>
+    <circle cx="395" cy="44" r="10.5"/>
+    <circle cx="435" cy="30" r="7"/>
+    <circle cx="465" cy="55" r="12"/>
+    <circle cx="480" cy="35" r="4.5"/>
+
+    <!-- Left border splatters -->
+    <circle cx="22" cy="110" r="10.5"/>
+    <circle cx="38" cy="135" r="5"/>
+    <circle cx="15" cy="175" r="13.5"/>
+    <circle cx="30" cy="220" r="6.5"/>
+    <circle cx="22" cy="275" r="10"/>
+    <circle cx="35" cy="320" r="5"/>
+    <circle cx="15" cy="370" r="12"/>
+    <circle cx="28" cy="415" r="7"/>
+    <circle cx="18" cy="470" r="14"/>
+    <circle cx="35" cy="520" r="5.5"/>
+    <circle cx="22" cy="575" r="11"/>
+    <circle cx="38" cy="620" r="8"/>
+
+    <!-- Right border splatters -->
+    <circle cx="478" cy="105" r="12"/>
+    <circle cx="460" cy="148" r="6.5"/>
+    <circle cx="482" cy="195" r="14"/>
+    <circle cx="465" cy="245" r="6"/>
+    <circle cx="478" cy="300" r="10.5"/>
+    <circle cx="462" cy="350" r="8"/>
+    <circle cx="480" cy="405" r="13"/>
+    <circle cx="460" cy="455" r="6"/>
+    <circle cx="478" cy="510" r="10"/>
+    <circle cx="462" cy="560" r="12"/>
+    <circle cx="482" cy="615" r="7.5"/>
+
+    <!-- Bottom border splatters -->
+    <circle cx="45" cy="655" r="10"/>
+    <circle cx="85" cy="668" r="12"/>
+    <circle cx="125" cy="648" r="6.5"/>
+    <circle cx="170" cy="670" r="14"/>
+    <circle cx="218" cy="655" r="8.5"/>
+    <circle cx="270" cy="668" r="13"/>
+    <circle cx="315" cy="648" r="6"/>
+    <circle cx="370" cy="670" r="11"/>
+    <circle cx="415" cy="655" r="8"/>
+    <circle cx="450" cy="668" r="12"/>
+
+    <!-- Organic Droplets -->
+    <path d="M 120,62 Q 130,48 135,66 Q 130,78 120,62 Z"/>
+    <path d="M 370,75 Q 378,58 388,76 Q 380,90 370,75 Z"/>
+    <path d="M 45,200 Q 54,186 62,204 Q 52,216 45,200 Z"/>
+    <path d="M 445,225 Q 455,210 464,228 Q 454,242 445,225 Z"/>
+    <path d="M 50,400 Q 60,384 68,402 Q 58,416 50,400 Z"/>
+    <path d="M 448,435 Q 458,420 468,438 Q 458,452 448,435 Z"/>
+    <path d="M 105,640 Q 115,624 125,644 Q 114,658 105,640 Z"/>
+    <path d="M 290,635 Q 300,620 310,638 Q 300,652 290,635 Z"/>
+
+    <!-- Fine speckles -->
+    <circle cx="70" cy="95" r="2"/><circle cx="95" cy="115" r="2.8"/><circle cx="130" cy="100" r="1.6"/>
+    <circle cx="360" cy="108" r="2.5"/><circle cx="395" cy="128" r="1.8"/><circle cx="420" cy="102" r="3.2"/>
+    <circle cx="65" cy="290" r="2.2"/><circle cx="85" cy="325" r="3"/><circle cx="60" cy="355" r="2"/>
+    <circle cx="435" cy="305" r="2.6"/><circle cx="415" cy="335" r="1.8"/><circle cx="440" cy="370" r="2.8"/>
+    <circle cx="75" cy="580" r="2.5"/><circle cx="108" cy="600" r="2"/><circle cx="140" cy="588" r="3"/>
+    <circle cx="355" cy="590" r="2.2"/><circle cx="388" cy="602" r="2.8"/><circle cx="420" cy="582" r="2.4"/>
+  </g>
+
+  <!-- Central Subtle Warm Beige Inset Block -->
+  <rect x="80" y="115" width="340" height="470" rx="4" fill="#F7F1E7" opacity="0.95"/>
+
+  <!-- Card Subtle Border -->
+  <rect width="500" height="700" rx="14" fill="none" stroke="rgba(0,0,0,0.06)" stroke-width="1"/>
+</svg>

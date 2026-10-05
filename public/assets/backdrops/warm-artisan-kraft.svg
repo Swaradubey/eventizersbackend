@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" width="100%" height="100%">
+  <defs>
+    <!-- Warm Kraft Paper Gradient -->
+    <linearGradient id="kraft-base" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#D9C2A7"/>
+      <stop offset="35%" stop-color="#CDAF90"/>
+      <stop offset="70%" stop-color="#C4A281"/>
+      <stop offset="100%" stop-color="#B89472"/>
+    </linearGradient>
+
+    <!-- Natural Kraft Pulp Fibers & Flecks -->
+    <pattern id="kraft-flecks" width="120" height="120" patternUnits="userSpaceOnUse">
+      <circle cx="12" cy="18" r="0.8" fill="#845D3B" opacity="0.35"/>
+      <circle cx="45" cy="85" r="1.1" fill="#755030" opacity="0.3"/>
+      <circle cx="98" cy="34" r="0.7" fill="#6B4728" opacity="0.38"/>
+      <circle cx="72" cy="104" r="0.9" fill="#845D3B" opacity="0.25"/>
+      <path d="M 24,52 Q 28,54 32,51" stroke="#664322" stroke-width="0.8" fill="none" opacity="0.28"/>
+      <path d="M 85,76 Q 89,80 92,75" stroke="#7A532D" stroke-width="0.7" fill="none" opacity="0.26"/>
+      <path d="M 50,14 Q 55,16 60,13" stroke="#8A633D" stroke-width="0.6" fill="none" opacity="0.22"/>
+      <path d="M 10,95 Q 15,97 18,92" stroke="#5E3A1A" stroke-width="0.7" fill="none" opacity="0.3"/>
+      <circle cx="38" cy="38" r="0.5" fill="#FFFFFF" opacity="0.35"/>
+      <circle cx="108" cy="88" r="0.6" fill="#FFFFFF" opacity="0.3"/>
+      <circle cx="62" cy="62" r="0.5" fill="#FFFFFF" opacity="0.3"/>
+    </pattern>
+
+    <!-- Soft Artisan Paper Grain Filter -->
+    <filter id="paper-grain" x="0%" y="0%" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.6" numOctaves="3" result="noise"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0.45   0 0 0 0 0.32   0 0 0 0 0.18   0 0 0 0.08 0" in="noise" result="tintedNoise"/>
+      <feComposite in="SourceGraphic" in2="tintedNoise" operator="over"/>
+    </filter>
+
+    <!-- Ambient Shadow / Vignette -->
+    <radialGradient id="kraft-vignette" cx="50%" cy="50%" r="72%">
+      <stop offset="35%" stop-color="#ffffff" stop-opacity="0.12"/>
+      <stop offset="75%" stop-color="#A57D58" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#805632" stop-opacity="0.55"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Kraft Base -->
+  <rect width="1000" height="1000" fill="url(#kraft-base)"/>
+  <!-- Flecks -->
+  <rect width="1000" height="1000" fill="url(#kraft-flecks)"/>
+  <!-- Vignette -->
+  <rect width="1000" height="1000" fill="url(#kraft-vignette)" style="mix-blend-mode: multiply;"/>
+</svg>

@@ -1,0 +1,208 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 800" width="100%" height="100%">
+  <defs>
+    <!-- Warm Flatlay Backdrop -->
+    <linearGradient id="ot-backdrop-base" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FAF7F2"/>
+      <stop offset="50%" stop-color="#F4EFE6"/>
+      <stop offset="100%" stop-color="#EAE3D6"/>
+    </linearGradient>
+
+    <!-- Linen Texture for envelope -->
+    <linearGradient id="ot-env-body" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#EBE3D3"/>
+      <stop offset="50%" stop-color="#DFD5C2"/>
+      <stop offset="100%" stop-color="#D2C7B3"/>
+    </linearGradient>
+
+    <linearGradient id="ot-env-flap" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E5DC Flora"/>
+      <stop offset="50%" stop-color="#D8CD Flor"/>
+      <stop offset="100%" stop-color="#C8BCA6"/>
+    </linearGradient>
+
+    <!-- Metallic Gold Foil Gradient -->
+    <linearGradient id="ot-gold-foil" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#A67C1E"/>
+      <stop offset="18%" stop-color="#D4AF37"/>
+      <stop offset="36%" stop-color="#FFF2A1"/>
+      <stop offset="54%" stop-color="#D4AF37"/>
+      <stop offset="72%" stop-color="#AA771C"/>
+      <stop offset="88%" stop-color="#FDF4B8"/>
+      <stop offset="100%" stop-color="#8E6516"/>
+    </linearGradient>
+
+    <!-- Satin Ornament Ball Gradient -->
+    <radialGradient id="ot-ornament-grad" cx="35%" cy="30%" r="65%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="35%" stop-color="#F7EFE3"/>
+      <stop offset="70%" stop-color="#E5D6C1"/>
+      <stop offset="100%" stop-color="#CBB9A0"/>
+    </radialGradient>
+
+    <!-- Fairy Light Glow -->
+    <filter id="ot-light-glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Shadows -->
+    <filter id="ot-env-shadow" x="-30%" y="-20%" width="160%" height="150%">
+      <feDropShadow dx="-6" dy="16" stdDeviation="16" flood-color="#000000" flood-opacity="0.28"/>
+      <feDropShadow dx="-1" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.14"/>
+    </filter>
+
+    <filter id="ot-card-shadow" x="-30%" y="-20%" width="160%" height="150%">
+      <feDropShadow dx="2" dy="18" stdDeviation="18" flood-color="#000000" flood-opacity="0.38"/>
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.18"/>
+    </filter>
+
+    <clipPath id="ot-card-clip">
+      <rect x="150" y="140" width="370" height="520" rx="14"/>
+    </clipPath>
+  </defs>
+
+  <!-- 1. BACKDROP: Elegant festive flatlay surface -->
+  <rect width="600" height="800" fill="url(#ot-backdrop-base)"/>
+
+  <!-- Flatlay Decor: Silk champagne ribbon flowing on left -->
+  <g fill="none" stroke="#DECBC0" opacity="0.85">
+    <path d="M 20,-20 Q 90,80 50,180 Q 20,260 65,340" stroke-width="38" stroke-linecap="round"/>
+    <path d="M 18,-20 Q 88,80 48,180 Q 18,260 63,340" stroke="#F1E6DF" stroke-width="32" stroke-linecap="round"/>
+  </g>
+
+  <!-- Flatlay Decor: Natural Pine Branch Top Right -->
+  <g transform="translate(460, -20) rotate(55)">
+    <path d="M 0,0 Q 40,60 70,140 Q 90,200 110,260" stroke="#5C3E28" stroke-width="4" fill="none"/>
+    <path d="M 20,40 L -15,25 M 35,65 L -2,45 M 50,90 L 15,70 M 65,120 L 30,95 M 80,150 L 45,125 M 95,185 L 60,160 M 105,220 L 75,195" stroke="#2D4C31" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="M 20,35 L 55,20 M 35,55 L 72,40 M 50,80 L 88,62 M 65,110 L 105,90 M 80,140 L 118,120 M 95,175 L 132,152 M 105,210 L 140,188" stroke="#3A5F3E" stroke-width="2.5" stroke-linecap="round"/>
+  </g>
+
+  <!-- Flatlay Decor: Pearlescent Champagne Ornament Ball Bottom Left -->
+  <g transform="translate(70, 740)">
+    <circle cx="0" cy="0" r="76" fill="url(#ot-ornament-grad)"/>
+    <ellipse cx="-20" cy="-22" rx="14" ry="7" fill="#FFFFFF" opacity="0.6" transform="rotate(-30, -20, -22)"/>
+    <!-- Metal cap -->
+    <rect x="-10" y="-84" width="20" height="12" rx="2" fill="#D4AF37"/>
+  </g>
+
+  <!-- 2. ENVELOPE: Sand / Beige Textured Envelope with Open Gold Foil Liner behind on Left -->
+  <g filter="url(#ot-env-shadow)">
+    <!-- Envelope Pocket Body (Behind Card on the left) -->
+    <rect x="70" y="210" width="410" height="470" rx="16" fill="url(#ot-env-body)"/>
+
+    <!-- Open Triangular Flap Pointing UP-LEFT -->
+    <path d="M 70,290 L 135,115 L 360,290 Z" fill="url(#ot-env-body)"/>
+
+    <!-- Inner Throat Metallic Gold Foil Lining -->
+    <path d="M 90,285 L 142,135 L 338,285 Z" fill="url(#ot-gold-foil)"/>
+
+    <!-- Foil Specular Highlight -->
+    <path d="M 90,285 L 142,135 L 338,285 Z" fill="url(#ot-gold-foil)" opacity="0.9"/>
+    <line x1="70" y1="290" x2="360" y2="290" stroke="#000000" stroke-width="2" opacity="0.25"/>
+  </g>
+
+  <!-- 3. INVITATION CARD: Dark Charcoal (#181B1A) + Illustrated Pine Tree with Fairy Lights -->
+  <g filter="url(#ot-card-shadow)">
+    <g clip-path="url(#ot-card-clip)">
+      <!-- Card background: Deep rich charcoal -->
+      <rect x="150" y="140" width="370" height="520" rx="14" fill="#1C1F1E"/>
+      <!-- Soft vignette / paper grain -->
+      <radialGradient id="ot-card-vig" cx="50%" cy="50%" r="70%">
+        <stop offset="40%" stop-color="#252A28" stop-opacity="0.3"/>
+        <stop offset="100%" stop-color="#121413" stop-opacity="0.75"/>
+      </radialGradient>
+      <rect x="150" y="140" width="370" height="520" fill="url(#ot-card-vig)"/>
+
+      <!-- ILLUSTRATED PINE CHRISTMAS TREE ON THE LEFT -->
+      <g id="pine-tree-illustration">
+        <!-- Tree Trunk -->
+        <path d="M 238,620 L 244,480 L 248,620 Z" fill="#2E1F14"/>
+
+        <!-- Tier 5 (Base) -->
+        <path d="M 180,590 Q 242,560 305,590 Q 285,550 290,520 Q 242,500 195,520 Q 198,555 180,590 Z" fill="#1E3322"/>
+        <path d="M 185,585 Q 242,555 300,585 Q 275,545 285,525 Q 242,505 200,525 Z" fill="#28442D"/>
+
+        <!-- Tier 4 -->
+        <path d="M 190,525 Q 242,495 295,525 Q 275,485 280,455 Q 242,435 202,455 Q 206,490 190,525 Z" fill="#203824"/>
+        <path d="M 195,520 Q 242,490 290,520 Q 268,480 275,460 Q 242,440 208,460 Z" fill="#2B4931"/>
+
+        <!-- Tier 3 -->
+        <path d="M 200,460 Q 242,435 285,460 Q 268,425 272,395 Q 242,375 210,395 Q 214,430 200,460 Z" fill="#243F29"/>
+        <path d="M 205,455 Q 242,430 280,455 Q 260,420 268,400 Q 242,380 215,400 Z" fill="#325638"/>
+
+        <!-- Tier 2 -->
+        <path d="M 212,400 Q 242,380 274,400 Q 260,365 264,340 Q 242,320 220,340 Q 222,370 212,400 Z" fill="#28462E"/>
+        <path d="M 216,395 Q 242,375 270,395 Q 254,360 260,345 Q 242,325 224,345 Z" fill="#38603F"/>
+
+        <!-- Tier 1 (Top Tip) -->
+        <path d="M 224,345 Q 242,325 262,345 Q 252,300 243,260 Q 234,300 224,345 Z" fill="#2C4E33"/>
+        <path d="M 228,340 Q 242,320 258,340 Q 250,295 243,262 Q 236,295 228,340 Z" fill="#3E6B46"/>
+
+        <!-- Detailed Pine Needle Tufts on Tree -->
+        <g stroke="#487850" stroke-width="1.3" stroke-linecap="round" fill="none">
+          <path d="M 235,275 L 228,285 M 245,278 L 253,288 M 240,290 L 232,302 M 248,295 L 258,306"/>
+          <path d="M 225,320 L 214,332 M 242,325 L 243,338 M 260,322 L 272,335 M 234,335 L 224,348"/>
+          <path d="M 215,370 L 202,385 M 235,375 L 234,390 M 255,372 L 268,388 M 275,375 L 288,392"/>
+          <path d="M 205,425 L 190,442 M 228,430 L 226,448 M 255,428 L 265,446 M 282,430 L 296,448"/>
+          <path d="M 195,485 L 178,505 M 220,490 L 216,510 M 250,488 L 258,508 M 285,490 L 302,510"/>
+          <path d="M 185,550 L 168,572 M 215,555 L 210,578 M 248,552 L 254,575 M 288,554 L 308,576"/>
+        </g>
+
+        <!-- WARM FAIRY LIGHTS STRING & GLOWING BULBS -->
+        <!-- Subtle warm string path winding down tree -->
+        <path d="M 242,268 Q 230,295 252,320 Q 220,350 265,385 Q 210,420 275,465 Q 200,505 285,555 Q 190,580 295,600" fill="none" stroke="#B38E46" stroke-width="0.8" opacity="0.65"/>
+
+        <!-- Warm Glowing Fairy Light Bulbs -->
+        <g filter="url(#ot-light-glow)">
+          <circle cx="242" cy="270" r="3.2" fill="#FFF9E6"/>
+          <circle cx="232" cy="295" r="2.8" fill="#FFEAA8"/>
+          <circle cx="250" cy="318" r="3.4" fill="#FFFBEB"/>
+          <circle cx="228" cy="342" r="3" fill="#FFEAA8"/>
+          <circle cx="260" cy="365" r="3.5" fill="#FFF5C2"/>
+          <circle cx="240" cy="375" r="2.6" fill="#FFFBEB"/>
+          <circle cx="220" cy="405" r="3.2" fill="#FFEAA8"/>
+          <circle cx="252" cy="415" r="3.6" fill="#FFF9E6"/>
+          <circle cx="268" cy="435" r="2.8" fill="#FFEAA8"/>
+          <circle cx="212" cy="445" r="3.4" fill="#FFF5C2"/>
+          <circle cx="238" cy="460" r="3" fill="#FFFBEB"/>
+          <circle cx="274" cy="468" r="3.5" fill="#FFEAA8"/>
+          <circle cx="205" cy="495" r="3.4" fill="#FFF9E6"/>
+          <circle cx="230" cy="510" r="3.2" fill="#FFEAA8"/>
+          <circle cx="258" cy="520" r="3.8" fill="#FFFBEB"/>
+          <circle cx="282" cy="535" r="3" fill="#FFEAA8"/>
+          <circle cx="198" cy="550" r="3.6" fill="#FFF5C2"/>
+          <circle cx="225" cy="565" r="3" fill="#FFFBEB"/>
+          <circle cx="252" cy="572" r="3.8" fill="#FFF9E6"/>
+          <circle cx="288" cy="580" r="3.2" fill="#FFEAA8"/>
+          <circle cx="208" cy="595" r="3" fill="#FFEAA8"/>
+          <circle cx="240" cy="605" r="3.4" fill="#FFFBEB"/>
+          <circle cx="270" cy="608" r="3.6" fill="#FFF9E6"/>
+        </g>
+      </g>
+
+      <!-- TYPOGRAPHY ON THE RIGHT HALF -->
+      <g text-anchor="middle">
+        <!-- Title: "Holiday Party" in flowing script / calligraphy -->
+        <text x="390" y="315" font-family="'Great Vibes', 'Playfair Display', cursive, serif" font-size="44" font-weight="400" fill="#F7F4EB" letter-spacing="0.5">Holiday</text>
+        <text x="390" y="365" font-family="'Great Vibes', 'Playfair Display', cursive, serif" font-size="44" font-weight="400" fill="#F7F4EB" letter-spacing="0.5">Party</text>
+
+        <!-- Subtext: "Join us for light bites & good times" -->
+        <text x="390" y="440" font-family="'Montserrat', 'Inter', sans-serif" font-size="11" font-weight="400" fill="#CDC9BC" letter-spacing="0.4">Join us for light bites</text>
+        <text x="390" y="458" font-family="'Montserrat', 'Inter', sans-serif" font-size="11" font-weight="400" fill="#CDC9BC" letter-spacing="0.4">&amp; good times</text>
+
+        <!-- Date & Time: "Saturday, December 16 at 7 PM" -->
+        <text x="390" y="515" font-family="'Montserrat', 'Inter', sans-serif" font-size="11.5" font-weight="500" fill="#E2DDD2" letter-spacing="0.3">Saturday, December 16</text>
+        <text x="390" y="534" font-family="'Montserrat', 'Inter', sans-serif" font-size="11.5" font-weight="500" fill="#E2DDD2" letter-spacing="0.3">at 7 PM</text>
+
+        <!-- Location: "The Smith Home | 5555 Willow Brook St." -->
+        <text x="390" y="585" font-family="'Montserrat', 'Inter', sans-serif" font-size="10.5" font-weight="400" fill="#B3ADA0" letter-spacing="0.2">The Smith Home</text>
+        <text x="390" y="602" font-family="'Montserrat', 'Inter', sans-serif" font-size="10.5" font-weight="400" fill="#B3ADA0" letter-spacing="0.2">5555 Willow Brook St.</text>
+      </g>
+    </g>
+    <!-- Card Subtle Outer Border -->
+    <rect x="150" y="140" width="370" height="520" rx="14" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+  </g>
+</svg>

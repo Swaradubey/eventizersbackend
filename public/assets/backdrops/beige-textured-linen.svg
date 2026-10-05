@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" width="100%" height="100%">
+  <defs>
+    <radialGradient id="beige-grad" cx="50%" cy="45%" r="75%">
+      <stop offset="0%" stop-color="#EDE6D8"/>
+      <stop offset="50%" stop-color="#E2D9C8"/>
+      <stop offset="85%" stop-color="#D5CBB8"/>
+      <stop offset="100%" stop-color="#C5BBA7"/>
+    </radialGradient>
+    <pattern id="linen-weave-fine" width="10" height="10" patternUnits="userSpaceOnUse">
+      <rect width="10" height="10" fill="none"/>
+      <path d="M 0,2.5 L 10,2.5 M 0,7.5 L 10,7.5" stroke="#C0B4A0" stroke-width="0.8" opacity="0.45"/>
+      <path d="M 0,1 L 10,1 M 0,6 L 10,6" stroke="#FFFFFF" stroke-width="0.6" opacity="0.5"/>
+      <path d="M 2.5,0 L 2.5,10 M 7.5,0 L 7.5,10" stroke="#B8AC98" stroke-width="0.8" opacity="0.4"/>
+      <path d="M 1,0 L 1,10 M 6,0 L 6,10" stroke="#FFFFFF" stroke-width="0.6" opacity="0.45"/>
+      <circle cx="2.5" cy="7.5" r="0.7" fill="#A89C88" opacity="0.35"/>
+      <circle cx="7.5" cy="2.5" r="0.6" fill="#A89C88" opacity="0.3"/>
+    </pattern>
+  </defs>
+  <rect width="1000" height="1000" fill="url(#beige-grad)"/>
+  <rect width="1000" height="1000" fill="url(#linen-weave-fine)"/>
+</svg>

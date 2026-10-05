@@ -1,0 +1,295 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 800" width="100%" height="100%">
+  <defs>
+    <!-- 1. White Carrara Marble Foundation & Veins -->
+    <linearGradient id="marble-base" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FCFCFD"/>
+      <stop offset="35%" stop-color="#F7F8FA"/>
+      <stop offset="70%" stop-color="#F1F3F6"/>
+      <stop offset="100%" stop-color="#E9ECEF"/>
+    </linearGradient>
+
+    <filter id="marble-vein-blur" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="3.2" result="blur1"/>
+      <feMerge>
+        <feMergeNode in="blur1"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <filter id="marble-diffuse" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="9" result="diffuseBlur"/>
+    </filter>
+
+    <!-- Metallic Gold Foil Shimmer Gradient for Flap Liner -->
+    <linearGradient id="gold-foil-liner" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#C2932E"/>
+      <stop offset="18%" stop-color="#E5C158"/>
+      <stop offset="35%" stop-color="#FFF2A1"/>
+      <stop offset="52%" stop-color="#D4AF37"/>
+      <stop offset="70%" stop-color="#AA771C"/>
+      <stop offset="85%" stop-color="#FDF4B8"/>
+      <stop offset="100%" stop-color="#9A6B12"/>
+    </linearGradient>
+
+    <!-- Gold Foil Shimmer Filter -->
+    <filter id="gold-shimmer" x="-20%" y="-20%" width="140%" height="140%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.45" numOctaves="3" result="noise"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0.83  0 0 0 0 0.69  0 0 0 0 0.22  0 0 0 0 0.28 0" in="noise" result="coloredNoise"/>
+      <feComposite in="SourceGraphic" in2="coloredNoise" operator="over"/>
+    </filter>
+
+    <!-- Envelope Drop Shadow onto marble backdrop -->
+    <filter id="envelope-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="20" flood-color="#000000" flood-opacity="0.35"/>
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000000" flood-opacity="0.18"/>
+    </filter>
+
+    <!-- Exact Card Elevation Shadow: box-shadow: 0 12px 28px -6px rgba(0,0,0,0.3) -->
+    <filter id="card-elevation-shadow" x="-30%" y="-20%" width="160%" height="150%">
+      <feDropShadow dx="0" dy="12" stdDeviation="11" flood-color="#000000" flood-opacity="0.32"/>
+      <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#000000" flood-opacity="0.15"/>
+    </filter>
+
+    <!-- 3D Realistic Obsidian Black Balloon Gradient -->
+    <radialGradient id="balloon-black" cx="30%" cy="26%" r="70%">
+      <stop offset="0%" stop-color="#656372"/>
+      <stop offset="22%" stop-color="#34323B"/>
+      <stop offset="60%" stop-color="#16151B"/>
+      <stop offset="90%" stop-color="#0B0A0E"/>
+      <stop offset="100%" stop-color="#030304"/>
+    </radialGradient>
+
+    <!-- 3D Realistic Metallic Chrome Gold Balloon Gradient -->
+    <radialGradient id="balloon-gold" cx="30%" cy="25%" r="70%">
+      <stop offset="0%" stop-color="#FFFDE8"/>
+      <stop offset="20%" stop-color="#F7D87E"/>
+      <stop offset="55%" stop-color="#CDA030"/>
+      <stop offset="85%" stop-color="#916712"/>
+      <stop offset="100%" stop-color="#553A06"/>
+    </radialGradient>
+
+    <!-- 3D Realistic Pearl White Balloon Gradient -->
+    <radialGradient id="balloon-pearl" cx="30%" cy="26%" r="70%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="40%" stop-color="#F5F6F9"/>
+      <stop offset="75%" stop-color="#D9DFE8"/>
+      <stop offset="95%" stop-color="#B8C2CF"/>
+      <stop offset="100%" stop-color="#9AA6B5"/>
+    </radialGradient>
+
+    <!-- Glossy Specular Highlight Crescent Sheen -->
+    <linearGradient id="specular-sheen" x1="0%" y1="0%" x2="80%" y2="80%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.88"/>
+      <stop offset="45%" stop-color="#FFFFFF" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- Sparkle Stars -->
+    <g id="sparkle-gold">
+      <path d="M 0,-8 Q 0.8,-1 8,0 Q 0.8,1 0,8 Q -0.8,1 -8,0 Q -0.8,-1 0,-8 Z" fill="#D4AF37"/>
+    </g>
+    <g id="sparkle-gold-sm">
+      <path d="M 0,-5 Q 0.5,-0.7 5,0 Q 0.5,0.7 0,5 Q -0.5,0.7 -5,0 Q -0.5,-0.7 0,-5 Z" fill="#E8C36A"/>
+    </g>
+    <g id="sparkle-gold-xs">
+      <circle cx="0" cy="0" r="1.5" fill="#D4AF37" opacity="0.85"/>
+    </g>
+  </defs>
+
+  <!-- ========================================================================= -->
+  <!-- 1. BACKDROP: White Polished Marble Texture                                -->
+  <!-- ========================================================================= -->
+  <rect width="600" height="800" fill="url(#marble-base)"/>
+
+  <!-- Marble Diffuse Cloud Shading -->
+  <g filter="url(#marble-diffuse)" opacity="0.55">
+    <path d="M -30,120 Q 150,90 320,220 T 580,440 T 640,650" fill="none" stroke="#D3D7DE" stroke-width="40"/>
+    <path d="M 120,-30 Q 220,150 280,320 T 460,620 T 560,780" fill="none" stroke="#CBD0D8" stroke-width="30"/>
+    <path d="M 450,-10 Q 520,140 560,300 T 640,550" fill="none" stroke="#D8DCE2" stroke-width="45"/>
+    <path d="M -20,460 Q 160,520 360,580 T 620,740" fill="none" stroke="#CFD4DC" stroke-width="36"/>
+  </g>
+
+  <!-- Marble Sinuous Veins (Charcoal & Slate) -->
+  <g filter="url(#marble-vein-blur)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Main Diagonal Fault Line -->
+    <path d="M -15,60 Q 100,85 190,140 T 310,250 T 410,300 T 510,400 T 620,530" stroke="#7A8492" stroke-width="1.8" opacity="0.45"/>
+    <path d="M -15,60 Q 100,85 190,140 T 310,250 T 410,300 T 510,400 T 620,530" stroke="#5E6774" stroke-width="0.8" opacity="0.6"/>
+
+    <!-- Vein Branch 1 -->
+    <path d="M 310,250 Q 380,190 490,165 T 620,120" stroke="#7A8492" stroke-width="1.4" opacity="0.4"/>
+    <path d="M 310,250 Q 380,190 490,165 T 620,120" stroke="#555E6B" stroke-width="0.6" opacity="0.55"/>
+
+    <!-- Vein Branch 2 (Lower sweeping) -->
+    <path d="M 190,140 Q 130,260 110,420 T 180,680" stroke="#8892A0" stroke-width="1.5" opacity="0.35"/>
+    <path d="M 410,300 Q 460,450 490,620 T 580,780" stroke="#8892A0" stroke-width="1.3" opacity="0.38"/>
+  </g>
+
+  <!-- Polished Marble Gloss Sheen -->
+  <radialGradient id="marble-glaze" cx="50%" cy="50%" r="65%">
+    <stop offset="50%" stop-color="#ffffff" stop-opacity="0.15"/>
+    <stop offset="100%" stop-color="#D6DBE2" stop-opacity="0.35"/>
+  </radialGradient>
+  <rect width="600" height="800" fill="url(#marble-glaze)"/>
+
+  <!-- ========================================================================= -->
+  <!-- 2. ENVELOPE: Deep Matte Black (#111111) with Open Triangular Flap UPWARD  -->
+  <!-- ========================================================================= -->
+  <g filter="url(#envelope-shadow)">
+    <!-- Envelope Pocket Body (Behind the card) -->
+    <rect x="75" y="270" width="450" height="470" rx="14" fill="#111111"/>
+
+    <!-- Open Triangular Flap Pointing UPWARD (Matte Black #111111) -->
+    <!-- Base at y=272 (across envelope body top), Apex pointing UP to y=76 -->
+    <path d="M 75,272 L 300,76 L 525,272 Z" fill="#111111"/>
+
+    <!-- Inner Liner: Metallic Gold Foil / Shimmer Texture (#D4AF37) -->
+    <g filter="url(#gold-shimmer)">
+      <path d="M 108,266 L 300,108 L 492,266 Z" fill="url(#gold-foil-liner)"/>
+    </g>
+
+    <!-- Metallic Foil Sheen Overlay on Gold Liner -->
+    <path d="M 108,266 L 300,108 L 300,266 Z" fill="#ffffff" opacity="0.12"/>
+    <path d="M 180,266 L 300,108 L 340,266 Z" fill="#ffffff" opacity="0.08"/>
+
+    <!-- Crease Shadow where flap meets envelope body -->
+    <line x1="75" y1="272" x2="525" y2="272" stroke="#000000" stroke-width="3" opacity="0.45"/>
+    <line x1="108" y1="268" x2="492" y2="268" stroke="#7A550B" stroke-width="1.5" opacity="0.4"/>
+  </g>
+
+  <!-- ========================================================================= -->
+  <!-- 3. CARD LAYER: Centered Over Envelope with Elevation Shadow               -->
+  <!-- Soft elevation shadow: box-shadow: 0 12px 28px -6px rgba(0,0,0,0.3)      -->
+  <!-- ========================================================================= -->
+  <g filter="url(#card-elevation-shadow)">
+    <!-- Crisp White Modern Card -->
+    <!-- Centered: x=118 to 482 (width: 364), y=190 to 730 (height: 540) -->
+    <rect x="118" y="190" width="364" height="540" rx="8" fill="#FFFFFF"/>
+    <rect x="118" y="190" width="364" height="540" rx="8" fill="none" stroke="#E5E7EB" stroke-width="0.8"/>
+  </g>
+
+  <!-- ========================================================================= -->
+  <!-- 4. 3D BALLOON CLUSTER (Left Edge & Top Arc)                               -->
+  <!-- ========================================================================= -->
+  <!-- Clip path to keep balloons tucked cleanly within or overlapping card nicely -->
+  <g>
+    <!-- Balloon 1: Top Left Pearl White (Behind) -->
+    <g transform="translate(162, 235) scale(0.68)">
+      <ellipse cx="0" cy="0" rx="42" ry="50" fill="url(#balloon-pearl)"/>
+      <path d="M -18,-35 A 32 38 0 0 1 12,-44" stroke="url(#specular-sheen)" stroke-width="6" fill="none" stroke-linecap="round"/>
+    </g>
+
+    <!-- Balloon 2: Top Gold (Large Hero) -->
+    <g transform="translate(205, 232) scale(0.78)">
+      <ellipse cx="0" cy="0" rx="44" ry="54" fill="url(#balloon-gold)"/>
+      <path d="M -18,-38 A 34 42 0 0 1 14,-46" stroke="url(#specular-sheen)" stroke-width="7" fill="none" stroke-linecap="round"/>
+    </g>
+
+    <!-- Balloon 3: Top Right Obsidian Black -->
+    <g transform="translate(252, 258) scale(0.7)">
+      <ellipse cx="0" cy="0" rx="42" ry="52" fill="url(#balloon-black)"/>
+      <path d="M -16,-36 A 32 40 0 0 1 14,-44" stroke="url(#specular-sheen)" stroke-width="6" fill="none" stroke-linecap="round"/>
+    </g>
+
+    <!-- Balloon 4: Upper-Left Edge Black -->
+    <g transform="translate(138, 305) scale(0.74)">
+      <ellipse cx="0" cy="0" rx="44" ry="54" fill="url(#balloon-black)"/>
+      <path d="M -18,-38 A 34 42 0 0 1 14,-46" stroke="url(#specular-sheen)" stroke-width="6.5" fill="none" stroke-linecap="round"/>
+    </g>
+
+    <!-- Balloon 5: Mid-Upper Left Chrome Gold -->
+    <g transform="translate(182, 335) scale(0.82)">
+      <ellipse cx="0" cy="0" rx="45" ry="55" fill="url(#balloon-gold)"/>
+      <path d="M -18,-38 A 34 42 0 0 1 16,-46" stroke="url(#specular-sheen)" stroke-width="7" fill="none" stroke-linecap="round"/>
+    </g>
+
+    <!-- Balloon 6: Pearl White Mid-cluster -->
+    <g transform="translate(142, 395) scale(0.75)">
+      <ellipse cx="0" cy="0" rx="43" ry="53" fill="url(#balloon-pearl)"/>
+      <path d="M -16,-36 A 32 40 0 0 1 14,-44" stroke="url(#specular-sheen)" stroke-width="6" fill="none" stroke-linecap="round"/>
+    </g>
+
+    <!-- Balloon 7: Mid-Left Obsidian Black -->
+    <g transform="translate(196, 428) scale(0.78)">
+      <ellipse cx="0" cy="0" rx="44" ry="54" fill="url(#balloon-black)"/>
+      <path d="M -18,-38 A 34 42 0 0 1 15,-46" stroke="url(#specular-sheen)" stroke-width="6.5" fill="none" stroke-linecap="round"/>
+    </g>
+
+    <!-- Balloon 8: Chrome Gold (Center Cluster) -->
+    <g transform="translate(155, 482) scale(0.8)">
+      <ellipse cx="0" cy="0" rx="45" ry="55" fill="url(#balloon-gold)"/>
+      <path d="M -18,-38 A 34 42 0 0 1 16,-46" stroke="url(#specular-sheen)" stroke-width="7" fill="none" stroke-linecap="round"/>
+    </g>
+
+    <!-- Balloon 9: Pearl White Lower -->
+    <g transform="translate(188, 545) scale(0.72)">
+      <ellipse cx="0" cy="0" rx="42" ry="52" fill="url(#balloon-pearl)"/>
+      <path d="M -16,-36 A 32 40 0 0 1 14,-44" stroke="url(#specular-sheen)" stroke-width="6" fill="none" stroke-linecap="round"/>
+    </g>
+
+    <!-- Balloon 10: Obsidian Black Lower -->
+    <g transform="translate(202, 608) scale(0.74)">
+      <ellipse cx="0" cy="0" rx="44" ry="54" fill="url(#balloon-black)"/>
+      <path d="M -18,-38 A 34 42 0 0 1 15,-46" stroke="url(#specular-sheen)" stroke-width="6.5" fill="none" stroke-linecap="round"/>
+    </g>
+
+    <!-- Balloon 11: Bottom Left Chrome Gold -->
+    <g transform="translate(148, 622) scale(0.7)">
+      <ellipse cx="0" cy="0" rx="42" ry="52" fill="url(#balloon-gold)"/>
+      <path d="M -16,-36 A 32 40 0 0 1 14,-44" stroke="url(#specular-sheen)" stroke-width="6.5" fill="none" stroke-linecap="round"/>
+    </g>
+
+    <!-- Balloon 12: Pearl White Bottom Base -->
+    <g transform="translate(178, 665) scale(0.68)">
+      <ellipse cx="0" cy="0" rx="42" ry="50" fill="url(#balloon-pearl)"/>
+      <path d="M -16,-35 A 32 38 0 0 1 12,-44" stroke="url(#specular-sheen)" stroke-width="6" fill="none" stroke-linecap="round"/>
+    </g>
+
+    <!-- Balloon 13: Chrome Gold Bottom Base -->
+    <g transform="translate(225, 655) scale(0.65)">
+      <ellipse cx="0" cy="0" rx="40" ry="50" fill="url(#balloon-gold)"/>
+      <path d="M -15,-34 A 30 38 0 0 1 12,-42" stroke="url(#specular-sheen)" stroke-width="6" fill="none" stroke-linecap="round"/>
+    </g>
+
+    <!-- Sparkling Gold Stars scattering across card -->
+    <g transform="translate(285, 222)"><use href="#sparkle-gold"/></g>
+    <g transform="translate(315, 240)"><use href="#sparkle-gold-sm"/></g>
+    <g transform="translate(268, 290)"><use href="#sparkle-gold-sm"/></g>
+    <g transform="translate(290, 345)"><use href="#sparkle-gold-xs"/></g>
+    <g transform="translate(340, 275)"><use href="#sparkle-gold-xs"/></g>
+    <g transform="translate(245, 475)"><use href="#sparkle-gold-sm"/></g>
+    <g transform="translate(260, 520)"><use href="#sparkle-gold-xs"/></g>
+    <g transform="translate(242, 570)"><use href="#sparkle-gold"/></g>
+    <g transform="translate(265, 642)"><use href="#sparkle-gold-sm"/></g>
+  </g>
+
+  <!-- ========================================================================= -->
+  <!-- 5. CARD TYPOGRAPHY (Right Column, Matching Reference Image)               -->
+  <!-- ========================================================================= -->
+  <g text-anchor="middle">
+    <!-- "Let's party" (Cursive script) -->
+    <text x="368" y="380" font-family="'Alex Brush', 'Great Vibes', 'Brush Script MT', cursive" font-size="46" fill="#111111" font-weight="normal">
+      Let's party
+    </text>
+
+    <!-- "PLEASE JOIN US TO CELEBRATE" (Clean sans-serif) -->
+    <text x="368" y="426" font-family="'Inter', -apple-system, sans-serif" font-size="8.5" letter-spacing="1.8" fill="#4B5563" font-weight="600">
+      PLEASE JOIN US TO CELEBRATE
+    </text>
+
+    <!-- "MORGAN ANDERSON" (Playfair Display / Serif caps) -->
+    <text x="368" y="468" font-family="'Playfair Display', Georgia, serif" font-size="19" letter-spacing="2" fill="#111111" font-weight="700">
+      MORGAN
+    </text>
+    <text x="368" y="492" font-family="'Playfair Display', Georgia, serif" font-size="19" letter-spacing="2" fill="#111111" font-weight="700">
+      ANDERSON
+    </text>
+
+    <!-- "SATURDAY, JUNE 24 AT 6 PM / WILLOW TERRACE" -->
+    <text x="368" y="534" font-family="'Inter', -apple-system, sans-serif" font-size="8.5" letter-spacing="1.5" fill="#374151" font-weight="600">
+      SATURDAY, JUNE 24 AT 6 PM
+    </text>
+    <text x="368" y="550" font-family="'Inter', -apple-system, sans-serif" font-size="8.5" letter-spacing="1.5" fill="#4B5563" font-weight="500">
+      WILLOW TERRACE
+    </text>
+  </g>
+</svg>

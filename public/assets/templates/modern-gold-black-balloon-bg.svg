@@ -1,0 +1,282 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 700" width="100%" height="100%">
+  <defs>
+    <!-- Realistic 3D Obsidian Black Balloon Gradient -->
+    <radialGradient id="balloon-black" cx="32%" cy="28%" r="68%">
+      <stop offset="0%" stop-color="#5A5866"/>
+      <stop offset="25%" stop-color="#2D2C34"/>
+      <stop offset="65%" stop-color="#151419"/>
+      <stop offset="90%" stop-color="#0A090D"/>
+      <stop offset="100%" stop-color="#040405"/>
+    </radialGradient>
+
+    <!-- Realistic 3D Metallic Chrome Gold Balloon Gradient -->
+    <radialGradient id="balloon-gold" cx="30%" cy="26%" r="70%">
+      <stop offset="0%" stop-color="#FFFBE0"/>
+      <stop offset="22%" stop-color="#F2D070"/>
+      <stop offset="55%" stop-color="#CA9C2B"/>
+      <stop offset="85%" stop-color="#8E6510"/>
+      <stop offset="100%" stop-color="#553805"/>
+    </radialGradient>
+
+    <!-- Realistic 3D Pearl White Balloon Gradient -->
+    <radialGradient id="balloon-pearl" cx="32%" cy="28%" r="68%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="40%" stop-color="#F5F6F9"/>
+      <stop offset="75%" stop-color="#D9DFE8"/>
+      <stop offset="95%" stop-color="#B8C2CF"/>
+      <stop offset="100%" stop-color="#9AA6B5"/>
+    </radialGradient>
+
+    <!-- Secondary Champagne Gold Balloon Gradient -->
+    <radialGradient id="balloon-champagne" cx="32%" cy="28%" r="70%">
+      <stop offset="0%" stop-color="#FFF4DE"/>
+      <stop offset="30%" stop-color="#E5C795"/>
+      <stop offset="70%" stop-color="#B89358"/>
+      <stop offset="100%" stop-color="#7A5A2B"/>
+    </radialGradient>
+
+    <!-- Glossy Specular Highlight Crescent Sheen -->
+    <linearGradient id="specular-sheen" x1="0%" y1="0%" x2="80%" y2="80%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.85"/>
+      <stop offset="45%" stop-color="#FFFFFF" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- Gold Ribbon Gradient -->
+    <linearGradient id="gold-ribbon" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F8E5A7"/>
+      <stop offset="50%" stop-color="#D4AF37"/>
+      <stop offset="100%" stop-color="#936F15"/>
+    </linearGradient>
+
+    <!-- Sparkle Stars -->
+    <g id="sparkle-gold">
+      <path d="M 0,-12 Q 1,-1.5 12,0 Q 1,1.5 0,12 Q -1,1.5 -12,0 Q -1,-1.5 0,-12 Z" fill="#D4AF37"/>
+    </g>
+    <g id="sparkle-gold-sm">
+      <path d="M 0,-7 Q 0.5,-1 7,0 Q 0.5,1 0,7 Q -0.5,1 -7,0 Q -0.5,-1 0,-7 Z" fill="#E8C36A"/>
+    </g>
+    <g id="sparkle-white">
+      <path d="M 0,-6 Q 0.5,-0.8 6,0 Q 0.5,0.8 0,6 Q -0.5,0.8 -6,0 Q -0.5,-0.8 0,-6 Z" fill="#FFFFFF"/>
+    </g>
+
+    <!-- Subtle Drop Shadow for 3D Balloon Clustering -->
+    <filter id="balloon-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="-2" dy="6" stdDeviation="6" flood-color="#000000" flood-opacity="0.25"/>
+    </filter>
+    <filter id="soft-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="-1" dy="4" stdDeviation="4" flood-color="#000000" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+
+  <!-- Clean Off-White / Light Cream Card Background (#FAFAFA) -->
+  <rect width="500" height="700" fill="#FAFAFA"/>
+
+  <!-- Elegant Delicate Double Gold Inset Hairline Border -->
+  <rect x="16" y="16" width="468" height="668" rx="4" fill="none" stroke="#D4AF37" stroke-width="0.8" stroke-opacity="0.45"/>
+  <rect x="21" y="21" width="458" height="658" rx="2" fill="none" stroke="#D4AF37" stroke-width="0.4" stroke-opacity="0.25"/>
+
+  <!-- ========================================================================= -->
+  <!-- BALLOON ARCH GRAPHIC LAYER: Framing Left Edge & Top-Left Corner           -->
+  <!-- Realistic Black, Metallic Gold, and Pearl White Balloon Garland Arch      -->
+  <!-- ========================================================================= -->
+
+  <!-- Dangling Curled Gold Strings / Ribbons behind balloons -->
+  <g stroke="url(#gold-ribbon)" stroke-width="1.6" fill="none" stroke-linecap="round" opacity="0.85">
+    <path d="M 65,340 Q 50,420 75,490 T 55,570 T 70,640"/>
+    <path d="M 38,260 Q 20,330 35,410 T 22,500 T 32,580"/>
+    <path d="M 115,220 Q 95,290 120,370 T 100,450 T 112,530"/>
+    <path d="M 185,110 Q 165,160 190,220 T 170,290"/>
+    <path d="M 240,65 Q 260,110 235,160 T 255,210"/>
+  </g>
+
+  <!-- BACKGROUND LAYER BALLOONS (Layer 1 - deep shadows & anchors) -->
+  <g id="balloons-bg">
+    <!-- Balloon: Top-Left Deep Black -->
+    <g transform="translate(-15, 30)" filter="url(#balloon-shadow)">
+      <ellipse cx="0" cy="0" rx="58" ry="68" fill="url(#balloon-black)"/>
+      <path d="M -30,-32 C -18,-50 12,-52 32,-36 C 22,-44 -2,-44 -22,-24 Z" fill="url(#specular-sheen)"/>
+    </g>
+
+    <!-- Balloon: Far Top Gold (X: 180, Y: -10) -->
+    <g transform="translate(180, 5)" filter="url(#balloon-shadow)">
+      <ellipse cx="0" cy="0" rx="48" ry="56" transform="rotate(15)" fill="url(#balloon-gold)"/>
+      <path d="M -24,-26 C -14,-42 10,-44 26,-30 C 18,-36 -2,-36 -18,-20 Z" fill="url(#specular-sheen)"/>
+    </g>
+
+    <!-- Balloon: Mid-Left Deep Black (Y: 260) -->
+    <g transform="translate(-10, 260)" filter="url(#balloon-shadow)">
+      <ellipse cx="0" cy="0" rx="55" ry="64" transform="rotate(-10)" fill="url(#balloon-black)"/>
+      <path d="M -28,-30 C -16,-46 10,-48 28,-34 C 18,-40 -2,-40 -20,-22 Z" fill="url(#specular-sheen)"/>
+    </g>
+
+    <!-- Balloon: Lower-Left Pearl White (Y: 410) -->
+    <g transform="translate(-5, 410)" filter="url(#soft-shadow)">
+      <ellipse cx="0" cy="0" rx="46" ry="54" transform="rotate(12)" fill="url(#balloon-pearl)"/>
+      <path d="M -22,-24 C -12,-38 8,-40 24,-28 C 16,-34 -2,-34 -16,-18 Z" fill="url(#specular-sheen)"/>
+    </g>
+
+    <!-- Balloon: Lower-Left Gold Anchor (Y: 530) -->
+    <g transform="translate(25, 530)" filter="url(#balloon-shadow)">
+      <ellipse cx="0" cy="0" rx="42" ry="50" transform="rotate(-15)" fill="url(#balloon-gold)"/>
+      <path d="M -20,-22 C -10,-34 6,-36 22,-24 C 14,-30 -2,-30 -14,-16 Z" fill="url(#specular-sheen)"/>
+    </g>
+  </g>
+
+  <!-- MIDGROUND LAYER BALLOONS (Layer 2 - Core arch body) -->
+  <g id="balloons-mid">
+    <!-- Top arch: Corner Pearl White (X: 70, Y: 10) -->
+    <g transform="translate(70, 15)" filter="url(#soft-shadow)">
+      <ellipse cx="0" cy="0" rx="56" ry="66" transform="rotate(-12)" fill="url(#balloon-pearl)"/>
+      <path d="M -28,-30 C -16,-48 12,-50 32,-34 C 22,-42 -2,-42 -20,-24 Z" fill="url(#specular-sheen)"/>
+      <ellipse cx="14" cy="-22" rx="10" ry="5" transform="rotate(-25 14 -22)" fill="#FFFFFF" opacity="0.6"/>
+    </g>
+
+    <!-- Top arch: Gold Statement (X: 135, Y: 40) -->
+    <g transform="translate(135, 40)" filter="url(#balloon-shadow)">
+      <ellipse cx="0" cy="0" rx="52" ry="62" transform="rotate(22)" fill="url(#balloon-gold)"/>
+      <path d="M -26,-28 C -14,-44 10,-46 28,-32 C 18,-38 -2,-38 -18,-22 Z" fill="url(#specular-sheen)"/>
+      <ellipse cx="12" cy="-20" rx="9" ry="4.5" transform="rotate(-20 12 -20)" fill="#FFFFFF" opacity="0.65"/>
+    </g>
+
+    <!-- Top arch edge: Champagne accent (X: 215, Y: 25) -->
+    <g transform="translate(215, 25)" filter="url(#soft-shadow)">
+      <ellipse cx="0" cy="0" rx="38" ry="45" transform="rotate(-8)" fill="url(#balloon-champagne)"/>
+      <path d="M -18,-20 C -10,-32 8,-34 22,-22 C 14,-28 -2,-28 -14,-14 Z" fill="url(#specular-sheen)"/>
+    </g>
+
+    <!-- Upper-Left Spine: Black Luxury (X: 28, Y: 125) -->
+    <g transform="translate(28, 125)" filter="url(#balloon-shadow)">
+      <ellipse cx="0" cy="0" rx="60" ry="70" transform="rotate(15)" fill="url(#balloon-black)"/>
+      <path d="M -30,-32 C -18,-52 14,-54 35,-36 C 24,-44 -2,-44 -22,-24 Z" fill="url(#specular-sheen)"/>
+      <ellipse cx="15" cy="-24" rx="11" ry="5.5" transform="rotate(-30 15 -24)" fill="#FFFFFF" opacity="0.5"/>
+    </g>
+
+    <!-- Upper-Left Inner Accent: Pearl White (X: 95, Y: 140) -->
+    <g transform="translate(95, 140)" filter="url(#soft-shadow)">
+      <ellipse cx="0" cy="0" rx="44" ry="52" transform="rotate(-18)" fill="url(#balloon-pearl)"/>
+      <path d="M -22,-24 C -12,-38 8,-40 24,-26 C 16,-32 -2,-32 -16,-18 Z" fill="url(#specular-sheen)"/>
+      <ellipse cx="10" cy="-16" rx="8" ry="4" transform="rotate(-25 10 -16)" fill="#FFFFFF" opacity="0.7"/>
+    </g>
+
+    <!-- Mid-Left Spine: Metallic Gold (X: 42, Y: 245) -->
+    <g transform="translate(42, 245)" filter="url(#balloon-shadow)">
+      <ellipse cx="0" cy="0" rx="56" ry="66" transform="rotate(-14)" fill="url(#balloon-gold)"/>
+      <path d="M -28,-30 C -16,-48 12,-50 32,-34 C 22,-42 -2,-42 -20,-24 Z" fill="url(#specular-sheen)"/>
+      <ellipse cx="14" cy="-22" rx="10" ry="5" transform="rotate(-25 14 -22)" fill="#FFFFFF" opacity="0.7"/>
+    </g>
+
+    <!-- Mid-Left Inner: Obsidian Black (X: 88, Y: 295) -->
+    <g transform="translate(88, 295)" filter="url(#balloon-shadow)">
+      <ellipse cx="0" cy="0" rx="46" ry="54" transform="rotate(20)" fill="url(#balloon-black)"/>
+      <path d="M -22,-24 C -12,-38 8,-40 24,-26 C 16,-32 -2,-32 -16,-18 Z" fill="url(#specular-sheen)"/>
+    </g>
+
+    <!-- Lower-Left Spine: Pearl White (X: 35, Y: 375) -->
+    <g transform="translate(35, 375)" filter="url(#soft-shadow)">
+      <ellipse cx="0" cy="0" rx="52" ry="62" transform="rotate(10)" fill="url(#balloon-pearl)"/>
+      <path d="M -26,-28 C -14,-44 10,-46 28,-32 C 18,-38 -2,-38 -18,-22 Z" fill="url(#specular-sheen)"/>
+      <ellipse cx="12" cy="-20" rx="9" ry="4.5" transform="rotate(-20 12 -20)" fill="#FFFFFF" opacity="0.6"/>
+    </g>
+
+    <!-- Lower-Left Accent: Metallic Gold (X: 72, Y: 445) -->
+    <g transform="translate(72, 445)" filter="url(#balloon-shadow)">
+      <ellipse cx="0" cy="0" rx="44" ry="52" transform="rotate(-15)" fill="url(#balloon-gold)"/>
+      <path d="M -22,-24 C -12,-38 8,-40 24,-26 C 16,-32 -2,-32 -16,-18 Z" fill="url(#specular-sheen)"/>
+      <ellipse cx="10" cy="-16" rx="8" ry="4" transform="rotate(-25 10 -16)" fill="#FFFFFF" opacity="0.65"/>
+    </g>
+
+    <!-- Bottom Taper: Obsidian Black (X: 30, Y: 505) -->
+    <g transform="translate(30, 505)" filter="url(#balloon-shadow)">
+      <ellipse cx="0" cy="0" rx="40" ry="48" transform="rotate(18)" fill="url(#balloon-black)"/>
+      <path d="M -20,-22 C -10,-34 6,-36 22,-24 C 14,-30 -2,-30 -14,-16 Z" fill="url(#specular-sheen)"/>
+    </g>
+  </g>
+
+  <!-- FOREGROUND LAYER CLUSTER BALLOONS (Layer 3 - Crisp overlapping accents) -->
+  <g id="balloons-fg">
+    <!-- Top-Left Crown Gold (X: 18, Y: 45) -->
+    <g transform="translate(18, 45)" filter="url(#balloon-shadow)">
+      <ellipse cx="0" cy="0" rx="46" ry="55" transform="rotate(28)" fill="url(#balloon-gold)"/>
+      <path d="M -22,-25 C -12,-40 10,-42 26,-28 C 16,-34 -2,-34 -16,-18 Z" fill="url(#specular-sheen)"/>
+      <ellipse cx="11" cy="-18" rx="8.5" ry="4" transform="rotate(-20 11 -18)" fill="#FFFFFF" opacity="0.75"/>
+    </g>
+
+    <!-- Mini Cluster Spheres (Organic filler balloons) -->
+    <!-- Mini Gold at (X: 105, Y: 75) -->
+    <g transform="translate(105, 75)" filter="url(#soft-shadow)">
+      <circle cx="0" cy="0" r="22" fill="url(#balloon-gold)"/>
+      <ellipse cx="-4" cy="-6" rx="6" ry="3" fill="#FFFFFF" opacity="0.7"/>
+    </g>
+    <!-- Mini Pearl at (X: 55, Y: 90) -->
+    <g transform="translate(55, 90)" filter="url(#soft-shadow)">
+      <circle cx="0" cy="0" r="18" fill="url(#balloon-pearl)"/>
+      <ellipse cx="-3" cy="-5" rx="5" ry="2.5" fill="#FFFFFF" opacity="0.75"/>
+    </g>
+    <!-- Mini Black at (X: 68, Y: 195) -->
+    <g transform="translate(68, 195)" filter="url(#soft-shadow)">
+      <circle cx="0" cy="0" r="24" fill="url(#balloon-black)"/>
+      <ellipse cx="-4" cy="-7" rx="6.5" ry="3" fill="#FFFFFF" opacity="0.55"/>
+    </g>
+    <!-- Mini Gold at (X: 115, Y: 235) -->
+    <g transform="translate(115, 235)" filter="url(#soft-shadow)">
+      <circle cx="0" cy="0" r="21" fill="url(#balloon-gold)"/>
+      <ellipse cx="-4" cy="-6" rx="5.5" ry="2.8" fill="#FFFFFF" opacity="0.75"/>
+    </g>
+    <!-- Mini Pearl at (X: 60, Y: 320) -->
+    <g transform="translate(60, 320)" filter="url(#soft-shadow)">
+      <circle cx="0" cy="0" r="20" fill="url(#balloon-pearl)"/>
+      <ellipse cx="-3" cy="-5" rx="5" ry="2.5" fill="#FFFFFF" opacity="0.7"/>
+    </g>
+    <!-- Mini Gold at (X: 85, Y: 395) -->
+    <g transform="translate(85, 395)" filter="url(#soft-shadow)">
+      <circle cx="0" cy="0" r="19" fill="url(#balloon-gold)"/>
+      <ellipse cx="-3" cy="-5" rx="5" ry="2.5" fill="#FFFFFF" opacity="0.7"/>
+    </g>
+    <!-- Mini Black at (X: 45, Y: 460) -->
+    <g transform="translate(45, 460)" filter="url(#soft-shadow)">
+      <circle cx="0" cy="0" r="17" fill="url(#balloon-black)"/>
+      <ellipse cx="-3" cy="-4" rx="4.5" ry="2" fill="#FFFFFF" opacity="0.5"/>
+    </g>
+  </g>
+
+  <!-- ========================================================================= -->
+  <!-- GOLD FOIL SPARKLES & CONFETTI SHIMMER                                     -->
+  <!-- Floating gracefully along the garland curve towards center/right           -->
+  <!-- ========================================================================= -->
+  <g id="confetti-and-sparkles">
+    <g transform="translate(160, 115)"><use href="#sparkle-gold"/></g>
+    <g transform="translate(265, 35)"><use href="#sparkle-gold-sm"/></g>
+    <g transform="translate(130, 185)"><use href="#sparkle-gold-sm"/></g>
+    <g transform="translate(180, 170)"><use href="#sparkle-white" opacity="0.85"/></g>
+    <g transform="translate(145, 275)"><use href="#sparkle-gold"/></g>
+    <g transform="translate(110, 360)"><use href="#sparkle-gold-sm"/></g>
+    <g transform="translate(125, 430)"><use href="#sparkle-gold"/></g>
+    <g transform="translate(85, 510)"><use href="#sparkle-gold-sm"/></g>
+    <g transform="translate(65, 590)"><use href="#sparkle-gold"/></g>
+
+    <!-- Floating Confetti Dots & Sequins in Gold & Metallic Foil -->
+    <circle cx="175" cy="85" r="3" fill="#D4AF37" opacity="0.7"/>
+    <circle cx="230" cy="55" r="2.5" fill="#F2D070" opacity="0.8"/>
+    <circle cx="280" cy="70" r="2" fill="#D4AF37" opacity="0.6"/>
+    <circle cx="150" cy="140" r="2" fill="#222222" opacity="0.4"/>
+    <circle cx="120" cy="165" r="3.2" fill="#D4AF37" opacity="0.75"/>
+    <circle cx="160" cy="230" r="2.5" fill="#F2D070" opacity="0.8"/>
+    <circle cx="135" cy="320" r="2.8" fill="#D4AF37" opacity="0.7"/>
+    <circle cx="95" cy="370" r="2" fill="#222222" opacity="0.35"/>
+    <circle cx="140" cy="405" r="3" fill="#D4AF37" opacity="0.8"/>
+    <circle cx="105" cy="480" r="2.2" fill="#F2D070" opacity="0.75"/>
+    <circle cx="120" cy="540" r="2.5" fill="#D4AF37" opacity="0.6"/>
+
+    <!-- Subtle Floating Confetti Rectangles -->
+    <rect x="185" y="130" width="5" height="3" transform="rotate(25 185 130)" fill="#D4AF37" opacity="0.65"/>
+    <rect x="140" y="210" width="4" height="2.5" transform="rotate(-35 140 210)" fill="#D4AF37" opacity="0.7"/>
+    <rect x="155" y="350" width="5" height="3" transform="rotate(40 155 350)" fill="#F2D070" opacity="0.65"/>
+    <rect x="110" y="440" width="4" height="2" transform="rotate(-15 110 440)" fill="#D4AF37" opacity="0.6"/>
+    <rect x="80" y="550" width="5" height="2.8" transform="rotate(30 80 550)" fill="#D4AF37" opacity="0.55"/>
+
+    <!-- Ambient Upper Right Sparkle -->
+    <g transform="translate(440, 48)"><use href="#sparkle-gold-sm" opacity="0.5"/></g>
+    <g transform="translate(455, 120)"><circle cx="0" cy="0" r="1.5" fill="#D4AF37" opacity="0.4"/></g>
+  </g>
+</svg>

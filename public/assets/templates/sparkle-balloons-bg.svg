@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 700" width="100%" height="100%">
+  <defs>
+    <radialGradient id="black-balloon-grad" cx="35%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#4F4D59"/>
+      <stop offset="40%" stop-color="#26252B"/>
+      <stop offset="85%" stop-color="#141317"/>
+      <stop offset="100%" stop-color="#0A090D"/>
+    </radialGradient>
+    <radialGradient id="gold-balloon-grad" cx="35%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#FFF4C7"/>
+      <stop offset="30%" stop-color="#E8C36A"/>
+      <stop offset="70%" stop-color="#B88A2E"/>
+      <stop offset="100%" stop-color="#735012"/>
+    </radialGradient>
+    <linearGradient id="sheen" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+
+    <g id="sparkle-gold">
+      <path d="M 0,-14 Q 1,-2 14,0 Q 1,2 0,14 Q -1,2 -14,0 Q -1,-2 0,-14 Z" fill="#D4AF37"/>
+    </g>
+    <g id="sparkle-gold-sm">
+      <path d="M 0,-8 Q 0.5,-1 8,0 Q 0.5,1 0,8 Q -0.5,1 -8,0 Q -0.5,-1 0,-8 Z" fill="#E5C066"/>
+    </g>
+    <g id="sparkle-dark">
+      <path d="M 0,-10 Q 0.8,-1.5 10,0 Q 0.8,1.5 0,10 Q -0.8,1.5 -10,0 Q -0.8,-1.5 0,-10 Z" fill="#2B2830"/>
+    </g>
+  </defs>
+
+  <rect width="500" height="700" fill="#EDE9DF" rx="4"/>
+
+  <g transform="translate(60, 60)"><use href="#sparkle-gold-sm"/></g>
+  <g transform="translate(140, 90)"><use href="#sparkle-gold"/></g>
+  <g transform="translate(380, 70)"><use href="#sparkle-gold-sm"/></g>
+  <g transform="translate(440, 110)"><use href="#sparkle-gold"/></g>
+  <g transform="translate(70, 620)"><use href="#sparkle-gold-sm"/></g>
+  <g transform="translate(130, 650)"><use href="#sparkle-dark"/></g>
+  <g transform="translate(420, 630)"><use href="#sparkle-gold"/></g>
+  <g transform="translate(370, 660)"><use href="#sparkle-gold-sm"/></g>
+
+  <g transform="translate(150, 310)">
+    <path d="M 0,80 Q -15,120 10,160 T -5,220 T 15,280"
+          stroke="#4F4D59" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <ellipse cx="0" cy="0" rx="72" ry="82" fill="url(#black-balloon-grad)"/>
+    <polygon points="-6,80 6,80 10,88 -10,88" fill="#141317"/>
+    <path d="M -40,-35 C -25,-60 10,-65 35,-45 C 25,-55 -5,-55 -30,-30 Z" fill="url(#sheen)"/>
+    <g transform="translate(75, -25)"><use href="#sparkle-gold"/></g>
+    <g transform="translate(-65, 45)"><use href="#sparkle-gold-sm"/></g>
+    <g transform="translate(-20, 95)"><use href="#sparkle-dark"/></g>
+  </g>
+
+  <g transform="translate(365, 230)">
+    <path d="M 0,82 Q 20,130 -12,180 T 18,240 T -8,310"
+          stroke="#B88A2E" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+    <ellipse cx="0" cy="0" rx="75" ry="85" fill="url(#gold-balloon-grad)"/>
+    <polygon points="-6,82 6,82 10,90 -10,90" fill="#735012"/>
+    <path d="M -45,-38 C -30,-65 15,-70 42,-48 C 30,-60 -5,-60 -35,-32 Z" fill="url(#sheen)"/>
+    <ellipse cx="25" cy="-25" rx="14" ry="8" transform="rotate(-30 25 -25)" fill="#FFFFFF" opacity="0.45"/>
+    <g transform="translate(-80, -30)"><use href="#sparkle-gold"/></g>
+    <g transform="translate(68, 40)"><use href="#sparkle-gold"/></g>
+    <g transform="translate(45, -60)"><use href="#sparkle-gold-sm"/></g>
+    <g transform="translate(-55, 65)"><use href="#sparkle-dark"/></g>
+  </g>
+
+  <circle cx="250" cy="90" r="3" fill="#D4AF37"/>
+  <circle cx="280" cy="140" r="2" fill="#2B2830"/>
+  <circle cx="220" cy="160" r="2.5" fill="#E5C066"/>
+  <circle cx="260" cy="620" r="3" fill="#D4AF37"/>
+  <circle cx="230" cy="580" r="2" fill="#2B2830"/>
+</svg>

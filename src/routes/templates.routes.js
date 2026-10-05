@@ -10,17 +10,74 @@ const { newTemplatesDataBackend } = require('../config/newTemplatesBackend');
 
 // Get all templates
 
-// Helper to format relative asset paths into absolute URLs for mobile apps
+// Helper to format relative asset paths into absolute URLs for mobile apps and external consumers
 const makeAbsoluteUrl = (url, req) => {
   if (!url || typeof url !== 'string') return url || null;
-  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) return url;
-  try {
-    const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'http';
-    const host = req.get('host') || 'localhost:5000';
-    return `${protocol}://${host}${url.startsWith('/') ? '' : '/'}${url}`;
-  } catch (_) {
-    return url;
+  const trimmed = url.trim();
+  if (trimmed.startsWith('data:') || trimmed.startsWith('blob:')) return trimmed;
+
+  const isProduction = process.env.NODE_ENV === 'production' || !!process.env.VERCEL;
+
+  // If already an absolute URL
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    // If running in production but the stored URL points to localhost, fix it dynamically
+    if (isProduction && (trimmed.includes('localhost') || trimmed.includes('127.0.0.1'))) {
+      const publicBase =
+        process.env.BACKEND_PUBLIC_URL ||
+        process.env.BACKEND_URL ||
+        process.env.PUBLIC_BACKEND_URL ||
+        process.env.NEXT_PUBLIC_API_URL ||
+        process.env.API_URL ||
+        (req ? `${req.headers['x-forwarded-proto'] || req.protocol || 'https'}://${req.get('host')}` : '');
+      const cleanPublicBase = publicBase ? publicBase.replace(/\/api\/?$/i, '').replace(/\/+$/, '') : '';
+      const pathOnly = trimmed.replace(/^https?:\/\/[^/]+/, '');
+      if (cleanPublicBase && !cleanPublicBase.includes('localhost')) {
+        return `${cleanPublicBase}${pathOnly.startsWith('/') ? '' : '/'}${pathOnly}`;
+      }
+      return pathOnly.startsWith('/') ? pathOnly : `/${pathOnly}`;
+    }
+    return trimmed;
   }
+
+  // Determine appropriate base URL:
+  // For frontend assets (/assets/, /templates/), prioritize FRONTEND_URL if set; otherwise use backend public URL
+  const isFrontendAsset = trimmed.startsWith('/assets') || trimmed.startsWith('/templates') || trimmed.startsWith('assets/') || trimmed.startsWith('templates/');
+  const frontendCandidate = process.env.FRONTEND_URL || process.env.PUBLIC_APP_URL || process.env.NEXT_PUBLIC_APP_URL;
+
+  let baseUrl = '';
+  if (isFrontendAsset && frontendCandidate && !frontendCandidate.includes('localhost')) {
+    baseUrl = frontendCandidate.replace(/\/+$/, '');
+  } else {
+    const envCandidate =
+      process.env.BACKEND_PUBLIC_URL ||
+      process.env.BACKEND_URL ||
+      process.env.PUBLIC_BACKEND_URL ||
+      process.env.NEXT_PUBLIC_API_URL ||
+      process.env.API_URL;
+    baseUrl = envCandidate ? envCandidate.replace(/\/api\/?$/i, '').replace(/\/+$/, '') : '';
+  }
+
+  if (!baseUrl && req) {
+    try {
+      const forwardedProto = req.headers['x-forwarded-proto'];
+      const protocol = forwardedProto || req.protocol || (isProduction ? 'https' : 'http');
+      const host = req.get('host');
+      if (host && !(isProduction && (host.startsWith('localhost') || host.startsWith('127.0.0.1')))) {
+        baseUrl = `${protocol}://${host}`;
+      }
+    } catch (_) {}
+  }
+
+  // In production, NEVER fall back to localhost!
+  // Return clean relative path if no valid public hostname is configured
+  if (!baseUrl || (isProduction && (baseUrl.includes('localhost') || baseUrl.includes('127.0.0.1')))) {
+    if (isProduction) {
+      return trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+    }
+    baseUrl = 'http://localhost:5000';
+  }
+
+  return `${baseUrl.replace(/\/$/, '')}/${trimmed.replace(/^\//, '')}`;
 };
 
 // Format template with dual URLs (relative for web, absolute for mobile)
@@ -410,6 +467,15 @@ router.post('/upload', authenticate, upload.any(), async (req, res, next) => {
   }
 });
 
+// Preflight for proxy-image
+router.options('/proxy-image', (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', '*');
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  res.sendStatus(204);
+});
+
 // Lightweight proxy endpoint for external template image links to bypass CORS restrictions
 router.get('/proxy-image', async (req, res) => {
   try {
@@ -437,7 +503,9 @@ router.get('/proxy-image', async (req, res) => {
         return res.redirect(proxyRes.headers.location);
       }
       res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', '*');
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
       res.setHeader('Cache-Control', 'public, max-age=86400');
       if (proxyRes.headers['content-type']) {
         res.setHeader('Content-Type', proxyRes.headers['content-type']);

@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" width="100%" height="100%">
+  <defs>
+    <!-- Crisp White / Porcelain Base -->
+    <linearGradient id="toile-base" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="60%" stop-color="#F9FBFC"/>
+      <stop offset="100%" stop-color="#F0F4F8"/>
+    </linearGradient>
+
+    <!-- Classic French Toile Botanical Pattern Tile -->
+    <pattern id="blue-toile-tile" width="150" height="150" patternUnits="userSpaceOnUse">
+      <g stroke="#4B7093" stroke-linecap="round" stroke-linejoin="round" fill="none">
+        <!-- Main Floral Cluster -->
+        <g transform="translate(75, 75)">
+          <!-- Hydrangea Flowerets -->
+          <circle cx="0" cy="0" r="4" fill="#E8EEF5" stroke-width="0.85"/>
+          <circle cx="-6" cy="-5" r="4.2" fill="#E8EEF5" stroke-width="0.85"/>
+          <circle cx="6" cy="-5" r="4.2" fill="#E8EEF5" stroke-width="0.85"/>
+          <circle cx="-7" cy="4" r="4" fill="#E8EEF5" stroke-width="0.85"/>
+          <circle cx="7" cy="4" r="4" fill="#E8EEF5" stroke-width="0.85"/>
+          <circle cx="0" cy="7" r="3.8" fill="#E8EEF5" stroke-width="0.85"/>
+
+          <!-- Cross-hatching shading on petals for authentic copperplate toile look -->
+          <path d="M -4,-3 L -2,-1 M 2,-3 L 4,-1 M -1,2 L 1,4" stroke-width="0.6" stroke="#426485"/>
+
+          <!-- Sinuous Botanical Vines & Leaves -->
+          <path d="M 0,-10 C -12,-25 -25,-20 -32,-35 C -30,-22 -18,-16 0,-10" stroke-width="0.9" fill="#EBF2F7"/>
+          <path d="M 0,-10 C 12,-25 25,-20 32,-35 C 30,-22 18,-16 0,-10" stroke-width="0.9" fill="#EBF2F7"/>
+          <path d="M -10,0 C -25,8 -28,24 -40,30 C -28,26 -20,16 -10,0" stroke-width="0.85" fill="#EBF2F7"/>
+          <path d="M 10,0 C 25,8 28,24 40,30 C 28,26 20,16 10,0" stroke-width="0.85" fill="#EBF2F7"/>
+
+          <!-- Fine Leaf Veins -->
+          <path d="M -18,-20 L -25,-26 M 18,-20 L 25,-26" stroke-width="0.5" stroke="#3D5F80"/>
+          <path d="M -22,14 L -29,20 M 22,14 L 29,20" stroke-width="0.5" stroke="#3D5F80"/>
+        </g>
+
+        <!-- Corner Connectors for Seamless Tiling -->
+        <g transform="translate(0, 0)">
+          <circle cx="0" cy="0" r="3.5" fill="#E8EEF5" stroke-width="0.8"/>
+          <path d="M 0,0 Q 15,10 22,25" stroke-width="0.75"/>
+          <path d="M 8,6 Q 16,8 14,16" stroke-width="0.65" fill="#EBF2F7"/>
+        </g>
+        <g transform="translate(150, 0)">
+          <circle cx="0" cy="0" r="3.5" fill="#E8EEF5" stroke-width="0.8"/>
+          <path d="M 0,0 Q -15,10 -22,25" stroke-width="0.75"/>
+        </g>
+        <g transform="translate(0, 150)">
+          <circle cx="0" cy="0" r="3.5" fill="#E8EEF5" stroke-width="0.8"/>
+          <path d="M 0,0 Q 15,-10 22,-25" stroke-width="0.75"/>
+        </g>
+        <g transform="translate(150, 150)">
+          <circle cx="0" cy="0" r="3.5" fill="#E8EEF5" stroke-width="0.8"/>
+          <path d="M 0,0 Q -15,-10 -22,-25" stroke-width="0.75"/>
+        </g>
+
+        <!-- Stippled Dots & Berries -->
+        <circle cx="35" cy="40" r="1.4" fill="#4B7093"/>
+        <circle cx="42" cy="34" r="1.2" fill="#4B7093"/>
+        <circle cx="115" cy="110" r="1.4" fill="#4B7093"/>
+        <circle cx="108" cy="118" r="1.2" fill="#4B7093"/>
+        <circle cx="115" cy="38" r="1.3" fill="#4B7093"/>
+        <circle cx="36" cy="115" r="1.3" fill="#4B7093"/>
+      </g>
+    </pattern>
+  </defs>
+
+  <rect width="600" height="600" fill="url(#toile-base)"/>
+  <rect width="600" height="600" fill="url(#blue-toile-tile)"/>
+</svg>

@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" width="100%" height="100%">
+  <defs>
+    <!-- Marble Base Gradient -->
+    <linearGradient id="marble-base" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FCFCFD"/>
+      <stop offset="35%" stop-color="#F7F8FA"/>
+      <stop offset="65%" stop-color="#F1F3F6"/>
+      <stop offset="100%" stop-color="#EAECEF"/>
+    </linearGradient>
+
+    <!-- Vein Soft Blur Filter -->
+    <filter id="vein-soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="3.5" result="blur1"/>
+      <feMerge>
+        <feMergeNode in="blur1"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <filter id="vein-diffuse" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="8" result="blur2"/>
+    </filter>
+
+    <!-- Subtle Golden Mineral Tint -->
+    <linearGradient id="gold-seam" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#C5A059" stop-opacity="0.35"/>
+      <stop offset="50%" stop-color="#E5C77A" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="#997733" stop-opacity="0.3"/>
+    </linearGradient>
+
+    <!-- Vignette / Lighting Falloff -->
+    <radialGradient id="marble-vignette" cx="50%" cy="50%" r="70%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.4"/>
+      <stop offset="70%" stop-color="#F0F2F5" stop-opacity="0.1"/>
+      <stop offset="100%" stop-color="#D8DCE2" stop-opacity="0.45"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Luminous White Carrara Marble Foundation -->
+  <rect width="1000" height="1000" fill="url(#marble-base)"/>
+
+  <!-- LAYER 1: Deep Diffuse Mineral Clouds -->
+  <g filter="url(#vein-diffuse)" opacity="0.45">
+    <path d="M -50,150 Q 200,120 450,280 T 850,550 T 1050,750" fill="none" stroke="#D3D7DE" stroke-width="45"/>
+    <path d="M 150,-50 Q 300,200 400,450 T 650,850 T 800,1050" fill="none" stroke="#CBD0D8" stroke-width="35"/>
+    <path d="M 600,-20 Q 750,180 820,380 T 950,720" fill="none" stroke="#D8DCE2" stroke-width="50"/>
+    <path d="M -20,600 Q 220,680 500,750 T 920,950" fill="none" stroke="#CFD4DC" stroke-width="40"/>
+  </g>
+
+  <!-- LAYER 2: Primary Sinuous Marble Veins (Charcoal / Slate Smoke) -->
+  <g filter="url(#vein-soft)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Main Diagonal Fault Line -->
+    <path d="M -20,80 Q 140,110 260,180 T 420,320 T 560,390 T 710,510 T 840,680 T 980,820 T 1020,920" stroke="#8E97A4" stroke-width="2.2" opacity="0.32"/>
+    <path d="M -20,80 Q 140,110 260,180 T 420,320 T 560,390 T 710,510 T 840,680 T 980,820 T 1020,920" stroke="#717A88" stroke-width="0.9" opacity="0.45"/>
+
+    <!-- Branching Vein 1: Sweeping Top Right -->
+    <path d="M 420,320 Q 520,240 680,210 T 890,140 T 1020,110" stroke="#8E97A4" stroke-width="1.8" opacity="0.28"/>
+    <path d="M 420,320 Q 520,240 680,210 T 890,140 T 1020,110" stroke="#687280" stroke-width="0.75" opacity="0.4"/>
+
+    <!-- Micro-feathers off Branch 1 -->
+    <path d="M 600,225 Q 640,170 710,150" stroke="#9AA2AF" stroke-width="0.6" opacity="0.3"/>
+    <path d="M 750,185 Q 810,130 840,90" stroke="#9AA2AF" stroke-width="0.5" opacity="0.25"/>
+
+    <!-- Branching Vein 2: Steeper Downward Plunge -->
+    <path d="M 560,390 Q 540,520 510,640 T 460,820 T 430,1020" stroke="#8A93A0" stroke-width="1.9" opacity="0.28"/>
+    <path d="M 560,390 Q 540,520 510,640 T 460,820 T 430,1020" stroke="#66707E" stroke-width="0.7" opacity="0.38"/>
+
+    <!-- Micro-feathers off Branch 2 -->
+    <path d="M 530,580 Q 470,620 400,650" stroke="#9AA2AF" stroke-width="0.6" opacity="0.28"/>
+    <path d="M 490,720 Q 420,760 380,830" stroke="#9AA2AF" stroke-width="0.5" opacity="0.25"/>
+
+    <!-- Secondary Fault Line: Parallel South-East -->
+    <path d="M 80,-30 Q 180,90 280,220 T 360,440 T 520,680 T 680,820 T 850,940 T 1030,1010" stroke="#88919E" stroke-width="1.6" opacity="0.25"/>
+    <path d="M 280,220 Q 230,340 180,480 T 110,680 T 60,890" stroke="#9AA2AF" stroke-width="1.4" opacity="0.22"/>
+
+    <!-- Hairline Fractures across Middle -->
+    <path d="M 260,180 Q 340,160 410,110 T 520,40" stroke="#A0A8B5" stroke-width="0.6" opacity="0.3"/>
+    <path d="M 710,510 Q 790,560 880,590 T 1020,620" stroke="#9AA2AF" stroke-width="0.8" opacity="0.26"/>
+    <path d="M 840,680 Q 880,780 910,890" stroke="#9AA2AF" stroke-width="0.7" opacity="0.25"/>
+  </g>
+
+  <!-- LAYER 3: Warm Gold & Pyrite Micro-Veins (Subtle metallic nuance) -->
+  <g fill="none" stroke-linecap="round">
+    <path d="M 265,182 Q 380,280 422,322 T 562,392 T 678,212" stroke="url(#gold-seam)" stroke-width="1.2" opacity="0.65"/>
+    <path d="M 712,512 Q 780,590 842,682" stroke="url(#gold-seam)" stroke-width="1.1" opacity="0.55"/>
+    <path d="M 120,40 Q 210,120 282,222" stroke="url(#gold-seam)" stroke-width="0.9" opacity="0.5"/>
+  </g>
+
+  <!-- LAYER 4: Soft Polished Marble Surface Sheen -->
+  <rect width="1000" height="1000" fill="url(#marble-vignette)" style="mix-blend-mode: multiply;"/>
+</svg>

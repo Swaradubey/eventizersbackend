@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" width="100%" height="100%">
+  <defs>
+    <!-- Embossed relief filter for realistic paper press texture -->
+    <filter id="emboss" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="1.2" result="blur"/>
+      <feOffset in="blur" dx="-1.2" dy="-1.2" result="highlight"/>
+      <feOffset in="blur" dx="1.2" dy="1.2" result="shadow"/>
+      <feFlood flood-color="#ffffff" flood-opacity="0.9" result="highlightColor"/>
+      <feComposite in="highlightColor" in2="highlight" operator="in" result="highlightTerm"/>
+      <feFlood flood-color="#b8ada0" flood-opacity="0.45" result="shadowColor"/>
+      <feComposite in="shadowColor" in2="shadow" operator="in" result="shadowTerm"/>
+      <feMerge>
+        <feMergeNode in="shadowTerm"/>
+        <feMergeNode in="highlightTerm"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Seamless Embossed Floral Pattern -->
+    <pattern id="embossed-floral-pattern" width="400" height="400" patternUnits="userSpaceOnUse">
+      <g filter="url(#emboss)" fill="none" stroke="#e8e2d8" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <!-- Center Medallion Flower -->
+        <g transform="translate(200, 200)">
+          <!-- Petals -->
+          <circle cx="0" cy="0" r="14" fill="#faf8f5" stroke-width="1.8"/>
+          <path d="M 0,-14 C -12,-35 -24,-45 0,-62 C 24,-45 12,-35 0,-14 Z" fill="#faf8f5"/>
+          <path d="M 0,14 C -12,35 -24,45 0,62 C 24,45 12,35 0,14 Z" fill="#faf8f5"/>
+          <path d="M -14,0 C -35,-12 -45,-24 -62,0 C -45,24 -35,12 -14,0 Z" fill="#faf8f5"/>
+          <path d="M 14,0 C 35,-12 45,-24 62,0 C 45,24 35,12 14,0 Z" fill="#faf8f5"/>
+          <!-- Diagonal Petals -->
+          <path d="M -10,-10 C -30,-30 -44,-36 -44,-44 C -36,-44 -30,-30 -10,-10 Z" fill="#faf8f5"/>
+          <path d="M 10,-10 C 30,-30 44,-36 44,-44 C 36,-44 30,-30 10,-10 Z" fill="#faf8f5"/>
+          <path d="M -10,10 C -30,30 -44,36 -44,44 C -36,44 -30,30 -10,10 Z" fill="#faf8f5"/>
+          <path d="M 10,10 C 30,30 44,36 44,44 C 36,44 30,30 10,10 Z" fill="#faf8f5"/>
+          <!-- Center Core stamen -->
+          <circle cx="0" cy="0" r="6" stroke-width="1.2"/>
+          <circle cx="0" cy="0" r="2" fill="#e8e2d8"/>
+        </g>
+
+        <!-- Sinuous Damask Floral Vines -->
+        <path d="M 200,138 C 200,90 160,50 110,50 C 60,50 40,90 40,130 C 40,175 75,200 110,200 C 135,200 155,185 155,160 C 155,138 138,125 118,125 C 102,125 90,135 90,148 C 90,160 102,170 114,166" stroke-width="1.8"/>
+        <path d="M 200,262 C 200,310 240,350 290,350 C 340,350 360,310 360,270 C 360,225 325,200 290,200 C 265,200 245,215 245,240 C 245,262 262,275 282,275 C 298,275 310,265 310,252 C 310,240 298,230 286,234" stroke-width="1.8"/>
+        <path d="M 138,200 C 90,200 50,240 50,290 C 50,340 90,360 130,360 C 175,360 200,325 200,290 C 200,265 185,245 160,245 C 138,245 125,262 125,282 C 125,298 135,310 148,310 C 160,310 170,298 166,286" stroke-width="1.8"/>
+        <path d="M 262,200 C 310,200 350,160 350,110 C 350,60 310,40 270,40 C 225,40 200,75 200,110 C 200,135 215,155 240,155 C 262,155 275,138 275,118 C 275,102 265,90 252,90 C 240,90 230,102 234,114" stroke-width="1.8"/>
+
+        <!-- Acanthus Leaf Flourishes -->
+        <path d="M 110,50 C 130,20 160,10 190,15 C 165,30 150,45 142,60 Z" fill="#faf8f5"/>
+        <path d="M 290,350 C 270,380 240,390 210,385 C 235,370 250,355 258,340 Z" fill="#faf8f5"/>
+        <path d="M 50,290 C 20,270 10,240 15,210 C 30,235 45,250 60,258 Z" fill="#faf8f5"/>
+        <path d="M 350,110 C 380,130 390,160 385,190 C 370,165 355,150 340,142 Z" fill="#faf8f5"/>
+
+        <!-- Corner Flourishes (Tile Seamlessly) -->
+        <g transform="translate(0, 0)">
+          <circle cx="0" cy="0" r="12" fill="#faf8f5" stroke-width="1.8"/>
+          <path d="M 0,12 C 15,30 25,45 40,40 C 45,25 30,15 12,0" fill="#faf8f5"/>
+          <path d="M 12,0 C 30,15 45,25 40,40 C 25,45 15,30 0,12" fill="#faf8f5"/>
+        </g>
+        <g transform="translate(400, 0)">
+          <circle cx="0" cy="0" r="12" fill="#faf8f5" stroke-width="1.8"/>
+          <path d="M 0,12 C -15,30 -25,45 -40,40 C -45,25 -30,15 -12,0" fill="#faf8f5"/>
+        </g>
+        <g transform="translate(0, 400)">
+          <circle cx="0" cy="0" r="12" fill="#faf8f5" stroke-width="1.8"/>
+          <path d="M 0,-12 C 15,-30 25,-45 40,-40 C 45,-25 30,-15 12,0" fill="#faf8f5"/>
+        </g>
+        <g transform="translate(400, 400)">
+          <circle cx="0" cy="0" r="12" fill="#faf8f5" stroke-width="1.8"/>
+          <path d="M 0,-12 C -15,-30 -25,-45 -40,-40 C -45,-25 -30,-15 -12,0" fill="#faf8f5"/>
+        </g>
+
+        <!-- Delicate Leaf Sprigs -->
+        <path d="M 170,120 Q 155,100 135,105 Q 150,120 170,120 Z" fill="#faf8f5"/>
+        <path d="M 230,280 Q 245,300 265,295 Q 250,280 230,280 Z" fill="#faf8f5"/>
+        <path d="M 120,230 Q 100,245 105,265 Q 120,250 120,230 Z" fill="#faf8f5"/>
+        <path d="M 280,170 Q 300,155 295,135 Q 280,150 280,170 Z" fill="#faf8f5"/>
+      </g>
+    </pattern>
+
+    <!-- Warm Vignette Gradient -->
+    <radialGradient id="vignette" cx="50%" cy="50%" r="70%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.3"/>
+      <stop offset="60%" stop-color="#f5efe6" stop-opacity="0.1"/>
+      <stop offset="100%" stop-color="#e3dacd" stop-opacity="0.45"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Heavy warm cotton paper base -->
+  <rect width="800" height="800" fill="#FAF7F2"/>
+
+  <!-- Embossed Floral Damask Pattern Fill -->
+  <rect width="800" height="800" fill="url(#embossed-floral-pattern)"/>
+
+  <!-- Ambient Light Vignette for depth -->
+  <rect width="800" height="800" fill="url(#vignette)" style="mix-blend-mode: multiply;"/>
+</svg>

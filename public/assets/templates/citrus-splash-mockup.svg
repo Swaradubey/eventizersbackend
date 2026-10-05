@@ -1,0 +1,1270 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 800" width="100%" height="100%">
+  <defs>
+    <!-- Filter Shadows -->
+    <filter id="cs-env-shadow" x="-30%" y="-20%" width="160%" height="150%">
+      <feDropShadow dx="-6" dy="16" stdDeviation="16" flood-color="#000000" flood-opacity="0.32"/>
+      <feDropShadow dx="-1" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.18"/>
+    </filter>
+
+    <filter id="cs-card-shadow" x="-30%" y="-20%" width="160%" height="150%">
+      <feDropShadow dx="3" dy="18" stdDeviation="18" flood-color="#000000" flood-opacity="0.38"/>
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.2"/>
+    </filter>
+
+    <!-- Olive Green Flatlay Surface -->
+    <radialGradient id="cs-bg-grad" cx="50%" cy="45%" r="75%">
+      <stop offset="0%" stop-color="#4C5627"/>
+      <stop offset="40%" stop-color="#414A20"/>
+      <stop offset="75%" stop-color="#343B19"/>
+      <stop offset="100%" stop-color="#242911"/>
+    </radialGradient>
+
+    <!-- Linen Texture for olive backdrop -->
+    <pattern id="cs-weave" width="10" height="10" patternUnits="userSpaceOnUse">
+      <path d="M 0,2.5 L 10,2.5 M 0,7.5 L 10,7.5" stroke="#262D11" stroke-width="0.8" opacity="0.45"/>
+      <path d="M 2.5,0 L 2.5,10 M 7.5,0 L 7.5,10" stroke="#5A6630" stroke-width="0.6" opacity="0.3"/>
+    </pattern>
+
+    <!-- Kraft Paper Envelope Gradient -->
+    <linearGradient id="cs-kraft-paper" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#B3936F"/>
+      <stop offset="50%" stop-color="#A5835F"/>
+      <stop offset="100%" stop-color="#93724E"/>
+    </linearGradient>
+
+    <!-- Kraft Gingham / Plaid Liner -->
+    <pattern id="cs-gingham" width="16" height="16" patternUnits="userSpaceOnUse">
+      <rect width="16" height="16" fill="#FDFBF5"/>
+      <rect x="0" y="0" width="8" height="8" fill="#EFE5D2" opacity="0.8"/>
+      <rect x="8" y="8" width="8" height="8" fill="#EFE5D2" opacity="0.8"/>
+      <line x1="0" y1="0" x2="16" y2="0" stroke="#DFD3BB" stroke-width="0.7"/>
+      <line x1="0" y1="0" x2="0" y2="16" stroke="#DFD3BB" stroke-width="0.7"/>
+    </pattern>
+
+    <clipPath id="cs-card-clip">
+      <rect x="140" y="140" width="380" height="532" rx="14"/>
+    </clipPath>
+  </defs>
+
+  <!-- 1. BACKDROP: Rich Olive Green Surface -->
+  <rect width="600" height="800" fill="url(#cs-bg-grad)"/>
+  <rect width="600" height="800" fill="url(#cs-weave)"/>
+
+  <!-- 2. KRAFT ENVELOPE: Behind card on the left with open flap -->
+  <g filter="url(#cs-env-shadow)">
+    <!-- Envelope Pocket -->
+    <rect x="65" y="210" width="410" height="470" rx="14" fill="url(#cs-kraft-paper)"/>
+    <!-- Triangular open flap pointing top-left -->
+    <path d="M 65,290 L 130,115 L 360,290 Z" fill="url(#cs-kraft-paper)"/>
+    <!-- Gingham Pattern Liner inside throat -->
+    <path d="M 85,285 L 136,135 L 340,285 Z" fill="url(#cs-gingham)"/>
+    <line x1="65" y1="290" x2="360" y2="290" stroke="#7A5A39" stroke-width="1.8" opacity="0.35"/>
+  </g>
+
+  <!-- 3. INVITATION CARD: Warm Cream Surface with Citrus & Blossom Frame -->
+  <g filter="url(#cs-card-shadow)">
+    <g clip-path="url(#cs-card-clip)">
+      <!-- Card Cream Paper Base -->
+      <rect x="140" y="140" width="380" height="532" fill="#FFFDF4"/>
+      <!-- Soft paper grain subtle overlay -->
+      <rect x="140" y="140" width="380" height="532" fill="none" stroke="rgba(0,0,0,0.06)" stroke-width="1"/>
+
+      <!-- Citrus Wreath Border (mapped to card coordinates) -->
+      <g transform="translate(140, 140) scale(0.76, 0.76)">
+        <g id="citrus-frame-border">
+    <g transform="translate(70, 65) rotate(10)">
+      <defs>
+        <radialGradient id="orange-grad-70-65" cx="35%" cy="30%" r="70%">
+          <stop offset="0%" stop-color="#FFBE3B"/>
+          <stop offset="35%" stop-color="#FF8A00"/>
+          <stop offset="85%" stop-color="#E05B00"/>
+          <stop offset="100%" stop-color="#B84200"/>
+        </radialGradient>
+      </defs>
+      <!-- Shadow -->
+      <ellipse cx="2" cy="4" rx="22" ry="20.9" fill="rgba(0,0,0,0.15)"/>
+      <!-- Orange Body -->
+      <ellipse cx="0" cy="0" rx="22" ry="21.34" fill="url(#orange-grad-70-65)"/>
+      <!-- Highlight -->
+      <ellipse cx="-5.5" cy="-5.5" rx="7.699999999999999" ry="4.84" fill="#FFFFFF" opacity="0.4" transform="rotate(-25, -5.5, -5.5)"/>
+      <!-- Calyx/Stem -->
+      <circle cx="2.2" cy="-18.7" r="2.5" fill="#3D5025"/>
+      <path d="M 2.2,-18.7 L 0.44,-20.9 M 2.2,-18.7 L 4.84,-20.240000000000002 M 2.2,-18.7 L 2.6399999999999997,-16.72" stroke="#2B3B18" stroke-width="1.2" stroke-linecap="round"/>
+    </g>
+  
+    <g transform="translate(115, 52) rotate(-15)">
+      <defs>
+        <radialGradient id="orange-grad-115-52" cx="35%" cy="30%" r="70%">
+          <stop offset="0%" stop-color="#FFBE3B"/>
+          <stop offset="35%" stop-color="#FF8A00"/>
+          <stop offset="85%" stop-color="#E05B00"/>
+          <stop offset="100%" stop-color="#B84200"/>
+        </radialGradient>
+      </defs>
+      <!-- Shadow -->
+      <ellipse cx="2" cy="4" rx="16" ry="15.2" fill="rgba(0,0,0,0.15)"/>
+      <!-- Orange Body -->
+      <ellipse cx="0" cy="0" rx="16" ry="15.52" fill="url(#orange-grad-115-52)"/>
+      <!-- Highlight -->
+      <ellipse cx="-4" cy="-4" rx="5.6" ry="3.52" fill="#FFFFFF" opacity="0.4" transform="rotate(-25, -4, -4)"/>
+      <!-- Calyx/Stem -->
+      <circle cx="1.6" cy="-13.6" r="2.5" fill="#3D5025"/>
+      <path d="M 1.6,-13.6 L 0.32,-15.2 M 1.6,-13.6 L 3.52,-14.72 M 1.6,-13.6 L 1.92,-12.16" stroke="#2B3B18" stroke-width="1.2" stroke-linecap="round"/>
+    </g>
+  
+    <g transform="translate(160, 68) rotate(25)">
+      <defs>
+        <radialGradient id="orange-grad-160-68" cx="35%" cy="30%" r="70%">
+          <stop offset="0%" stop-color="#FFBE3B"/>
+          <stop offset="35%" stop-color="#FF8A00"/>
+          <stop offset="85%" stop-color="#E05B00"/>
+          <stop offset="100%" stop-color="#B84200"/>
+        </radialGradient>
+      </defs>
+      <!-- Shadow -->
+      <ellipse cx="2" cy="4" rx="20" ry="19" fill="rgba(0,0,0,0.15)"/>
+      <!-- Orange Body -->
+      <ellipse cx="0" cy="0" rx="20" ry="19.4" fill="url(#orange-grad-160-68)"/>
+      <!-- Highlight -->
+      <ellipse cx="-5" cy="-5" rx="7" ry="4.4" fill="#FFFFFF" opacity="0.4" transform="rotate(-25, -5, -5)"/>
+      <!-- Calyx/Stem -->
+      <circle cx="2" cy="-17" r="2.5" fill="#3D5025"/>
+      <path d="M 2,-17 L 0.4,-19 M 2,-17 L 4.4,-18.400000000000002 M 2,-17 L 2.4,-15.2" stroke="#2B3B18" stroke-width="1.2" stroke-linecap="round"/>
+    </g>
+  
+      <g transform="translate(210, 50) rotate(5)">
+        <!-- Rind -->
+        <circle cx="0" cy="0" r="18" fill="#E86C00" stroke="#D15B00" stroke-width="1.5"/>
+        <circle cx="0" cy="0" r="16.5" fill="#FFF8EB"/>
+        <circle cx="0" cy="0" r="14.5" fill="#FFA31A"/>
+        <!-- Segments -->
+        <g stroke="#FFF8EB" stroke-width="1.2" fill="none">
+          <line x1="0" y1="0" x2="0" y2="-14"/>
+          <line x1="0" y1="0" x2="12.124" y2="-7"/>
+          <line x1="0" y1="0" x2="12.124" y2="7"/>
+          <line x1="0" y1="0" x2="0" y2="14"/>
+          <line x1="0" y1="0" x2="-12.124" y2="7"/>
+          <line x1="0" y1="0" x2="-12.124" y2="-7"/>
+        </g>
+        <circle cx="0" cy="0" r="2.5" fill="#FFF8EB"/>
+      </g>
+    
+    <g transform="translate(255, 62) rotate(-20)">
+      <defs>
+        <radialGradient id="orange-grad-255-62" cx="35%" cy="30%" r="70%">
+          <stop offset="0%" stop-color="#FFBE3B"/>
+          <stop offset="35%" stop-color="#FF8A00"/>
+          <stop offset="85%" stop-color="#E05B00"/>
+          <stop offset="100%" stop-color="#B84200"/>
+        </radialGradient>
+      </defs>
+      <!-- Shadow -->
+      <ellipse cx="2" cy="4" rx="23" ry="21.849999999999998" fill="rgba(0,0,0,0.15)"/>
+      <!-- Orange Body -->
+      <ellipse cx="0" cy="0" rx="23" ry="22.31" fill="url(#orange-grad-255-62)"/>
+      <!-- Highlight -->
+      <ellipse cx="-5.75" cy="-5.75" rx="8.049999999999999" ry="5.06" fill="#FFFFFF" opacity="0.4" transform="rotate(-25, -5.75, -5.75)"/>
+      <!-- Calyx/Stem -->
+      <circle cx="2.3000000000000003" cy="-19.55" r="2.5" fill="#3D5025"/>
+      <path d="M 2.3000000000000003,-19.55 L 0.46,-21.849999999999998 M 2.3000000000000003,-19.55 L 5.06,-21.16 M 2.3000000000000003,-19.55 L 2.76,-17.48" stroke="#2B3B18" stroke-width="1.2" stroke-linecap="round"/>
+    </g>
+  
+    <g transform="translate(305, 52) rotate(15)">
+      <defs>
+        <radialGradient id="orange-grad-305-52" cx="35%" cy="30%" r="70%">
+          <stop offset="0%" stop-color="#FFBE3B"/>
+          <stop offset="35%" stop-color="#FF8A00"/>
+          <stop offset="85%" stop-color="#E05B00"/>
+          <stop offset="100%" stop-color="#B84200"/>
+        </radialGradient>
+      </defs>
+      <!-- Shadow -->
+      <ellipse cx="2" cy="4" rx="17" ry="16.15" fill="rgba(0,0,0,0.15)"/>
+      <!-- Orange Body -->
+      <ellipse cx="0" cy="0" rx="17" ry="16.49" fill="url(#orange-grad-305-52)"/>
+      <!-- Highlight -->
+      <ellipse cx="-4.25" cy="-4.25" rx="5.949999999999999" ry="3.74" fill="#FFFFFF" opacity="0.4" transform="rotate(-25, -4.25, -4.25)"/>
+      <!-- Calyx/Stem -->
+      <circle cx="1.7000000000000002" cy="-14.45" r="2.5" fill="#3D5025"/>
+      <path d="M 1.7000000000000002,-14.45 L 0.34,-16.15 M 1.7000000000000002,-14.45 L 3.74,-15.64 M 1.7000000000000002,-14.45 L 2.04,-12.92" stroke="#2B3B18" stroke-width="1.2" stroke-linecap="round"/>
+    </g>
+  
+    <g transform="translate(355, 66) rotate(-10)">
+      <defs>
+        <radialGradient id="orange-grad-355-66" cx="35%" cy="30%" r="70%">
+          <stop offset="0%" stop-color="#FFBE3B"/>
+          <stop offset="35%" stop-color="#FF8A00"/>
+          <stop offset="85%" stop-color="#E05B00"/>
+          <stop offset="100%" stop-color="#B84200"/>
+        </radialGradient>
+      </defs>
+      <!-- Shadow -->
+      <ellipse cx="2" cy="4" rx="21" ry="19.95" fill="rgba(0,0,0,0.15)"/>
+      <!-- Orange Body -->
+      <ellipse cx="0" cy="0" rx="21" ry="20.37" fill="url(#orange-grad-355-66)"/>
+      <!-- Highlight -->
+      <ellipse cx="-5.25" cy="-5.25" rx="7.35" ry="4.62" fill="#FFFFFF" opacity="0.4" transform="rotate(-25, -5.25, -5.25)"/>
+      <!-- Calyx/Stem -->
+      <circle cx="2.1" cy="-17.849999999999998" r="2.5" fill="#3D5025"/>
+      <path d="M 2.1,-17.849999999999998 L 0.42,-19.95 M 2.1,-17.849999999999998 L 4.62,-19.32 M 2.1,-17.849999999999998 L 2.52,-15.96" stroke="#2B3B18" stroke-width="1.2" stroke-linecap="round"/>
+    </g>
+  
+      <g transform="translate(405, 52) rotate(20)">
+        <!-- Rind -->
+        <circle cx="0" cy="0" r="16" fill="#E86C00" stroke="#D15B00" stroke-width="1.5"/>
+        <circle cx="0" cy="0" r="14.5" fill="#FFF8EB"/>
+        <circle cx="0" cy="0" r="12.5" fill="#FFA31A"/>
+        <!-- Segments -->
+        <g stroke="#FFF8EB" stroke-width="1.2" fill="none">
+          <line x1="0" y1="0" x2="0" y2="-12"/>
+          <line x1="0" y1="0" x2="10.392" y2="-6"/>
+          <line x1="0" y1="0" x2="10.392" y2="6"/>
+          <line x1="0" y1="0" x2="0" y2="12"/>
+          <line x1="0" y1="0" x2="-10.392" y2="6"/>
+          <line x1="0" y1="0" x2="-10.392" y2="-6"/>
+        </g>
+        <circle cx="0" cy="0" r="2.5" fill="#FFF8EB"/>
+      </g>
+    
+    <g transform="translate(445, 68) rotate(-15)">
+      <defs>
+        <radialGradient id="orange-grad-445-68" cx="35%" cy="30%" r="70%">
+          <stop offset="0%" stop-color="#FFBE3B"/>
+          <stop offset="35%" stop-color="#FF8A00"/>
+          <stop offset="85%" stop-color="#E05B00"/>
+          <stop offset="100%" stop-color="#B84200"/>
+        </radialGradient>
+      </defs>
+      <!-- Shadow -->
+      <ellipse cx="2" cy="4" rx="22" ry="20.9" fill="rgba(0,0,0,0.15)"/>
+      <!-- Orange Body -->
+      <ellipse cx="0" cy="0" rx="22" ry="21.34" fill="url(#orange-grad-445-68)"/>
+      <!-- Highlight -->
+      <ellipse cx="-5.5" cy="-5.5" rx="7.699999999999999" ry="4.84" fill="#FFFFFF" opacity="0.4" transform="rotate(-25, -5.5, -5.5)"/>
+      <!-- Calyx/Stem -->
+      <circle cx="2.2" cy="-18.7" r="2.5" fill="#3D5025"/>
+      <path d="M 2.2,-18.7 L 0.44,-20.9 M 2.2,-18.7 L 4.84,-20.240000000000002 M 2.2,-18.7 L 2.6399999999999997,-16.72" stroke="#2B3B18" stroke-width="1.2" stroke-linecap="round"/>
+    </g>
+  
+    <g transform="translate(65, 635) rotate(-10)">
+      <defs>
+        <radialGradient id="orange-grad-65-635" cx="35%" cy="30%" r="70%">
+          <stop offset="0%" stop-color="#FFBE3B"/>
+          <stop offset="35%" stop-color="#FF8A00"/>
+          <stop offset="85%" stop-color="#E05B00"/>
+          <stop offset="100%" stop-color="#B84200"/>
+        </radialGradient>
+      </defs>
+      <!-- Shadow -->
+      <ellipse cx="2" cy="4" rx="22" ry="20.9" fill="rgba(0,0,0,0.15)"/>
+      <!-- Orange Body -->
+      <ellipse cx="0" cy="0" rx="22" ry="21.34" fill="url(#orange-grad-65-635)"/>
+      <!-- Highlight -->
+      <ellipse cx="-5.5" cy="-5.5" rx="7.699999999999999" ry="4.84" fill="#FFFFFF" opacity="0.4" transform="rotate(-25, -5.5, -5.5)"/>
+      <!-- Calyx/Stem -->
+      <circle cx="2.2" cy="-18.7" r="2.5" fill="#3D5025"/>
+      <path d="M 2.2,-18.7 L 0.44,-20.9 M 2.2,-18.7 L 4.84,-20.240000000000002 M 2.2,-18.7 L 2.6399999999999997,-16.72" stroke="#2B3B18" stroke-width="1.2" stroke-linecap="round"/>
+    </g>
+  
+    <g transform="translate(110, 648) rotate(15)">
+      <defs>
+        <radialGradient id="orange-grad-110-648" cx="35%" cy="30%" r="70%">
+          <stop offset="0%" stop-color="#FFBE3B"/>
+          <stop offset="35%" stop-color="#FF8A00"/>
+          <stop offset="85%" stop-color="#E05B00"/>
+          <stop offset="100%" stop-color="#B84200"/>
+        </radialGradient>
+      </defs>
+      <!-- Shadow -->
+      <ellipse cx="2" cy="4" rx="17" ry="16.15" fill="rgba(0,0,0,0.15)"/>
+      <!-- Orange Body -->
+      <ellipse cx="0" cy="0" rx="17" ry="16.49" fill="url(#orange-grad-110-648)"/>
+      <!-- Highlight -->
+      <ellipse cx="-4.25" cy="-4.25" rx="5.949999999999999" ry="3.74" fill="#FFFFFF" opacity="0.4" transform="rotate(-25, -4.25, -4.25)"/>
+      <!-- Calyx/Stem -->
+      <circle cx="1.7000000000000002" cy="-14.45" r="2.5" fill="#3D5025"/>
+      <path d="M 1.7000000000000002,-14.45 L 0.34,-16.15 M 1.7000000000000002,-14.45 L 3.74,-15.64 M 1.7000000000000002,-14.45 L 2.04,-12.92" stroke="#2B3B18" stroke-width="1.2" stroke-linecap="round"/>
+    </g>
+  
+      <g transform="translate(155, 632) rotate(-20)">
+        <!-- Rind -->
+        <circle cx="0" cy="0" r="21" fill="#E86C00" stroke="#D15B00" stroke-width="1.5"/>
+        <circle cx="0" cy="0" r="19.5" fill="#FFF8EB"/>
+        <circle cx="0" cy="0" r="17.5" fill="#FFA31A"/>
+        <!-- Segments -->
+        <g stroke="#FFF8EB" stroke-width="1.2" fill="none">
+          <line x1="0" y1="0" x2="0" y2="-17"/>
+          <line x1="0" y1="0" x2="14.722" y2="-8.5"/>
+          <line x1="0" y1="0" x2="14.722" y2="8.5"/>
+          <line x1="0" y1="0" x2="0" y2="17"/>
+          <line x1="0" y1="0" x2="-14.722" y2="8.5"/>
+          <line x1="0" y1="0" x2="-14.722" y2="-8.5"/>
+        </g>
+        <circle cx="0" cy="0" r="2.5" fill="#FFF8EB"/>
+      </g>
+    
+    <g transform="translate(205, 646) rotate(5)">
+      <defs>
+        <radialGradient id="orange-grad-205-646" cx="35%" cy="30%" r="70%">
+          <stop offset="0%" stop-color="#FFBE3B"/>
+          <stop offset="35%" stop-color="#FF8A00"/>
+          <stop offset="85%" stop-color="#E05B00"/>
+          <stop offset="100%" stop-color="#B84200"/>
+        </radialGradient>
+      </defs>
+      <!-- Shadow -->
+      <ellipse cx="2" cy="4" rx="18" ry="17.099999999999998" fill="rgba(0,0,0,0.15)"/>
+      <!-- Orange Body -->
+      <ellipse cx="0" cy="0" rx="18" ry="17.46" fill="url(#orange-grad-205-646)"/>
+      <!-- Highlight -->
+      <ellipse cx="-4.5" cy="-4.5" rx="6.3" ry="3.96" fill="#FFFFFF" opacity="0.4" transform="rotate(-25, -4.5, -4.5)"/>
+      <!-- Calyx/Stem -->
+      <circle cx="1.8" cy="-15.299999999999999" r="2.5" fill="#3D5025"/>
+      <path d="M 1.8,-15.299999999999999 L 0.36,-17.099999999999998 M 1.8,-15.299999999999999 L 3.96,-16.560000000000002 M 1.8,-15.299999999999999 L 2.16,-13.68" stroke="#2B3B18" stroke-width="1.2" stroke-linecap="round"/>
+    </g>
+  
+    <g transform="translate(250, 636) rotate(25)">
+      <defs>
+        <radialGradient id="orange-grad-250-636" cx="35%" cy="30%" r="70%">
+          <stop offset="0%" stop-color="#FFBE3B"/>
+          <stop offset="35%" stop-color="#FF8A00"/>
+          <stop offset="85%" stop-color="#E05B00"/>
+          <stop offset="100%" stop-color="#B84200"/>
+        </radialGradient>
+      </defs>
+      <!-- Shadow -->
+      <ellipse cx="2" cy="4" rx="24" ry="22.799999999999997" fill="rgba(0,0,0,0.15)"/>
+      <!-- Orange Body -->
+      <ellipse cx="0" cy="0" rx="24" ry="23.28" fill="url(#orange-grad-250-636)"/>
+      <!-- Highlight -->
+      <ellipse cx="-6" cy="-6" rx="8.399999999999999" ry="5.28" fill="#FFFFFF" opacity="0.4" transform="rotate(-25, -6, -6)"/>
+      <!-- Calyx/Stem -->
+      <circle cx="2.4000000000000004" cy="-20.4" r="2.5" fill="#3D5025"/>
+      <path d="M 2.4000000000000004,-20.4 L 0.48,-22.799999999999997 M 2.4000000000000004,-20.4 L 5.28,-22.080000000000002 M 2.4000000000000004,-20.4 L 2.88,-18.240000000000002" stroke="#2B3B18" stroke-width="1.2" stroke-linecap="round"/>
+    </g>
+  
+    <g transform="translate(300, 648) rotate(-15)">
+      <defs>
+        <radialGradient id="orange-grad-300-648" cx="35%" cy="30%" r="70%">
+          <stop offset="0%" stop-color="#FFBE3B"/>
+          <stop offset="35%" stop-color="#FF8A00"/>
+          <stop offset="85%" stop-color="#E05B00"/>
+          <stop offset="100%" stop-color="#B84200"/>
+        </radialGradient>
+      </defs>
+      <!-- Shadow -->
+      <ellipse cx="2" cy="4" rx="17" ry="16.15" fill="rgba(0,0,0,0.15)"/>
+      <!-- Orange Body -->
+      <ellipse cx="0" cy="0" rx="17" ry="16.49" fill="url(#orange-grad-300-648)"/>
+      <!-- Highlight -->
+      <ellipse cx="-4.25" cy="-4.25" rx="5.949999999999999" ry="3.74" fill="#FFFFFF" opacity="0.4" transform="rotate(-25, -4.25, -4.25)"/>
+      <!-- Calyx/Stem -->
+      <circle cx="1.7000000000000002" cy="-14.45" r="2.5" fill="#3D5025"/>
+      <path d="M 1.7000000000000002,-14.45 L 0.34,-16.15 M 1.7000000000000002,-14.45 L 3.74,-15.64 M 1.7000000000000002,-14.45 L 2.04,-12.92" stroke="#2B3B18" stroke-width="1.2" stroke-linecap="round"/>
+    </g>
+  
+      <g transform="translate(345, 632) rotate(10)">
+        <!-- Rind -->
+        <circle cx="0" cy="0" r="20" fill="#E86C00" stroke="#D15B00" stroke-width="1.5"/>
+        <circle cx="0" cy="0" r="18.5" fill="#FFF8EB"/>
+        <circle cx="0" cy="0" r="16.5" fill="#FFA31A"/>
+        <!-- Segments -->
+        <g stroke="#FFF8EB" stroke-width="1.2" fill="none">
+          <line x1="0" y1="0" x2="0" y2="-16"/>
+          <line x1="0" y1="0" x2="13.856" y2="-8"/>
+          <line x1="0" y1="0" x2="13.856" y2="8"/>
+          <line x1="0" y1="0" x2="0" y2="16"/>
+          <line x1="0" y1="0" x2="-13.856" y2="8"/>
+          <line x1="0" y1="0" x2="-13.856" y2="-8"/>
+        </g>
+        <circle cx="0" cy="0" r="2.5" fill="#FFF8EB"/>
+      </g>
+    
+    <g transform="translate(395, 645) rotate(-10)">
+      <defs>
+        <radialGradient id="orange-grad-395-645" cx="35%" cy="30%" r="70%">
+          <stop offset="0%" stop-color="#FFBE3B"/>
+          <stop offset="35%" stop-color="#FF8A00"/>
+          <stop offset="85%" stop-color="#E05B00"/>
+          <stop offset="100%" stop-color="#B84200"/>
+        </radialGradient>
+      </defs>
+      <!-- Shadow -->
+      <ellipse cx="2" cy="4" rx="18" ry="17.099999999999998" fill="rgba(0,0,0,0.15)"/>
+      <!-- Orange Body -->
+      <ellipse cx="0" cy="0" rx="18" ry="17.46" fill="url(#orange-grad-395-645)"/>
+      <!-- Highlight -->
+      <ellipse cx="-4.5" cy="-4.5" rx="6.3" ry="3.96" fill="#FFFFFF" opacity="0.4" transform="rotate(-25, -4.5, -4.5)"/>
+      <!-- Calyx/Stem -->
+      <circle cx="1.8" cy="-15.299999999999999" r="2.5" fill="#3D5025"/>
+      <path d="M 1.8,-15.299999999999999 L 0.36,-17.099999999999998 M 1.8,-15.299999999999999 L 3.96,-16.560000000000002 M 1.8,-15.299999999999999 L 2.16,-13.68" stroke="#2B3B18" stroke-width="1.2" stroke-linecap="round"/>
+    </g>
+  
+    <g transform="translate(440, 635) rotate(20)">
+      <defs>
+        <radialGradient id="orange-grad-440-635" cx="35%" cy="30%" r="70%">
+          <stop offset="0%" stop-color="#FFBE3B"/>
+          <stop offset="35%" stop-color="#FF8A00"/>
+          <stop offset="85%" stop-color="#E05B00"/>
+          <stop offset="100%" stop-color="#B84200"/>
+        </radialGradient>
+      </defs>
+      <!-- Shadow -->
+      <ellipse cx="2" cy="4" rx="22" ry="20.9" fill="rgba(0,0,0,0.15)"/>
+      <!-- Orange Body -->
+      <ellipse cx="0" cy="0" rx="22" ry="21.34" fill="url(#orange-grad-440-635)"/>
+      <!-- Highlight -->
+      <ellipse cx="-5.5" cy="-5.5" rx="7.699999999999999" ry="4.84" fill="#FFFFFF" opacity="0.4" transform="rotate(-25, -5.5, -5.5)"/>
+      <!-- Calyx/Stem -->
+      <circle cx="2.2" cy="-18.7" r="2.5" fill="#3D5025"/>
+      <path d="M 2.2,-18.7 L 0.44,-20.9 M 2.2,-18.7 L 4.84,-20.240000000000002 M 2.2,-18.7 L 2.6399999999999997,-16.72" stroke="#2B3B18" stroke-width="1.2" stroke-linecap="round"/>
+    </g>
+  
+    <g transform="translate(52, 130) rotate(15)">
+      <defs>
+        <radialGradient id="orange-grad-52-130" cx="35%" cy="30%" r="70%">
+          <stop offset="0%" stop-color="#FFBE3B"/>
+          <stop offset="35%" stop-color="#FF8A00"/>
+          <stop offset="85%" stop-color="#E05B00"/>
+          <stop offset="100%" stop-color="#B84200"/>
+        </radialGradient>
+      </defs>
+      <!-- Shadow -->
+      <ellipse cx="2" cy="4" rx="18" ry="17.099999999999998" fill="rgba(0,0,0,0.15)"/>
+      <!-- Orange Body -->
+      <ellipse cx="0" cy="0" rx="18" ry="17.46" fill="url(#orange-grad-52-130)"/>
+      <!-- Highlight -->
+      <ellipse cx="-4.5" cy="-4.5" rx="6.3" ry="3.96" fill="#FFFFFF" opacity="0.4" transform="rotate(-25, -4.5, -4.5)"/>
+      <!-- Calyx/Stem -->
+      <circle cx="1.8" cy="-15.299999999999999" r="2.5" fill="#3D5025"/>
+      <path d="M 1.8,-15.299999999999999 L 0.36,-17.099999999999998 M 1.8,-15.299999999999999 L 3.96,-16.560000000000002 M 1.8,-15.299999999999999 L 2.16,-13.68" stroke="#2B3B18" stroke-width="1.2" stroke-linecap="round"/>
+    </g>
+  
+    <g transform="translate(62, 185) rotate(-10)">
+      <defs>
+        <radialGradient id="orange-grad-62-185" cx="35%" cy="30%" r="70%">
+          <stop offset="0%" stop-color="#FFBE3B"/>
+          <stop offset="35%" stop-color="#FF8A00"/>
+          <stop offset="85%" stop-color="#E05B00"/>
+          <stop offset="100%" stop-color="#B84200"/>
+        </radialGradient>
+      </defs>
+      <!-- Shadow -->
+      <ellipse cx="2" cy="4" rx="22" ry="20.9" fill="rgba(0,0,0,0.15)"/>
+      <!-- Orange Body -->
+      <ellipse cx="0" cy="0" rx="22" ry="21.34" fill="url(#orange-grad-62-185)"/>
+      <!-- Highlight -->
+      <ellipse cx="-5.5" cy="-5.5" rx="7.699999999999999" ry="4.84" fill="#FFFFFF" opacity="0.4" transform="rotate(-25, -5.5, -5.5)"/>
+      <!-- Calyx/Stem -->
+      <circle cx="2.2" cy="-18.7" r="2.5" fill="#3D5025"/>
+      <path d="M 2.2,-18.7 L 0.44,-20.9 M 2.2,-18.7 L 4.84,-20.240000000000002 M 2.2,-18.7 L 2.6399999999999997,-16.72" stroke="#2B3B18" stroke-width="1.2" stroke-linecap="round"/>
+    </g>
+  
+      <g transform="translate(48, 245) rotate(25)">
+        <!-- Rind -->
+        <circle cx="0" cy="0" r="17" fill="#E86C00" stroke="#D15B00" stroke-width="1.5"/>
+        <circle cx="0" cy="0" r="15.5" fill="#FFF8EB"/>
+        <circle cx="0" cy="0" r="13.5" fill="#FFA31A"/>
+        <!-- Segments -->
+        <g stroke="#FFF8EB" stroke-width="1.2" fill="none">
+          <line x1="0" y1="0" x2="0" y2="-13"/>
+          <line x1="0" y1="0" x2="11.258" y2="-6.5"/>
+          <line x1="0" y1="0" x2="11.258" y2="6.5"/>
+          <line x1="0" y1="0" x2="0" y2="13"/>
+          <line x1="0" y1="0" x2="-11.258" y2="6.5"/>
+          <line x1="0" y1="0" x2="-11.258" y2="-6.5"/>
+        </g>
+        <circle cx="0" cy="0" r="2.5" fill="#FFF8EB"/>
+      </g>
+    
+    <g transform="translate(60, 305) rotate(-15)">
+      <defs>
+        <radialGradient id="orange-grad-60-305" cx="35%" cy="30%" r="70%">
+          <stop offset="0%" stop-color="#FFBE3B"/>
+          <stop offset="35%" stop-color="#FF8A00"/>
+          <stop offset="85%" stop-color="#E05B00"/>
+          <stop offset="100%" stop-color="#B84200"/>
+        </radialGradient>
+      </defs>
+      <!-- Shadow -->
+      <ellipse cx="2" cy="4" rx="21" ry="19.95" fill="rgba(0,0,0,0.15)"/>
+      <!-- Orange Body -->
+      <ellipse cx="0" cy="0" rx="21" ry="20.37" fill="url(#orange-grad-60-305)"/>
+      <!-- Highlight -->
+      <ellipse cx="-5.25" cy="-5.25" rx="7.35" ry="4.62" fill="#FFFFFF" opacity="0.4" transform="rotate(-25, -5.25, -5.25)"/>
+      <!-- Calyx/Stem -->
+      <circle cx="2.1" cy="-17.849999999999998" r="2.5" fill="#3D5025"/>
+      <path d="M 2.1,-17.849999999999998 L 0.42,-19.95 M 2.1,-17.849999999999998 L 4.62,-19.32 M 2.1,-17.849999999999998 L 2.52,-15.96" stroke="#2B3B18" stroke-width="1.2" stroke-linecap="round"/>
+    </g>
+  
+    <g transform="translate(50, 365) rotate(10)">
+      <defs>
+        <radialGradient id="orange-grad-50-365" cx="35%" cy="30%" r="70%">
+          <stop offset="0%" stop-color="#FFBE3B"/>
+          <stop offset="35%" stop-color="#FF8A00"/>
+          <stop offset="85%" stop-color="#E05B00"/>
+          <stop offset="100%" stop-color="#B84200"/>
+        </radialGradient>
+      </defs>
+      <!-- Shadow -->
+      <ellipse cx="2" cy="4" rx="19" ry="18.05" fill="rgba(0,0,0,0.15)"/>
+      <!-- Orange Body -->
+      <ellipse cx="0" cy="0" rx="19" ry="18.43" fill="url(#orange-grad-50-365)"/>
+      <!-- Highlight -->
+      <ellipse cx="-4.75" cy="-4.75" rx="6.6499999999999995" ry="4.18" fill="#FFFFFF" opacity="0.4" transform="rotate(-25, -4.75, -4.75)"/>
+      <!-- Calyx/Stem -->
+      <circle cx="1.9000000000000001" cy="-16.15" r="2.5" fill="#3D5025"/>
+      <path d="M 1.9000000000000001,-16.15 L 0.38,-18.05 M 1.9000000000000001,-16.15 L 4.18,-17.48 M 1.9000000000000001,-16.15 L 2.28,-14.44" stroke="#2B3B18" stroke-width="1.2" stroke-linecap="round"/>
+    </g>
+  
+    <g transform="translate(62, 425) rotate(-20)">
+      <defs>
+        <radialGradient id="orange-grad-62-425" cx="35%" cy="30%" r="70%">
+          <stop offset="0%" stop-color="#FFBE3B"/>
+          <stop offset="35%" stop-color="#FF8A00"/>
+          <stop offset="85%" stop-color="#E05B00"/>
+          <stop offset="100%" stop-color="#B84200"/>
+        </radialGradient>
+      </defs>
+      <!-- Shadow -->
+      <ellipse cx="2" cy="4" rx="23" ry="21.849999999999998" fill="rgba(0,0,0,0.15)"/>
+      <!-- Orange Body -->
+      <ellipse cx="0" cy="0" rx="23" ry="22.31" fill="url(#orange-grad-62-425)"/>
+      <!-- Highlight -->
+      <ellipse cx="-5.75" cy="-5.75" rx="8.049999999999999" ry="5.06" fill="#FFFFFF" opacity="0.4" transform="rotate(-25, -5.75, -5.75)"/>
+      <!-- Calyx/Stem -->
+      <circle cx="2.3000000000000003" cy="-19.55" r="2.5" fill="#3D5025"/>
+      <path d="M 2.3000000000000003,-19.55 L 0.46,-21.849999999999998 M 2.3000000000000003,-19.55 L 5.06,-21.16 M 2.3000000000000003,-19.55 L 2.76,-17.48" stroke="#2B3B18" stroke-width="1.2" stroke-linecap="round"/>
+    </g>
+  
+      <g transform="translate(48, 485) rotate(15)">
+        <!-- Rind -->
+        <circle cx="0" cy="0" r="18" fill="#E86C00" stroke="#D15B00" stroke-width="1.5"/>
+        <circle cx="0" cy="0" r="16.5" fill="#FFF8EB"/>
+        <circle cx="0" cy="0" r="14.5" fill="#FFA31A"/>
+        <!-- Segments -->
+        <g stroke="#FFF8EB" stroke-width="1.2" fill="none">
+          <line x1="0" y1="0" x2="0" y2="-14"/>
+          <line x1="0" y1="0" x2="12.124" y2="-7"/>
+          <line x1="0" y1="0" x2="12.124" y2="7"/>
+          <line x1="0" y1="0" x2="0" y2="14"/>
+          <line x1="0" y1="0" x2="-12.124" y2="7"/>
+          <line x1="0" y1="0" x2="-12.124" y2="-7"/>
+        </g>
+        <circle cx="0" cy="0" r="2.5" fill="#FFF8EB"/>
+      </g>
+    
+    <g transform="translate(58, 545) rotate(-5)">
+      <defs>
+        <radialGradient id="orange-grad-58-545" cx="35%" cy="30%" r="70%">
+          <stop offset="0%" stop-color="#FFBE3B"/>
+          <stop offset="35%" stop-color="#FF8A00"/>
+          <stop offset="85%" stop-color="#E05B00"/>
+          <stop offset="100%" stop-color="#B84200"/>
+        </radialGradient>
+      </defs>
+      <!-- Shadow -->
+      <ellipse cx="2" cy="4" rx="22" ry="20.9" fill="rgba(0,0,0,0.15)"/>
+      <!-- Orange Body -->
+      <ellipse cx="0" cy="0" rx="22" ry="21.34" fill="url(#orange-grad-58-545)"/>
+      <!-- Highlight -->
+      <ellipse cx="-5.5" cy="-5.5" rx="7.699999999999999" ry="4.84" fill="#FFFFFF" opacity="0.4" transform="rotate(-25, -5.5, -5.5)"/>
+      <!-- Calyx/Stem -->
+      <circle cx="2.2" cy="-18.7" r="2.5" fill="#3D5025"/>
+      <path d="M 2.2,-18.7 L 0.44,-20.9 M 2.2,-18.7 L 4.84,-20.240000000000002 M 2.2,-18.7 L 2.6399999999999997,-16.72" stroke="#2B3B18" stroke-width="1.2" stroke-linecap="round"/>
+    </g>
+  
+    <g transform="translate(50, 595) rotate(20)">
+      <defs>
+        <radialGradient id="orange-grad-50-595" cx="35%" cy="30%" r="70%">
+          <stop offset="0%" stop-color="#FFBE3B"/>
+          <stop offset="35%" stop-color="#FF8A00"/>
+          <stop offset="85%" stop-color="#E05B00"/>
+          <stop offset="100%" stop-color="#B84200"/>
+        </radialGradient>
+      </defs>
+      <!-- Shadow -->
+      <ellipse cx="2" cy="4" rx="17" ry="16.15" fill="rgba(0,0,0,0.15)"/>
+      <!-- Orange Body -->
+      <ellipse cx="0" cy="0" rx="17" ry="16.49" fill="url(#orange-grad-50-595)"/>
+      <!-- Highlight -->
+      <ellipse cx="-4.25" cy="-4.25" rx="5.949999999999999" ry="3.74" fill="#FFFFFF" opacity="0.4" transform="rotate(-25, -4.25, -4.25)"/>
+      <!-- Calyx/Stem -->
+      <circle cx="1.7000000000000002" cy="-14.45" r="2.5" fill="#3D5025"/>
+      <path d="M 1.7000000000000002,-14.45 L 0.34,-16.15 M 1.7000000000000002,-14.45 L 3.74,-15.64 M 1.7000000000000002,-14.45 L 2.04,-12.92" stroke="#2B3B18" stroke-width="1.2" stroke-linecap="round"/>
+    </g>
+  
+    <g transform="translate(450, 130) rotate(-15)">
+      <defs>
+        <radialGradient id="orange-grad-450-130" cx="35%" cy="30%" r="70%">
+          <stop offset="0%" stop-color="#FFBE3B"/>
+          <stop offset="35%" stop-color="#FF8A00"/>
+          <stop offset="85%" stop-color="#E05B00"/>
+          <stop offset="100%" stop-color="#B84200"/>
+        </radialGradient>
+      </defs>
+      <!-- Shadow -->
+      <ellipse cx="2" cy="4" rx="19" ry="18.05" fill="rgba(0,0,0,0.15)"/>
+      <!-- Orange Body -->
+      <ellipse cx="0" cy="0" rx="19" ry="18.43" fill="url(#orange-grad-450-130)"/>
+      <!-- Highlight -->
+      <ellipse cx="-4.75" cy="-4.75" rx="6.6499999999999995" ry="4.18" fill="#FFFFFF" opacity="0.4" transform="rotate(-25, -4.75, -4.75)"/>
+      <!-- Calyx/Stem -->
+      <circle cx="1.9000000000000001" cy="-16.15" r="2.5" fill="#3D5025"/>
+      <path d="M 1.9000000000000001,-16.15 L 0.38,-18.05 M 1.9000000000000001,-16.15 L 4.18,-17.48 M 1.9000000000000001,-16.15 L 2.28,-14.44" stroke="#2B3B18" stroke-width="1.2" stroke-linecap="round"/>
+    </g>
+  
+    <g transform="translate(440, 185) rotate(10)">
+      <defs>
+        <radialGradient id="orange-grad-440-185" cx="35%" cy="30%" r="70%">
+          <stop offset="0%" stop-color="#FFBE3B"/>
+          <stop offset="35%" stop-color="#FF8A00"/>
+          <stop offset="85%" stop-color="#E05B00"/>
+          <stop offset="100%" stop-color="#B84200"/>
+        </radialGradient>
+      </defs>
+      <!-- Shadow -->
+      <ellipse cx="2" cy="4" rx="23" ry="21.849999999999998" fill="rgba(0,0,0,0.15)"/>
+      <!-- Orange Body -->
+      <ellipse cx="0" cy="0" rx="23" ry="22.31" fill="url(#orange-grad-440-185)"/>
+      <!-- Highlight -->
+      <ellipse cx="-5.75" cy="-5.75" rx="8.049999999999999" ry="5.06" fill="#FFFFFF" opacity="0.4" transform="rotate(-25, -5.75, -5.75)"/>
+      <!-- Calyx/Stem -->
+      <circle cx="2.3000000000000003" cy="-19.55" r="2.5" fill="#3D5025"/>
+      <path d="M 2.3000000000000003,-19.55 L 0.46,-21.849999999999998 M 2.3000000000000003,-19.55 L 5.06,-21.16 M 2.3000000000000003,-19.55 L 2.76,-17.48" stroke="#2B3B18" stroke-width="1.2" stroke-linecap="round"/>
+    </g>
+  
+      <g transform="translate(452, 245) rotate(-25)">
+        <!-- Rind -->
+        <circle cx="0" cy="0" r="17" fill="#E86C00" stroke="#D15B00" stroke-width="1.5"/>
+        <circle cx="0" cy="0" r="15.5" fill="#FFF8EB"/>
+        <circle cx="0" cy="0" r="13.5" fill="#FFA31A"/>
+        <!-- Segments -->
+        <g stroke="#FFF8EB" stroke-width="1.2" fill="none">
+          <line x1="0" y1="0" x2="0" y2="-13"/>
+          <line x1="0" y1="0" x2="11.258" y2="-6.5"/>
+          <line x1="0" y1="0" x2="11.258" y2="6.5"/>
+          <line x1="0" y1="0" x2="0" y2="13"/>
+          <line x1="0" y1="0" x2="-11.258" y2="6.5"/>
+          <line x1="0" y1="0" x2="-11.258" y2="-6.5"/>
+        </g>
+        <circle cx="0" cy="0" r="2.5" fill="#FFF8EB"/>
+      </g>
+    
+    <g transform="translate(440, 305) rotate(15)">
+      <defs>
+        <radialGradient id="orange-grad-440-305" cx="35%" cy="30%" r="70%">
+          <stop offset="0%" stop-color="#FFBE3B"/>
+          <stop offset="35%" stop-color="#FF8A00"/>
+          <stop offset="85%" stop-color="#E05B00"/>
+          <stop offset="100%" stop-color="#B84200"/>
+        </radialGradient>
+      </defs>
+      <!-- Shadow -->
+      <ellipse cx="2" cy="4" rx="22" ry="20.9" fill="rgba(0,0,0,0.15)"/>
+      <!-- Orange Body -->
+      <ellipse cx="0" cy="0" rx="22" ry="21.34" fill="url(#orange-grad-440-305)"/>
+      <!-- Highlight -->
+      <ellipse cx="-5.5" cy="-5.5" rx="7.699999999999999" ry="4.84" fill="#FFFFFF" opacity="0.4" transform="rotate(-25, -5.5, -5.5)"/>
+      <!-- Calyx/Stem -->
+      <circle cx="2.2" cy="-18.7" r="2.5" fill="#3D5025"/>
+      <path d="M 2.2,-18.7 L 0.44,-20.9 M 2.2,-18.7 L 4.84,-20.240000000000002 M 2.2,-18.7 L 2.6399999999999997,-16.72" stroke="#2B3B18" stroke-width="1.2" stroke-linecap="round"/>
+    </g>
+  
+    <g transform="translate(450, 365) rotate(-10)">
+      <defs>
+        <radialGradient id="orange-grad-450-365" cx="35%" cy="30%" r="70%">
+          <stop offset="0%" stop-color="#FFBE3B"/>
+          <stop offset="35%" stop-color="#FF8A00"/>
+          <stop offset="85%" stop-color="#E05B00"/>
+          <stop offset="100%" stop-color="#B84200"/>
+        </radialGradient>
+      </defs>
+      <!-- Shadow -->
+      <ellipse cx="2" cy="4" rx="18" ry="17.099999999999998" fill="rgba(0,0,0,0.15)"/>
+      <!-- Orange Body -->
+      <ellipse cx="0" cy="0" rx="18" ry="17.46" fill="url(#orange-grad-450-365)"/>
+      <!-- Highlight -->
+      <ellipse cx="-4.5" cy="-4.5" rx="6.3" ry="3.96" fill="#FFFFFF" opacity="0.4" transform="rotate(-25, -4.5, -4.5)"/>
+      <!-- Calyx/Stem -->
+      <circle cx="1.8" cy="-15.299999999999999" r="2.5" fill="#3D5025"/>
+      <path d="M 1.8,-15.299999999999999 L 0.36,-17.099999999999998 M 1.8,-15.299999999999999 L 3.96,-16.560000000000002 M 1.8,-15.299999999999999 L 2.16,-13.68" stroke="#2B3B18" stroke-width="1.2" stroke-linecap="round"/>
+    </g>
+  
+    <g transform="translate(438, 425) rotate(20)">
+      <defs>
+        <radialGradient id="orange-grad-438-425" cx="35%" cy="30%" r="70%">
+          <stop offset="0%" stop-color="#FFBE3B"/>
+          <stop offset="35%" stop-color="#FF8A00"/>
+          <stop offset="85%" stop-color="#E05B00"/>
+          <stop offset="100%" stop-color="#B84200"/>
+        </radialGradient>
+      </defs>
+      <!-- Shadow -->
+      <ellipse cx="2" cy="4" rx="24" ry="22.799999999999997" fill="rgba(0,0,0,0.15)"/>
+      <!-- Orange Body -->
+      <ellipse cx="0" cy="0" rx="24" ry="23.28" fill="url(#orange-grad-438-425)"/>
+      <!-- Highlight -->
+      <ellipse cx="-6" cy="-6" rx="8.399999999999999" ry="5.28" fill="#FFFFFF" opacity="0.4" transform="rotate(-25, -6, -6)"/>
+      <!-- Calyx/Stem -->
+      <circle cx="2.4000000000000004" cy="-20.4" r="2.5" fill="#3D5025"/>
+      <path d="M 2.4000000000000004,-20.4 L 0.48,-22.799999999999997 M 2.4000000000000004,-20.4 L 5.28,-22.080000000000002 M 2.4000000000000004,-20.4 L 2.88,-18.240000000000002" stroke="#2B3B18" stroke-width="1.2" stroke-linecap="round"/>
+    </g>
+  
+      <g transform="translate(452, 485) rotate(-15)">
+        <!-- Rind -->
+        <circle cx="0" cy="0" r="17" fill="#E86C00" stroke="#D15B00" stroke-width="1.5"/>
+        <circle cx="0" cy="0" r="15.5" fill="#FFF8EB"/>
+        <circle cx="0" cy="0" r="13.5" fill="#FFA31A"/>
+        <!-- Segments -->
+        <g stroke="#FFF8EB" stroke-width="1.2" fill="none">
+          <line x1="0" y1="0" x2="0" y2="-13"/>
+          <line x1="0" y1="0" x2="11.258" y2="-6.5"/>
+          <line x1="0" y1="0" x2="11.258" y2="6.5"/>
+          <line x1="0" y1="0" x2="0" y2="13"/>
+          <line x1="0" y1="0" x2="-11.258" y2="6.5"/>
+          <line x1="0" y1="0" x2="-11.258" y2="-6.5"/>
+        </g>
+        <circle cx="0" cy="0" r="2.5" fill="#FFF8EB"/>
+      </g>
+    
+    <g transform="translate(442, 545) rotate(10)">
+      <defs>
+        <radialGradient id="orange-grad-442-545" cx="35%" cy="30%" r="70%">
+          <stop offset="0%" stop-color="#FFBE3B"/>
+          <stop offset="35%" stop-color="#FF8A00"/>
+          <stop offset="85%" stop-color="#E05B00"/>
+          <stop offset="100%" stop-color="#B84200"/>
+        </radialGradient>
+      </defs>
+      <!-- Shadow -->
+      <ellipse cx="2" cy="4" rx="21" ry="19.95" fill="rgba(0,0,0,0.15)"/>
+      <!-- Orange Body -->
+      <ellipse cx="0" cy="0" rx="21" ry="20.37" fill="url(#orange-grad-442-545)"/>
+      <!-- Highlight -->
+      <ellipse cx="-5.25" cy="-5.25" rx="7.35" ry="4.62" fill="#FFFFFF" opacity="0.4" transform="rotate(-25, -5.25, -5.25)"/>
+      <!-- Calyx/Stem -->
+      <circle cx="2.1" cy="-17.849999999999998" r="2.5" fill="#3D5025"/>
+      <path d="M 2.1,-17.849999999999998 L 0.42,-19.95 M 2.1,-17.849999999999998 L 4.62,-19.32 M 2.1,-17.849999999999998 L 2.52,-15.96" stroke="#2B3B18" stroke-width="1.2" stroke-linecap="round"/>
+    </g>
+  
+    <g transform="translate(450, 595) rotate(-20)">
+      <defs>
+        <radialGradient id="orange-grad-450-595" cx="35%" cy="30%" r="70%">
+          <stop offset="0%" stop-color="#FFBE3B"/>
+          <stop offset="35%" stop-color="#FF8A00"/>
+          <stop offset="85%" stop-color="#E05B00"/>
+          <stop offset="100%" stop-color="#B84200"/>
+        </radialGradient>
+      </defs>
+      <!-- Shadow -->
+      <ellipse cx="2" cy="4" rx="18" ry="17.099999999999998" fill="rgba(0,0,0,0.15)"/>
+      <!-- Orange Body -->
+      <ellipse cx="0" cy="0" rx="18" ry="17.46" fill="url(#orange-grad-450-595)"/>
+      <!-- Highlight -->
+      <ellipse cx="-4.5" cy="-4.5" rx="6.3" ry="3.96" fill="#FFFFFF" opacity="0.4" transform="rotate(-25, -4.5, -4.5)"/>
+      <!-- Calyx/Stem -->
+      <circle cx="1.8" cy="-15.299999999999999" r="2.5" fill="#3D5025"/>
+      <path d="M 1.8,-15.299999999999999 L 0.36,-17.099999999999998 M 1.8,-15.299999999999999 L 3.96,-16.560000000000002 M 1.8,-15.299999999999999 L 2.16,-13.68" stroke="#2B3B18" stroke-width="1.2" stroke-linecap="round"/>
+    </g>
+  
+    <g transform="translate(40, 45) rotate(45) scale(1.1)">
+      <path d="M 0,0 C 12,-16 28,-22 42,-8 C 36,12 18,20 0,0 Z" fill="#4E6B32" stroke="#2E441B" stroke-width="0.8"/>
+      <path d="M 0,0 C 18,-6 32,-7 40,-8" stroke="#2E441B" stroke-width="1" fill="none"/>
+      <path d="M 12,-4 L 16,-12 M 22,-6 L 28,-14 M 18,-3 L 22,6 M 28,-5 L 32,4" stroke="#2E441B" stroke-width="0.6" stroke-linecap="round" fill="none"/>
+    </g>
+  
+    <g transform="translate(90, 30) rotate(15) scale(0.9)">
+      <path d="M 0,0 C 12,-16 28,-22 42,-8 C 36,12 18,20 0,0 Z" fill="#5B7C3A" stroke="#2E441B" stroke-width="0.8"/>
+      <path d="M 0,0 C 18,-6 32,-7 40,-8" stroke="#2E441B" stroke-width="1" fill="none"/>
+      <path d="M 12,-4 L 16,-12 M 22,-6 L 28,-14 M 18,-3 L 22,6 M 28,-5 L 32,4" stroke="#2E441B" stroke-width="0.6" stroke-linecap="round" fill="none"/>
+    </g>
+  
+    <g transform="translate(135, 38) rotate(70) scale(1)">
+      <path d="M 0,0 C 12,-16 28,-22 42,-8 C 36,12 18,20 0,0 Z" fill="#3E5728" stroke="#2E441B" stroke-width="0.8"/>
+      <path d="M 0,0 C 18,-6 32,-7 40,-8" stroke="#2E441B" stroke-width="1" fill="none"/>
+      <path d="M 12,-4 L 16,-12 M 22,-6 L 28,-14 M 18,-3 L 22,6 M 28,-5 L 32,4" stroke="#2E441B" stroke-width="0.6" stroke-linecap="round" fill="none"/>
+    </g>
+  
+    <g transform="translate(185, 30) rotate(-25) scale(0.85)">
+      <path d="M 0,0 C 12,-16 28,-22 42,-8 C 36,12 18,20 0,0 Z" fill="#4E6B32" stroke="#2E441B" stroke-width="0.8"/>
+      <path d="M 0,0 C 18,-6 32,-7 40,-8" stroke="#2E441B" stroke-width="1" fill="none"/>
+      <path d="M 12,-4 L 16,-12 M 22,-6 L 28,-14 M 18,-3 L 22,6 M 28,-5 L 32,4" stroke="#2E441B" stroke-width="0.6" stroke-linecap="round" fill="none"/>
+    </g>
+  
+    <g transform="translate(230, 35) rotate(40) scale(1.1)">
+      <path d="M 0,0 C 12,-16 28,-22 42,-8 C 36,12 18,20 0,0 Z" fill="#5B7C3A" stroke="#2E441B" stroke-width="0.8"/>
+      <path d="M 0,0 C 18,-6 32,-7 40,-8" stroke="#2E441B" stroke-width="1" fill="none"/>
+      <path d="M 12,-4 L 16,-12 M 22,-6 L 28,-14 M 18,-3 L 22,6 M 28,-5 L 32,4" stroke="#2E441B" stroke-width="0.6" stroke-linecap="round" fill="none"/>
+    </g>
+  
+    <g transform="translate(280, 28) rotate(-60) scale(0.9)">
+      <path d="M 0,0 C 12,-16 28,-22 42,-8 C 36,12 18,20 0,0 Z" fill="#3E5728" stroke="#2E441B" stroke-width="0.8"/>
+      <path d="M 0,0 C 18,-6 32,-7 40,-8" stroke="#2E441B" stroke-width="1" fill="none"/>
+      <path d="M 12,-4 L 16,-12 M 22,-6 L 28,-14 M 18,-3 L 22,6 M 28,-5 L 32,4" stroke="#2E441B" stroke-width="0.6" stroke-linecap="round" fill="none"/>
+    </g>
+  
+    <g transform="translate(330, 35) rotate(30) scale(1)">
+      <path d="M 0,0 C 12,-16 28,-22 42,-8 C 36,12 18,20 0,0 Z" fill="#4E6B32" stroke="#2E441B" stroke-width="0.8"/>
+      <path d="M 0,0 C 18,-6 32,-7 40,-8" stroke="#2E441B" stroke-width="1" fill="none"/>
+      <path d="M 12,-4 L 16,-12 M 22,-6 L 28,-14 M 18,-3 L 22,6 M 28,-5 L 32,4" stroke="#2E441B" stroke-width="0.6" stroke-linecap="round" fill="none"/>
+    </g>
+  
+    <g transform="translate(380, 30) rotate(-45) scale(0.95)">
+      <path d="M 0,0 C 12,-16 28,-22 42,-8 C 36,12 18,20 0,0 Z" fill="#5B7C3A" stroke="#2E441B" stroke-width="0.8"/>
+      <path d="M 0,0 C 18,-6 32,-7 40,-8" stroke="#2E441B" stroke-width="1" fill="none"/>
+      <path d="M 12,-4 L 16,-12 M 22,-6 L 28,-14 M 18,-3 L 22,6 M 28,-5 L 32,4" stroke="#2E441B" stroke-width="0.6" stroke-linecap="round" fill="none"/>
+    </g>
+  
+    <g transform="translate(425, 38) rotate(65) scale(1.1)">
+      <path d="M 0,0 C 12,-16 28,-22 42,-8 C 36,12 18,20 0,0 Z" fill="#3E5728" stroke="#2E441B" stroke-width="0.8"/>
+      <path d="M 0,0 C 18,-6 32,-7 40,-8" stroke="#2E441B" stroke-width="1" fill="none"/>
+      <path d="M 12,-4 L 16,-12 M 22,-6 L 28,-14 M 18,-3 L 22,6 M 28,-5 L 32,4" stroke="#2E441B" stroke-width="0.6" stroke-linecap="round" fill="none"/>
+    </g>
+  
+    <g transform="translate(465, 45) rotate(110) scale(1)">
+      <path d="M 0,0 C 12,-16 28,-22 42,-8 C 36,12 18,20 0,0 Z" fill="#4E6B32" stroke="#2E441B" stroke-width="0.8"/>
+      <path d="M 0,0 C 18,-6 32,-7 40,-8" stroke="#2E441B" stroke-width="1" fill="none"/>
+      <path d="M 12,-4 L 16,-12 M 22,-6 L 28,-14 M 18,-3 L 22,6 M 28,-5 L 32,4" stroke="#2E441B" stroke-width="0.6" stroke-linecap="round" fill="none"/>
+    </g>
+  
+    <g transform="translate(32, 100) rotate(120) scale(1)">
+      <path d="M 0,0 C 12,-16 28,-22 42,-8 C 36,12 18,20 0,0 Z" fill="#4E6B32" stroke="#2E441B" stroke-width="0.8"/>
+      <path d="M 0,0 C 18,-6 32,-7 40,-8" stroke="#2E441B" stroke-width="1" fill="none"/>
+      <path d="M 12,-4 L 16,-12 M 22,-6 L 28,-14 M 18,-3 L 22,6 M 28,-5 L 32,4" stroke="#2E441B" stroke-width="0.6" stroke-linecap="round" fill="none"/>
+    </g>
+  
+    <g transform="translate(30, 160) rotate(-140) scale(0.9)">
+      <path d="M 0,0 C 12,-16 28,-22 42,-8 C 36,12 18,20 0,0 Z" fill="#5B7C3A" stroke="#2E441B" stroke-width="0.8"/>
+      <path d="M 0,0 C 18,-6 32,-7 40,-8" stroke="#2E441B" stroke-width="1" fill="none"/>
+      <path d="M 12,-4 L 16,-12 M 22,-6 L 28,-14 M 18,-3 L 22,6 M 28,-5 L 32,4" stroke="#2E441B" stroke-width="0.6" stroke-linecap="round" fill="none"/>
+    </g>
+  
+    <g transform="translate(28, 215) rotate(95) scale(1.1)">
+      <path d="M 0,0 C 12,-16 28,-22 42,-8 C 36,12 18,20 0,0 Z" fill="#3E5728" stroke="#2E441B" stroke-width="0.8"/>
+      <path d="M 0,0 C 18,-6 32,-7 40,-8" stroke="#2E441B" stroke-width="1" fill="none"/>
+      <path d="M 12,-4 L 16,-12 M 22,-6 L 28,-14 M 18,-3 L 22,6 M 28,-5 L 32,4" stroke="#2E441B" stroke-width="0.6" stroke-linecap="round" fill="none"/>
+    </g>
+  
+    <g transform="translate(30, 275) rotate(-120) scale(0.85)">
+      <path d="M 0,0 C 12,-16 28,-22 42,-8 C 36,12 18,20 0,0 Z" fill="#4E6B32" stroke="#2E441B" stroke-width="0.8"/>
+      <path d="M 0,0 C 18,-6 32,-7 40,-8" stroke="#2E441B" stroke-width="1" fill="none"/>
+      <path d="M 12,-4 L 16,-12 M 22,-6 L 28,-14 M 18,-3 L 22,6 M 28,-5 L 32,4" stroke="#2E441B" stroke-width="0.6" stroke-linecap="round" fill="none"/>
+    </g>
+  
+    <g transform="translate(28, 335) rotate(110) scale(1)">
+      <path d="M 0,0 C 12,-16 28,-22 42,-8 C 36,12 18,20 0,0 Z" fill="#5B7C3A" stroke="#2E441B" stroke-width="0.8"/>
+      <path d="M 0,0 C 18,-6 32,-7 40,-8" stroke="#2E441B" stroke-width="1" fill="none"/>
+      <path d="M 12,-4 L 16,-12 M 22,-6 L 28,-14 M 18,-3 L 22,6 M 28,-5 L 32,4" stroke="#2E441B" stroke-width="0.6" stroke-linecap="round" fill="none"/>
+    </g>
+  
+    <g transform="translate(32, 395) rotate(-135) scale(0.9)">
+      <path d="M 0,0 C 12,-16 28,-22 42,-8 C 36,12 18,20 0,0 Z" fill="#3E5728" stroke="#2E441B" stroke-width="0.8"/>
+      <path d="M 0,0 C 18,-6 32,-7 40,-8" stroke="#2E441B" stroke-width="1" fill="none"/>
+      <path d="M 12,-4 L 16,-12 M 22,-6 L 28,-14 M 18,-3 L 22,6 M 28,-5 L 32,4" stroke="#2E441B" stroke-width="0.6" stroke-linecap="round" fill="none"/>
+    </g>
+  
+    <g transform="translate(28, 455) rotate(100) scale(1.1)">
+      <path d="M 0,0 C 12,-16 28,-22 42,-8 C 36,12 18,20 0,0 Z" fill="#4E6B32" stroke="#2E441B" stroke-width="0.8"/>
+      <path d="M 0,0 C 18,-6 32,-7 40,-8" stroke="#2E441B" stroke-width="1" fill="none"/>
+      <path d="M 12,-4 L 16,-12 M 22,-6 L 28,-14 M 18,-3 L 22,6 M 28,-5 L 32,4" stroke="#2E441B" stroke-width="0.6" stroke-linecap="round" fill="none"/>
+    </g>
+  
+    <g transform="translate(30, 515) rotate(-125) scale(0.85)">
+      <path d="M 0,0 C 12,-16 28,-22 42,-8 C 36,12 18,20 0,0 Z" fill="#5B7C3A" stroke="#2E441B" stroke-width="0.8"/>
+      <path d="M 0,0 C 18,-6 32,-7 40,-8" stroke="#2E441B" stroke-width="1" fill="none"/>
+      <path d="M 12,-4 L 16,-12 M 22,-6 L 28,-14 M 18,-3 L 22,6 M 28,-5 L 32,4" stroke="#2E441B" stroke-width="0.6" stroke-linecap="round" fill="none"/>
+    </g>
+  
+    <g transform="translate(28, 570) rotate(115) scale(1)">
+      <path d="M 0,0 C 12,-16 28,-22 42,-8 C 36,12 18,20 0,0 Z" fill="#3E5728" stroke="#2E441B" stroke-width="0.8"/>
+      <path d="M 0,0 C 18,-6 32,-7 40,-8" stroke="#2E441B" stroke-width="1" fill="none"/>
+      <path d="M 12,-4 L 16,-12 M 22,-6 L 28,-14 M 18,-3 L 22,6 M 28,-5 L 32,4" stroke="#2E441B" stroke-width="0.6" stroke-linecap="round" fill="none"/>
+    </g>
+  
+    <g transform="translate(468, 100) rotate(-30) scale(1)">
+      <path d="M 0,0 C 12,-16 28,-22 42,-8 C 36,12 18,20 0,0 Z" fill="#4E6B32" stroke="#2E441B" stroke-width="0.8"/>
+      <path d="M 0,0 C 18,-6 32,-7 40,-8" stroke="#2E441B" stroke-width="1" fill="none"/>
+      <path d="M 12,-4 L 16,-12 M 22,-6 L 28,-14 M 18,-3 L 22,6 M 28,-5 L 32,4" stroke="#2E441B" stroke-width="0.6" stroke-linecap="round" fill="none"/>
+    </g>
+  
+    <g transform="translate(470, 160) rotate(20) scale(0.9)">
+      <path d="M 0,0 C 12,-16 28,-22 42,-8 C 36,12 18,20 0,0 Z" fill="#5B7C3A" stroke="#2E441B" stroke-width="0.8"/>
+      <path d="M 0,0 C 18,-6 32,-7 40,-8" stroke="#2E441B" stroke-width="1" fill="none"/>
+      <path d="M 12,-4 L 16,-12 M 22,-6 L 28,-14 M 18,-3 L 22,6 M 28,-5 L 32,4" stroke="#2E441B" stroke-width="0.6" stroke-linecap="round" fill="none"/>
+    </g>
+  
+    <g transform="translate(472, 215) rotate(-45) scale(1.1)">
+      <path d="M 0,0 C 12,-16 28,-22 42,-8 C 36,12 18,20 0,0 Z" fill="#3E5728" stroke="#2E441B" stroke-width="0.8"/>
+      <path d="M 0,0 C 18,-6 32,-7 40,-8" stroke="#2E441B" stroke-width="1" fill="none"/>
+      <path d="M 12,-4 L 16,-12 M 22,-6 L 28,-14 M 18,-3 L 22,6 M 28,-5 L 32,4" stroke="#2E441B" stroke-width="0.6" stroke-linecap="round" fill="none"/>
+    </g>
+  
+    <g transform="translate(470, 275) rotate(30) scale(0.85)">
+      <path d="M 0,0 C 12,-16 28,-22 42,-8 C 36,12 18,20 0,0 Z" fill="#4E6B32" stroke="#2E441B" stroke-width="0.8"/>
+      <path d="M 0,0 C 18,-6 32,-7 40,-8" stroke="#2E441B" stroke-width="1" fill="none"/>
+      <path d="M 12,-4 L 16,-12 M 22,-6 L 28,-14 M 18,-3 L 22,6 M 28,-5 L 32,4" stroke="#2E441B" stroke-width="0.6" stroke-linecap="round" fill="none"/>
+    </g>
+  
+    <g transform="translate(472, 335) rotate(-25) scale(1)">
+      <path d="M 0,0 C 12,-16 28,-22 42,-8 C 36,12 18,20 0,0 Z" fill="#5B7C3A" stroke="#2E441B" stroke-width="0.8"/>
+      <path d="M 0,0 C 18,-6 32,-7 40,-8" stroke="#2E441B" stroke-width="1" fill="none"/>
+      <path d="M 12,-4 L 16,-12 M 22,-6 L 28,-14 M 18,-3 L 22,6 M 28,-5 L 32,4" stroke="#2E441B" stroke-width="0.6" stroke-linecap="round" fill="none"/>
+    </g>
+  
+    <g transform="translate(468, 395) rotate(40) scale(0.9)">
+      <path d="M 0,0 C 12,-16 28,-22 42,-8 C 36,12 18,20 0,0 Z" fill="#3E5728" stroke="#2E441B" stroke-width="0.8"/>
+      <path d="M 0,0 C 18,-6 32,-7 40,-8" stroke="#2E441B" stroke-width="1" fill="none"/>
+      <path d="M 12,-4 L 16,-12 M 22,-6 L 28,-14 M 18,-3 L 22,6 M 28,-5 L 32,4" stroke="#2E441B" stroke-width="0.6" stroke-linecap="round" fill="none"/>
+    </g>
+  
+    <g transform="translate(472, 455) rotate(-35) scale(1.1)">
+      <path d="M 0,0 C 12,-16 28,-22 42,-8 C 36,12 18,20 0,0 Z" fill="#4E6B32" stroke="#2E441B" stroke-width="0.8"/>
+      <path d="M 0,0 C 18,-6 32,-7 40,-8" stroke="#2E441B" stroke-width="1" fill="none"/>
+      <path d="M 12,-4 L 16,-12 M 22,-6 L 28,-14 M 18,-3 L 22,6 M 28,-5 L 32,4" stroke="#2E441B" stroke-width="0.6" stroke-linecap="round" fill="none"/>
+    </g>
+  
+    <g transform="translate(470, 515) rotate(25) scale(0.85)">
+      <path d="M 0,0 C 12,-16 28,-22 42,-8 C 36,12 18,20 0,0 Z" fill="#5B7C3A" stroke="#2E441B" stroke-width="0.8"/>
+      <path d="M 0,0 C 18,-6 32,-7 40,-8" stroke="#2E441B" stroke-width="1" fill="none"/>
+      <path d="M 12,-4 L 16,-12 M 22,-6 L 28,-14 M 18,-3 L 22,6 M 28,-5 L 32,4" stroke="#2E441B" stroke-width="0.6" stroke-linecap="round" fill="none"/>
+    </g>
+  
+    <g transform="translate(472, 570) rotate(-40) scale(1)">
+      <path d="M 0,0 C 12,-16 28,-22 42,-8 C 36,12 18,20 0,0 Z" fill="#3E5728" stroke="#2E441B" stroke-width="0.8"/>
+      <path d="M 0,0 C 18,-6 32,-7 40,-8" stroke="#2E441B" stroke-width="1" fill="none"/>
+      <path d="M 12,-4 L 16,-12 M 22,-6 L 28,-14 M 18,-3 L 22,6 M 28,-5 L 32,4" stroke="#2E441B" stroke-width="0.6" stroke-linecap="round" fill="none"/>
+    </g>
+  
+    <g transform="translate(40, 660) rotate(-135) scale(1.1)">
+      <path d="M 0,0 C 12,-16 28,-22 42,-8 C 36,12 18,20 0,0 Z" fill="#4E6B32" stroke="#2E441B" stroke-width="0.8"/>
+      <path d="M 0,0 C 18,-6 32,-7 40,-8" stroke="#2E441B" stroke-width="1" fill="none"/>
+      <path d="M 12,-4 L 16,-12 M 22,-6 L 28,-14 M 18,-3 L 22,6 M 28,-5 L 32,4" stroke="#2E441B" stroke-width="0.6" stroke-linecap="round" fill="none"/>
+    </g>
+  
+    <g transform="translate(85, 672) rotate(170) scale(0.9)">
+      <path d="M 0,0 C 12,-16 28,-22 42,-8 C 36,12 18,20 0,0 Z" fill="#5B7C3A" stroke="#2E441B" stroke-width="0.8"/>
+      <path d="M 0,0 C 18,-6 32,-7 40,-8" stroke="#2E441B" stroke-width="1" fill="none"/>
+      <path d="M 12,-4 L 16,-12 M 22,-6 L 28,-14 M 18,-3 L 22,6 M 28,-5 L 32,4" stroke="#2E441B" stroke-width="0.6" stroke-linecap="round" fill="none"/>
+    </g>
+  
+    <g transform="translate(135, 665) rotate(-110) scale(1)">
+      <path d="M 0,0 C 12,-16 28,-22 42,-8 C 36,12 18,20 0,0 Z" fill="#3E5728" stroke="#2E441B" stroke-width="0.8"/>
+      <path d="M 0,0 C 18,-6 32,-7 40,-8" stroke="#2E441B" stroke-width="1" fill="none"/>
+      <path d="M 12,-4 L 16,-12 M 22,-6 L 28,-14 M 18,-3 L 22,6 M 28,-5 L 32,4" stroke="#2E441B" stroke-width="0.6" stroke-linecap="round" fill="none"/>
+    </g>
+  
+    <g transform="translate(185, 675) rotate(150) scale(0.85)">
+      <path d="M 0,0 C 12,-16 28,-22 42,-8 C 36,12 18,20 0,0 Z" fill="#4E6B32" stroke="#2E441B" stroke-width="0.8"/>
+      <path d="M 0,0 C 18,-6 32,-7 40,-8" stroke="#2E441B" stroke-width="1" fill="none"/>
+      <path d="M 12,-4 L 16,-12 M 22,-6 L 28,-14 M 18,-3 L 22,6 M 28,-5 L 32,4" stroke="#2E441B" stroke-width="0.6" stroke-linecap="round" fill="none"/>
+    </g>
+  
+    <g transform="translate(230, 668) rotate(-140) scale(1.1)">
+      <path d="M 0,0 C 12,-16 28,-22 42,-8 C 36,12 18,20 0,0 Z" fill="#5B7C3A" stroke="#2E441B" stroke-width="0.8"/>
+      <path d="M 0,0 C 18,-6 32,-7 40,-8" stroke="#2E441B" stroke-width="1" fill="none"/>
+      <path d="M 12,-4 L 16,-12 M 22,-6 L 28,-14 M 18,-3 L 22,6 M 28,-5 L 32,4" stroke="#2E441B" stroke-width="0.6" stroke-linecap="round" fill="none"/>
+    </g>
+  
+    <g transform="translate(275, 674) rotate(160) scale(0.9)">
+      <path d="M 0,0 C 12,-16 28,-22 42,-8 C 36,12 18,20 0,0 Z" fill="#3E5728" stroke="#2E441B" stroke-width="0.8"/>
+      <path d="M 0,0 C 18,-6 32,-7 40,-8" stroke="#2E441B" stroke-width="1" fill="none"/>
+      <path d="M 12,-4 L 16,-12 M 22,-6 L 28,-14 M 18,-3 L 22,6 M 28,-5 L 32,4" stroke="#2E441B" stroke-width="0.6" stroke-linecap="round" fill="none"/>
+    </g>
+  
+    <g transform="translate(325, 668) rotate(-125) scale(1)">
+      <path d="M 0,0 C 12,-16 28,-22 42,-8 C 36,12 18,20 0,0 Z" fill="#4E6B32" stroke="#2E441B" stroke-width="0.8"/>
+      <path d="M 0,0 C 18,-6 32,-7 40,-8" stroke="#2E441B" stroke-width="1" fill="none"/>
+      <path d="M 12,-4 L 16,-12 M 22,-6 L 28,-14 M 18,-3 L 22,6 M 28,-5 L 32,4" stroke="#2E441B" stroke-width="0.6" stroke-linecap="round" fill="none"/>
+    </g>
+  
+    <g transform="translate(375, 675) rotate(145) scale(0.95)">
+      <path d="M 0,0 C 12,-16 28,-22 42,-8 C 36,12 18,20 0,0 Z" fill="#5B7C3A" stroke="#2E441B" stroke-width="0.8"/>
+      <path d="M 0,0 C 18,-6 32,-7 40,-8" stroke="#2E441B" stroke-width="1" fill="none"/>
+      <path d="M 12,-4 L 16,-12 M 22,-6 L 28,-14 M 18,-3 L 22,6 M 28,-5 L 32,4" stroke="#2E441B" stroke-width="0.6" stroke-linecap="round" fill="none"/>
+    </g>
+  
+    <g transform="translate(420, 665) rotate(-115) scale(1.1)">
+      <path d="M 0,0 C 12,-16 28,-22 42,-8 C 36,12 18,20 0,0 Z" fill="#3E5728" stroke="#2E441B" stroke-width="0.8"/>
+      <path d="M 0,0 C 18,-6 32,-7 40,-8" stroke="#2E441B" stroke-width="1" fill="none"/>
+      <path d="M 12,-4 L 16,-12 M 22,-6 L 28,-14 M 18,-3 L 22,6 M 28,-5 L 32,4" stroke="#2E441B" stroke-width="0.6" stroke-linecap="round" fill="none"/>
+    </g>
+  
+    <g transform="translate(465, 658) rotate(-70) scale(1)">
+      <path d="M 0,0 C 12,-16 28,-22 42,-8 C 36,12 18,20 0,0 Z" fill="#4E6B32" stroke="#2E441B" stroke-width="0.8"/>
+      <path d="M 0,0 C 18,-6 32,-7 40,-8" stroke="#2E441B" stroke-width="1" fill="none"/>
+      <path d="M 12,-4 L 16,-12 M 22,-6 L 28,-14 M 18,-3 L 22,6 M 28,-5 L 32,4" stroke="#2E441B" stroke-width="0.6" stroke-linecap="round" fill="none"/>
+    </g>
+  
+    <g transform="translate(85, 95) rotate(60) scale(0.75)">
+      <path d="M 0,0 C 12,-16 28,-22 42,-8 C 36,12 18,20 0,0 Z" fill="#5B7C3A" stroke="#2E441B" stroke-width="0.8"/>
+      <path d="M 0,0 C 18,-6 32,-7 40,-8" stroke="#2E441B" stroke-width="1" fill="none"/>
+      <path d="M 12,-4 L 16,-12 M 22,-6 L 28,-14 M 18,-3 L 22,6 M 28,-5 L 32,4" stroke="#2E441B" stroke-width="0.6" stroke-linecap="round" fill="none"/>
+    </g>
+  
+    <g transform="translate(415, 95) rotate(120) scale(0.75)">
+      <path d="M 0,0 C 12,-16 28,-22 42,-8 C 36,12 18,20 0,0 Z" fill="#5B7C3A" stroke="#2E441B" stroke-width="0.8"/>
+      <path d="M 0,0 C 18,-6 32,-7 40,-8" stroke="#2E441B" stroke-width="1" fill="none"/>
+      <path d="M 12,-4 L 16,-12 M 22,-6 L 28,-14 M 18,-3 L 22,6 M 28,-5 L 32,4" stroke="#2E441B" stroke-width="0.6" stroke-linecap="round" fill="none"/>
+    </g>
+  
+    <g transform="translate(85, 605) rotate(-50) scale(0.75)">
+      <path d="M 0,0 C 12,-16 28,-22 42,-8 C 36,12 18,20 0,0 Z" fill="#5B7C3A" stroke="#2E441B" stroke-width="0.8"/>
+      <path d="M 0,0 C 18,-6 32,-7 40,-8" stroke="#2E441B" stroke-width="1" fill="none"/>
+      <path d="M 12,-4 L 16,-12 M 22,-6 L 28,-14 M 18,-3 L 22,6 M 28,-5 L 32,4" stroke="#2E441B" stroke-width="0.6" stroke-linecap="round" fill="none"/>
+    </g>
+  
+    <g transform="translate(415, 605) rotate(-130) scale(0.75)">
+      <path d="M 0,0 C 12,-16 28,-22 42,-8 C 36,12 18,20 0,0 Z" fill="#5B7C3A" stroke="#2E441B" stroke-width="0.8"/>
+      <path d="M 0,0 C 18,-6 32,-7 40,-8" stroke="#2E441B" stroke-width="1" fill="none"/>
+      <path d="M 12,-4 L 16,-12 M 22,-6 L 28,-14 M 18,-3 L 22,6 M 28,-5 L 32,4" stroke="#2E441B" stroke-width="0.6" stroke-linecap="round" fill="none"/>
+    </g>
+  
+    <g transform="translate(75, 350) rotate(45) scale(0.7)">
+      <path d="M 0,0 C 12,-16 28,-22 42,-8 C 36,12 18,20 0,0 Z" fill="#4E6B32" stroke="#2E441B" stroke-width="0.8"/>
+      <path d="M 0,0 C 18,-6 32,-7 40,-8" stroke="#2E441B" stroke-width="1" fill="none"/>
+      <path d="M 12,-4 L 16,-12 M 22,-6 L 28,-14 M 18,-3 L 22,6 M 28,-5 L 32,4" stroke="#2E441B" stroke-width="0.6" stroke-linecap="round" fill="none"/>
+    </g>
+  
+    <g transform="translate(425, 350) rotate(135) scale(0.7)">
+      <path d="M 0,0 C 12,-16 28,-22 42,-8 C 36,12 18,20 0,0 Z" fill="#4E6B32" stroke="#2E441B" stroke-width="0.8"/>
+      <path d="M 0,0 C 18,-6 32,-7 40,-8" stroke="#2E441B" stroke-width="1" fill="none"/>
+      <path d="M 12,-4 L 16,-12 M 22,-6 L 28,-14 M 18,-3 L 22,6 M 28,-5 L 32,4" stroke="#2E441B" stroke-width="0.6" stroke-linecap="round" fill="none"/>
+    </g>
+  
+    <g transform="translate(92, 75) rotate(15)">
+      <!-- 5 Petals -->
+      <g fill="#FFFDF8" stroke="#E5DEC9" stroke-width="0.5">
+        <ellipse cx="0" cy="-7" rx="3.15" ry="4.55"/>
+        <ellipse cx="6.6499999999999995" cy="-2.17" rx="3.15" ry="4.55" transform="rotate(72, 6.6499999999999995, -2.17)"/>
+        <ellipse cx="4.13" cy="5.67" rx="3.15" ry="4.55" transform="rotate(144, 4.13, 5.67)"/>
+        <ellipse cx="-4.13" cy="5.67" rx="3.15" ry="4.55" transform="rotate(216, -4.13, 5.67)"/>
+        <ellipse cx="-6.6499999999999995" cy="-2.17" rx="3.15" ry="4.55" transform="rotate(288, -6.6499999999999995, -2.17)"/>
+      </g>
+      <!-- Pistil center -->
+      <circle cx="0" cy="0" r="2.4499999999999997" fill="#FFD034"/>
+      <circle cx="0" cy="0" r="1.26" fill="#E89B00"/>
+    </g>
+  
+    <g transform="translate(230, 58) rotate(-30)">
+      <!-- 5 Petals -->
+      <g fill="#FFFDF8" stroke="#E5DEC9" stroke-width="0.5">
+        <ellipse cx="0" cy="-6.5" rx="2.9250000000000003" ry="4.2250000000000005"/>
+        <ellipse cx="6.175" cy="-2.015" rx="2.9250000000000003" ry="4.2250000000000005" transform="rotate(72, 6.175, -2.015)"/>
+        <ellipse cx="3.835" cy="5.265000000000001" rx="2.9250000000000003" ry="4.2250000000000005" transform="rotate(144, 3.835, 5.265000000000001)"/>
+        <ellipse cx="-3.835" cy="5.265000000000001" rx="2.9250000000000003" ry="4.2250000000000005" transform="rotate(216, -3.835, 5.265000000000001)"/>
+        <ellipse cx="-6.175" cy="-2.015" rx="2.9250000000000003" ry="4.2250000000000005" transform="rotate(288, -6.175, -2.015)"/>
+      </g>
+      <!-- Pistil center -->
+      <circle cx="0" cy="0" r="2.275" fill="#FFD034"/>
+      <circle cx="0" cy="0" r="1.17" fill="#E89B00"/>
+    </g>
+  
+    <g transform="translate(375, 60) rotate(45)">
+      <!-- 5 Petals -->
+      <g fill="#FFFDF8" stroke="#E5DEC9" stroke-width="0.5">
+        <ellipse cx="0" cy="-7.5" rx="3.375" ry="4.875"/>
+        <ellipse cx="7.125" cy="-2.325" rx="3.375" ry="4.875" transform="rotate(72, 7.125, -2.325)"/>
+        <ellipse cx="4.425" cy="6.075" rx="3.375" ry="4.875" transform="rotate(144, 4.425, 6.075)"/>
+        <ellipse cx="-4.425" cy="6.075" rx="3.375" ry="4.875" transform="rotate(216, -4.425, 6.075)"/>
+        <ellipse cx="-7.125" cy="-2.325" rx="3.375" ry="4.875" transform="rotate(288, -7.125, -2.325)"/>
+      </g>
+      <!-- Pistil center -->
+      <circle cx="0" cy="0" r="2.625" fill="#FFD034"/>
+      <circle cx="0" cy="0" r="1.3499999999999999" fill="#E89B00"/>
+    </g>
+  
+    <g transform="translate(58, 215) rotate(20)">
+      <!-- 5 Petals -->
+      <g fill="#FFFDF8" stroke="#E5DEC9" stroke-width="0.5">
+        <ellipse cx="0" cy="-6.5" rx="2.9250000000000003" ry="4.2250000000000005"/>
+        <ellipse cx="6.175" cy="-2.015" rx="2.9250000000000003" ry="4.2250000000000005" transform="rotate(72, 6.175, -2.015)"/>
+        <ellipse cx="3.835" cy="5.265000000000001" rx="2.9250000000000003" ry="4.2250000000000005" transform="rotate(144, 3.835, 5.265000000000001)"/>
+        <ellipse cx="-3.835" cy="5.265000000000001" rx="2.9250000000000003" ry="4.2250000000000005" transform="rotate(216, -3.835, 5.265000000000001)"/>
+        <ellipse cx="-6.175" cy="-2.015" rx="2.9250000000000003" ry="4.2250000000000005" transform="rotate(288, -6.175, -2.015)"/>
+      </g>
+      <!-- Pistil center -->
+      <circle cx="0" cy="0" r="2.275" fill="#FFD034"/>
+      <circle cx="0" cy="0" r="1.17" fill="#E89B00"/>
+    </g>
+  
+    <g transform="translate(55, 450) rotate(-15)">
+      <!-- 5 Petals -->
+      <g fill="#FFFDF8" stroke="#E5DEC9" stroke-width="0.5">
+        <ellipse cx="0" cy="-7" rx="3.15" ry="4.55"/>
+        <ellipse cx="6.6499999999999995" cy="-2.17" rx="3.15" ry="4.55" transform="rotate(72, 6.6499999999999995, -2.17)"/>
+        <ellipse cx="4.13" cy="5.67" rx="3.15" ry="4.55" transform="rotate(144, 4.13, 5.67)"/>
+        <ellipse cx="-4.13" cy="5.67" rx="3.15" ry="4.55" transform="rotate(216, -4.13, 5.67)"/>
+        <ellipse cx="-6.6499999999999995" cy="-2.17" rx="3.15" ry="4.55" transform="rotate(288, -6.6499999999999995, -2.17)"/>
+      </g>
+      <!-- Pistil center -->
+      <circle cx="0" cy="0" r="2.4499999999999997" fill="#FFD034"/>
+      <circle cx="0" cy="0" r="1.26" fill="#E89B00"/>
+    </g>
+  
+    <g transform="translate(442, 215) rotate(35)">
+      <!-- 5 Petals -->
+      <g fill="#FFFDF8" stroke="#E5DEC9" stroke-width="0.5">
+        <ellipse cx="0" cy="-7" rx="3.15" ry="4.55"/>
+        <ellipse cx="6.6499999999999995" cy="-2.17" rx="3.15" ry="4.55" transform="rotate(72, 6.6499999999999995, -2.17)"/>
+        <ellipse cx="4.13" cy="5.67" rx="3.15" ry="4.55" transform="rotate(144, 4.13, 5.67)"/>
+        <ellipse cx="-4.13" cy="5.67" rx="3.15" ry="4.55" transform="rotate(216, -4.13, 5.67)"/>
+        <ellipse cx="-6.6499999999999995" cy="-2.17" rx="3.15" ry="4.55" transform="rotate(288, -6.6499999999999995, -2.17)"/>
+      </g>
+      <!-- Pistil center -->
+      <circle cx="0" cy="0" r="2.4499999999999997" fill="#FFD034"/>
+      <circle cx="0" cy="0" r="1.26" fill="#E89B00"/>
+    </g>
+  
+    <g transform="translate(445, 450) rotate(-25)">
+      <!-- 5 Petals -->
+      <g fill="#FFFDF8" stroke="#E5DEC9" stroke-width="0.5">
+        <ellipse cx="0" cy="-6.5" rx="2.9250000000000003" ry="4.2250000000000005"/>
+        <ellipse cx="6.175" cy="-2.015" rx="2.9250000000000003" ry="4.2250000000000005" transform="rotate(72, 6.175, -2.015)"/>
+        <ellipse cx="3.835" cy="5.265000000000001" rx="2.9250000000000003" ry="4.2250000000000005" transform="rotate(144, 3.835, 5.265000000000001)"/>
+        <ellipse cx="-3.835" cy="5.265000000000001" rx="2.9250000000000003" ry="4.2250000000000005" transform="rotate(216, -3.835, 5.265000000000001)"/>
+        <ellipse cx="-6.175" cy="-2.015" rx="2.9250000000000003" ry="4.2250000000000005" transform="rotate(288, -6.175, -2.015)"/>
+      </g>
+      <!-- Pistil center -->
+      <circle cx="0" cy="0" r="2.275" fill="#FFD034"/>
+      <circle cx="0" cy="0" r="1.17" fill="#E89B00"/>
+    </g>
+  
+    <g transform="translate(95, 625) rotate(10)">
+      <!-- 5 Petals -->
+      <g fill="#FFFDF8" stroke="#E5DEC9" stroke-width="0.5">
+        <ellipse cx="0" cy="-7.5" rx="3.375" ry="4.875"/>
+        <ellipse cx="7.125" cy="-2.325" rx="3.375" ry="4.875" transform="rotate(72, 7.125, -2.325)"/>
+        <ellipse cx="4.425" cy="6.075" rx="3.375" ry="4.875" transform="rotate(144, 4.425, 6.075)"/>
+        <ellipse cx="-4.425" cy="6.075" rx="3.375" ry="4.875" transform="rotate(216, -4.425, 6.075)"/>
+        <ellipse cx="-7.125" cy="-2.325" rx="3.375" ry="4.875" transform="rotate(288, -7.125, -2.325)"/>
+      </g>
+      <!-- Pistil center -->
+      <circle cx="0" cy="0" r="2.625" fill="#FFD034"/>
+      <circle cx="0" cy="0" r="1.3499999999999999" fill="#E89B00"/>
+    </g>
+  
+    <g transform="translate(230, 642) rotate(-40)">
+      <!-- 5 Petals -->
+      <g fill="#FFFDF8" stroke="#E5DEC9" stroke-width="0.5">
+        <ellipse cx="0" cy="-6.5" rx="2.9250000000000003" ry="4.2250000000000005"/>
+        <ellipse cx="6.175" cy="-2.015" rx="2.9250000000000003" ry="4.2250000000000005" transform="rotate(72, 6.175, -2.015)"/>
+        <ellipse cx="3.835" cy="5.265000000000001" rx="2.9250000000000003" ry="4.2250000000000005" transform="rotate(144, 3.835, 5.265000000000001)"/>
+        <ellipse cx="-3.835" cy="5.265000000000001" rx="2.9250000000000003" ry="4.2250000000000005" transform="rotate(216, -3.835, 5.265000000000001)"/>
+        <ellipse cx="-6.175" cy="-2.015" rx="2.9250000000000003" ry="4.2250000000000005" transform="rotate(288, -6.175, -2.015)"/>
+      </g>
+      <!-- Pistil center -->
+      <circle cx="0" cy="0" r="2.275" fill="#FFD034"/>
+      <circle cx="0" cy="0" r="1.17" fill="#E89B00"/>
+    </g>
+  
+    <g transform="translate(365, 630) rotate(50)">
+      <!-- 5 Petals -->
+      <g fill="#FFFDF8" stroke="#E5DEC9" stroke-width="0.5">
+        <ellipse cx="0" cy="-7" rx="3.15" ry="4.55"/>
+        <ellipse cx="6.6499999999999995" cy="-2.17" rx="3.15" ry="4.55" transform="rotate(72, 6.6499999999999995, -2.17)"/>
+        <ellipse cx="4.13" cy="5.67" rx="3.15" ry="4.55" transform="rotate(144, 4.13, 5.67)"/>
+        <ellipse cx="-4.13" cy="5.67" rx="3.15" ry="4.55" transform="rotate(216, -4.13, 5.67)"/>
+        <ellipse cx="-6.6499999999999995" cy="-2.17" rx="3.15" ry="4.55" transform="rotate(288, -6.6499999999999995, -2.17)"/>
+      </g>
+      <!-- Pistil center -->
+      <circle cx="0" cy="0" r="2.4499999999999997" fill="#FFD034"/>
+      <circle cx="0" cy="0" r="1.26" fill="#E89B00"/>
+    </g>
+  
+    <g transform="translate(135, 80) rotate(60)">
+      <!-- 5 Petals -->
+      <g fill="#FFFDF8" stroke="#E5DEC9" stroke-width="0.5">
+        <ellipse cx="0" cy="-5.5" rx="2.475" ry="3.575"/>
+        <ellipse cx="5.225" cy="-1.705" rx="2.475" ry="3.575" transform="rotate(72, 5.225, -1.705)"/>
+        <ellipse cx="3.2449999999999997" cy="4.455" rx="2.475" ry="3.575" transform="rotate(144, 3.2449999999999997, 4.455)"/>
+        <ellipse cx="-3.2449999999999997" cy="4.455" rx="2.475" ry="3.575" transform="rotate(216, -3.2449999999999997, 4.455)"/>
+        <ellipse cx="-5.225" cy="-1.705" rx="2.475" ry="3.575" transform="rotate(288, -5.225, -1.705)"/>
+      </g>
+      <!-- Pistil center -->
+      <circle cx="0" cy="0" r="1.9249999999999998" fill="#FFD034"/>
+      <circle cx="0" cy="0" r="0.99" fill="#E89B00"/>
+    </g>
+  
+    <g transform="translate(335, 78) rotate(-50)">
+      <!-- 5 Petals -->
+      <g fill="#FFFDF8" stroke="#E5DEC9" stroke-width="0.5">
+        <ellipse cx="0" cy="-5.5" rx="2.475" ry="3.575"/>
+        <ellipse cx="5.225" cy="-1.705" rx="2.475" ry="3.575" transform="rotate(72, 5.225, -1.705)"/>
+        <ellipse cx="3.2449999999999997" cy="4.455" rx="2.475" ry="3.575" transform="rotate(144, 3.2449999999999997, 4.455)"/>
+        <ellipse cx="-3.2449999999999997" cy="4.455" rx="2.475" ry="3.575" transform="rotate(216, -3.2449999999999997, 4.455)"/>
+        <ellipse cx="-5.225" cy="-1.705" rx="2.475" ry="3.575" transform="rotate(288, -5.225, -1.705)"/>
+      </g>
+      <!-- Pistil center -->
+      <circle cx="0" cy="0" r="1.9249999999999998" fill="#FFD034"/>
+      <circle cx="0" cy="0" r="0.99" fill="#E89B00"/>
+    </g>
+  
+    <g transform="translate(135, 620) rotate(-60)">
+      <!-- 5 Petals -->
+      <g fill="#FFFDF8" stroke="#E5DEC9" stroke-width="0.5">
+        <ellipse cx="0" cy="-5.5" rx="2.475" ry="3.575"/>
+        <ellipse cx="5.225" cy="-1.705" rx="2.475" ry="3.575" transform="rotate(72, 5.225, -1.705)"/>
+        <ellipse cx="3.2449999999999997" cy="4.455" rx="2.475" ry="3.575" transform="rotate(144, 3.2449999999999997, 4.455)"/>
+        <ellipse cx="-3.2449999999999997" cy="4.455" rx="2.475" ry="3.575" transform="rotate(216, -3.2449999999999997, 4.455)"/>
+        <ellipse cx="-5.225" cy="-1.705" rx="2.475" ry="3.575" transform="rotate(288, -5.225, -1.705)"/>
+      </g>
+      <!-- Pistil center -->
+      <circle cx="0" cy="0" r="1.9249999999999998" fill="#FFD034"/>
+      <circle cx="0" cy="0" r="0.99" fill="#E89B00"/>
+    </g>
+  
+    <g transform="translate(335, 620) rotate(70)">
+      <!-- 5 Petals -->
+      <g fill="#FFFDF8" stroke="#E5DEC9" stroke-width="0.5">
+        <ellipse cx="0" cy="-5.5" rx="2.475" ry="3.575"/>
+        <ellipse cx="5.225" cy="-1.705" rx="2.475" ry="3.575" transform="rotate(72, 5.225, -1.705)"/>
+        <ellipse cx="3.2449999999999997" cy="4.455" rx="2.475" ry="3.575" transform="rotate(144, 3.2449999999999997, 4.455)"/>
+        <ellipse cx="-3.2449999999999997" cy="4.455" rx="2.475" ry="3.575" transform="rotate(216, -3.2449999999999997, 4.455)"/>
+        <ellipse cx="-5.225" cy="-1.705" rx="2.475" ry="3.575" transform="rotate(288, -5.225, -1.705)"/>
+      </g>
+      <!-- Pistil center -->
+      <circle cx="0" cy="0" r="1.9249999999999998" fill="#FFD034"/>
+      <circle cx="0" cy="0" r="0.99" fill="#E89B00"/>
+    </g>
+  </g>
+      </g>
+
+      <!-- Center Typography (Exact match to reference) -->
+      <g text-anchor="middle">
+        <!-- "you are invited to a" -->
+        <text x="330" y="325" font-family="'Inter', sans-serif" font-size="10.5" font-weight="500" fill="#525636" letter-spacing="1.5">you are invited to a</text>
+
+        <!-- "FAREWELL" -->
+        <text x="330" y="375" font-family="'Playfair Display', Georgia, serif" font-size="28" font-weight="700" fill="#28361B" letter-spacing="3">FAREWELL</text>
+        <!-- "PARTY" -->
+        <text x="330" y="415" font-family="'Playfair Display', Georgia, serif" font-size="28" font-weight="700" fill="#28361B" letter-spacing="3">PARTY</text>
+
+        <!-- "to honor and thank" -->
+        <text x="330" y="468" font-family="'Playfair Display', Georgia, serif" font-style="italic" font-size="13" font-weight="400" fill="#525636" letter-spacing="0.5">to honor and thank</text>
+
+        <!-- "Elena" -->
+        <text x="330" y="525" font-family="'Playfair Display', Georgia, serif" font-size="26" font-weight="600" fill="#28361B" letter-spacing="1.5">Elena</text>
+        <!-- "Thomas" -->
+        <text x="330" y="560" font-family="'Playfair Display', Georgia, serif" font-size="26" font-weight="600" fill="#28361B" letter-spacing="1.5">Thomas</text>
+      </g>
+    </g>
+
+    <!-- Card Edge Crisp Hairline -->
+    <rect x="140" y="140" width="380" height="532" rx="14" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="1.2"/>
+  </g>
+
+  <!-- 4. Top Badges & Heart Overlay (Evite UI Preview Element) -->
+  <g transform="translate(30, 30)">
+    <!-- Premium Badge -->
+    <rect x="0" y="0" width="94" height="28" rx="6" fill="#FBF6FF" stroke="#D8B4FE" stroke-width="1"/>
+    <!-- Crown icon -->
+    <path d="M 12,18 L 14,11 L 18,15 L 22,11 L 24,18 Z" fill="#7E22CE"/>
+    <text x="30" y="18.5" font-family="'Inter', sans-serif" font-size="11.5" font-weight="600" fill="#7E22CE">Premium</text>
+  </g>
+
+  <!-- Favorite Heart Icon Top Right -->
+  <g transform="translate(545, 42)">
+    <path d="M 0,-5 C -4,-12 -14,-10 -14,-2 C -14,6 0,14 0,14 C 0,14 14,6 14,-2 C 14,-10 4,-12 0,-5 Z" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>
+  </g>
+</svg>

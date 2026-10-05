@@ -19,8 +19,8 @@ const app = express();
 // Prevent 500 crashes on automatic browser favicon requests
 app.get("/favicon.ico", (req, res) => res.status(204).end());
 
-// Trust proxy for secure cookies on Vercel
-app.set("trust proxy", 1);
+// Trust proxy for secure cookies and accurate HTTPS detection behind reverse proxies
+app.set("trust proxy", true);
 
 // Configure CORS to allow frontend to access APIs with cookies
 const allowedOrigins = [
@@ -196,25 +196,40 @@ app.use("/api/track", trackRoutes);
 const cronRoutes = require("./routes/cron.routes");
 app.use("/api/cron", cronRoutes);
 
+// Preflight OPTIONS handler for public static assets
+app.options(["/uploads*", "/assets*", "/templates*"], (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "*");
+  res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+  res.sendStatus(204);
+});
+
 // Serve uploads folder statically (uses /tmp on serverless, ./uploads locally)
 const { UPLOADS_DIR } = require("./utils/fileStorage");
 const path = require("path");
 const fs = require("fs");
 
+const staticHeaderSetter = (res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "*");
+  res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+};
+
 app.use("/uploads", express.static(UPLOADS_DIR, {
   maxAge: "7d",
-  setHeaders: (res) => {
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
-  }
+  setHeaders: staticHeaderSetter,
 }));
 
 // Serve static frontend assets (/assets, /templates) for mobile apps & web
 const candidatePublicDirs = [
+  path.join(__dirname, "../public"),
   path.join(__dirname, "../../../public"),
   path.join(__dirname, "../../../invitehub/public"),
   path.join(__dirname, "../../public"),
   path.join(process.cwd(), "public"),
+  path.join(process.cwd(), "backend/public"),
   path.join(process.cwd(), "invitehub/public"),
 ];
 
@@ -224,20 +239,14 @@ for (const pDir of candidatePublicDirs) {
     if (fs.existsSync(assetsPath)) {
       app.use("/assets", express.static(assetsPath, {
         maxAge: "7d",
-        setHeaders: (res) => {
-          res.setHeader("Access-Control-Allow-Origin", "*");
-          res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
-        }
+        setHeaders: staticHeaderSetter,
       }));
     }
     const templatesPath = path.join(pDir, "templates");
     if (fs.existsSync(templatesPath)) {
       app.use("/templates", express.static(templatesPath, {
         maxAge: "7d",
-        setHeaders: (res) => {
-          res.setHeader("Access-Control-Allow-Origin", "*");
-          res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
-        }
+        setHeaders: staticHeaderSetter,
       }));
     }
     break;

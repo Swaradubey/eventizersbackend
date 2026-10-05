@@ -1,0 +1,126 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 700" width="100%" height="100%">
+  <defs>
+    <radialGradient id="poppy-grad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FF4D4D"/>
+      <stop offset="60%" stop-color="#D91B24"/>
+      <stop offset="100%" stop-color="#8A0810"/>
+    </radialGradient>
+    <radialGradient id="blue-flower-grad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#4D96FF"/>
+      <stop offset="60%" stop-color="#1A56B0"/>
+      <stop offset="100%" stop-color="#0E2C60"/>
+    </radialGradient>
+    <radialGradient id="sunflower-grad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FFD152"/>
+      <stop offset="70%" stop-color="#E59400"/>
+      <stop offset="100%" stop-color="#A85800"/>
+    </radialGradient>
+    <radialGradient id="cream-flower-grad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="70%" stop-color="#FFF5DF"/>
+      <stop offset="100%" stop-color="#D9C7A1"/>
+    </radialGradient>
+    <linearGradient id="leaf-dark" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3A6335"/>
+      <stop offset="100%" stop-color="#1B3818"/>
+    </linearGradient>
+
+    <g id="red-poppy">
+      <ellipse cx="-16" cy="-10" rx="22" ry="18" fill="url(#poppy-grad)" opacity="0.95"/>
+      <ellipse cx="16" cy="-10" rx="22" ry="18" fill="url(#poppy-grad)" opacity="0.95"/>
+      <ellipse cx="-12" cy="14" rx="22" ry="16" fill="url(#poppy-grad)" opacity="0.95"/>
+      <ellipse cx="12" cy="14" rx="22" ry="16" fill="url(#poppy-grad)" opacity="0.95"/>
+      <ellipse cx="0" cy="-16" rx="20" ry="18" fill="url(#poppy-grad)"/>
+      <ellipse cx="0" cy="16" rx="24" ry="18" fill="url(#poppy-grad)"/>
+      <circle cx="0" cy="0" r="11" fill="#1C1412"/>
+      <circle cx="0" cy="0" r="6" fill="#403028"/>
+      <circle cx="-3" cy="-3" r="1.5" fill="#FFD152"/>
+      <circle cx="3" cy="-3" r="1.5" fill="#FFD152"/>
+      <circle cx="0" cy="3" r="1.5" fill="#FFD152"/>
+    </g>
+
+    <g id="blue-anemone">
+      <circle cx="-14" cy="-8" r="16" fill="url(#blue-flower-grad)"/>
+      <circle cx="14" cy="-8" r="16" fill="url(#blue-flower-grad)"/>
+      <circle cx="-10" cy="12" r="16" fill="url(#blue-flower-grad)"/>
+      <circle cx="10" cy="12" r="16" fill="url(#blue-flower-grad)"/>
+      <circle cx="0" cy="-14" r="16" fill="url(#blue-flower-grad)"/>
+      <circle cx="0" cy="0" r="10" fill="#0D182E"/>
+      <circle cx="0" cy="0" r="6" fill="#1C2E52"/>
+      <circle cx="-2" cy="-2" r="1" fill="#FFFFFF"/>
+      <circle cx="2" cy="2" r="1" fill="#FFFFFF"/>
+    </g>
+
+    <g id="cream-hellebore">
+      <ellipse cx="0" cy="-20" rx="14" ry="18" fill="url(#cream-flower-grad)"/>
+      <ellipse cx="18" cy="-8" rx="14" ry="18" fill="url(#cream-flower-grad)"/>
+      <ellipse cx="12" cy="16" rx="14" ry="18" fill="url(#cream-flower-grad)"/>
+      <ellipse cx="-12" cy="16" rx="14" ry="18" fill="url(#cream-flower-grad)"/>
+      <ellipse cx="-18" cy="-8" rx="14" ry="18" fill="url(#cream-flower-grad)"/>
+      <circle cx="0" cy="0" r="7" fill="#6E7B42"/>
+      <circle cx="0" cy="0" r="4" fill="#C49B2F"/>
+      <circle cx="-4" cy="-5" r="1.2" fill="#FFE58F"/>
+      <circle cx="4" cy="-5" r="1.2" fill="#FFE58F"/>
+      <circle cx="6" cy="2" r="1.2" fill="#FFE58F"/>
+      <circle cx="-6" cy="2" r="1.2" fill="#FFE58F"/>
+      <circle cx="0" cy="6" r="1.2" fill="#FFE58F"/>
+    </g>
+
+    <g id="golden-daisy">
+      <ellipse cx="0" cy="-18" rx="7" ry="16" fill="url(#sunflower-grad)"/>
+      <ellipse cx="13" cy="-13" rx="7" ry="16" transform="rotate(45 13 -13)" fill="url(#sunflower-grad)"/>
+      <ellipse cx="18" cy="0" rx="7" ry="16" transform="rotate(90 18 0)" fill="url(#sunflower-grad)"/>
+      <ellipse cx="13" cy="13" rx="7" ry="16" transform="rotate(135 13 13)" fill="url(#sunflower-grad)"/>
+      <ellipse cx="0" cy="18" rx="7" ry="16" fill="url(#sunflower-grad)"/>
+      <ellipse cx="-13" cy="13" rx="7" ry="16" transform="rotate(225 -13 13)" fill="url(#sunflower-grad)"/>
+      <ellipse cx="-18" cy="0" rx="7" ry="16" transform="rotate(270 -18 0)" fill="url(#sunflower-grad)"/>
+      <ellipse cx="-13" cy="-13" rx="7" ry="16" transform="rotate(315 -13 -13)" fill="url(#sunflower-grad)"/>
+      <circle cx="0" cy="0" r="12" fill="#42240C"/>
+      <circle cx="0" cy="0" r="8" fill="#69370F"/>
+    </g>
+
+    <g id="botanical-branch">
+      <path d="M 0,0 Q 20,-30 15,-70" stroke="#25421F" stroke-width="2.5" fill="none"/>
+      <path d="M 0,0 C 15,-10 25,-25 15,-40 C 5,-25 5,-10 0,0 Z" fill="url(#leaf-dark)"/>
+      <path d="M 8,-20 C 25,-25 35,-40 28,-55 C 18,-42 12,-28 8,-20 Z" fill="url(#leaf-dark)"/>
+      <path d="M 12,-45 C 30,-50 35,-68 25,-80 C 18,-68 14,-55 12,-45 Z" fill="url(#leaf-dark)"/>
+      <path d="M 2,-30 C -12,-35 -20,-50 -15,-65 C -6,-52 0,-38 2,-30 Z" fill="url(#leaf-dark)"/>
+    </g>
+  </defs>
+
+  <rect width="500" height="700" fill="#E67E17" rx="4"/>
+
+  <g transform="translate(60, 50) rotate(-40)"><use href="#botanical-branch" transform="scale(0.9)"/></g>
+  <g transform="translate(440, 50) rotate(40)"><use href="#botanical-branch" transform="scale(0.9)"/></g>
+  <g transform="translate(450, 650) rotate(140)"><use href="#botanical-branch" transform="scale(0.9)"/></g>
+  <g transform="translate(50, 650) rotate(-140)"><use href="#botanical-branch" transform="scale(0.9)"/></g>
+
+  <rect x="58" y="70" width="384" height="560" rx="8" fill="#FAF5EC" stroke="#E3C9A6" stroke-width="1.5" />
+  <rect x="66" y="78" width="368" height="544" rx="5" fill="none" stroke="#D1B28A" stroke-width="0.8" stroke-dasharray="3 3"/>
+
+  <g transform="translate(85, 95)"><use href="#red-poppy" transform="scale(0.85)"/></g>
+  <g transform="translate(135, 75)"><use href="#golden-daisy" transform="scale(0.75)"/></g>
+  <g transform="translate(62, 140)"><use href="#blue-anemone" transform="scale(0.7)"/></g>
+
+  <g transform="translate(415, 95)"><use href="#blue-anemone" transform="scale(0.95)"/></g>
+  <g transform="translate(365, 75)"><use href="#golden-daisy" transform="scale(0.8)"/></g>
+  <g transform="translate(438, 145)"><use href="#red-poppy" transform="scale(0.75)"/></g>
+
+  <g transform="translate(58, 260)"><use href="#golden-daisy" transform="scale(0.7)"/></g>
+  <g transform="translate(55, 420)"><use href="#blue-anemone" transform="scale(0.75)"/></g>
+  <g transform="translate(60, 500)"><use href="#red-poppy" transform="scale(0.7)"/></g>
+
+  <g transform="translate(442, 280)"><use href="#red-poppy" transform="scale(0.75)"/></g>
+  <g transform="translate(445, 410)"><use href="#golden-daisy" transform="scale(0.75)"/></g>
+  <g transform="translate(440, 510)"><use href="#blue-anemone" transform="scale(0.7)"/></g>
+
+  <g transform="translate(75, 605)"><use href="#golden-daisy" transform="scale(0.9)"/></g>
+  <g transform="translate(125, 625)"><use href="#blue-anemone" transform="scale(0.85)"/></g>
+
+  <g transform="translate(250, 615)"><use href="#cream-hellebore" transform="scale(1.15)"/></g>
+  <g transform="translate(190, 628)"><use href="#red-poppy" transform="scale(0.8)"/></g>
+  <g transform="translate(310, 628)"><use href="#golden-daisy" transform="scale(0.85)"/></g>
+
+  <g transform="translate(425, 605)"><use href="#red-poppy" transform="scale(0.9)"/></g>
+  <g transform="translate(375, 625)"><use href="#blue-anemone" transform="scale(0.85)"/></g>
+</svg>

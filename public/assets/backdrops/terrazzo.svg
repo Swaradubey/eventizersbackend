@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000" width="100%" height="100%">
+  <defs>
+    <linearGradient id="terrazzo-base" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FAF8F5"/>
+      <stop offset="50%" stop-color="#F5F2EC"/>
+      <stop offset="100%" stop-color="#EDE9E1"/>
+    </linearGradient>
+
+    <!-- Terrazzo Organic Flecks Pattern Tile -->
+    <pattern id="terrazzo-tile" width="400" height="500" patternUnits="userSpaceOnUse">
+      <!-- Amber / Ochre chips -->
+      <polygon points="45,35 60,30 55,48 40,42" fill="#D99B59" opacity="0.65"/>
+      <polygon points="180,90 195,85 190,105 175,98" fill="#CCA066" opacity="0.7"/>
+      <polygon points="310,40 330,45 325,60 305,52" fill="#E0AA60" opacity="0.6"/>
+      <polygon points="70,220 85,215 90,235 68,238" fill="#C88846" opacity="0.75"/>
+      <polygon points="260,280 280,270 285,292 255,295" fill="#D59B55" opacity="0.68"/>
+      <polygon points="140,420 160,410 152,435 135,428" fill="#DBA35F" opacity="0.7"/>
+      <polygon points="360,450 375,442 380,460 355,462" fill="#CCA066" opacity="0.65"/>
+      <polygon points="330,220 348,212 342,230 322,228" fill="#D99B59" opacity="0.6"/>
+
+      <!-- Terracotta / Rust chips -->
+      <polygon points="120,40 135,32 142,50 118,52" fill="#B86548" opacity="0.7"/>
+      <polygon points="240,110 258,102 262,122 238,125" fill="#C46E52" opacity="0.65"/>
+      <polygon points="20,150 38,142 42,162 18,165" fill="#A85438" opacity="0.72"/>
+      <polygon points="340,140 355,130 365,152 338,155" fill="#BF684E" opacity="0.68"/>
+      <polygon points="190,230 210,222 215,245 188,248" fill="#B35B40" opacity="0.75"/>
+      <polygon points="40,340 58,332 62,352 38,355" fill="#B86548" opacity="0.7"/>
+      <polygon points="220,370 238,360 245,382 218,385" fill="#C46E52" opacity="0.68"/>
+      <polygon points="310,340 330,332 335,355 308,358" fill="#A85438" opacity="0.72"/>
+      <polygon points="45,460 62,452 68,472 40,475" fill="#BF684E" opacity="0.65"/>
+
+      <!-- Olive / Sage chips -->
+      <polygon points="80,110 95,102 102,120 78,125" fill="#88967A" opacity="0.65"/>
+      <polygon points="280,60 298,52 305,72 278,75" fill="#758567" opacity="0.7"/>
+      <polygon points="150,170 168,162 172,182 148,185" fill="#94A386" opacity="0.6"/>
+      <polygon points="370,80 388,72 392,92 368,95" fill="#7D8F6F" opacity="0.68"/>
+      <polygon points="110,290 128,282 135,305 105,308" fill="#88967A" opacity="0.72"/>
+      <polygon points="290,200 308,192 312,212 288,215" fill="#758567" opacity="0.65"/>
+      <polygon points="170,330 188,322 192,345 168,348" fill="#94A386" opacity="0.6"/>
+      <polygon points="370,270 390,262 395,285 368,288" fill="#7D8F6F" opacity="0.7"/>
+      <polygon points="80,400 98,392 105,415 75,418" fill="#88967A" opacity="0.68"/>
+      <polygon points="270,440 288,432 295,455 268,458" fill="#758567" opacity="0.65"/>
+
+      <!-- Charcoal / Slate chips -->
+      <polygon points="30,80 42,75 46,88 28,90" fill="#3D3B3A" opacity="0.75"/>
+      <polygon points="210,50 222,44 228,58 208,60" fill="#4A4745" opacity="0.7"/>
+      <polygon points="330,100 342,95 348,108 328,110" fill="#333130" opacity="0.8"/>
+      <polygon points="120,220 132,215 138,228 118,230" fill="#3D3B3A" opacity="0.75"/>
+      <polygon points="250,160 262,154 268,168 248,170" fill="#4A4745" opacity="0.7"/>
+      <polygon points="30,280 44,274 48,290 28,292" fill="#333130" opacity="0.78"/>
+      <polygon points="230,310 242,305 248,318 228,320" fill="#3D3B3A" opacity="0.72"/>
+      <polygon points="350,380 364,374 368,390 348,392" fill="#4A4745" opacity="0.75"/>
+      <polygon points="190,460 202,455 208,468 188,470" fill="#333130" opacity="0.8"/>
+      <polygon points="310,480 322,475 328,488 308,490" fill="#3D3B3A" opacity="0.75"/>
+
+      <!-- Fine mineral specks -->
+      <circle cx="95" cy="65" r="2.2" fill="#B86548" opacity="0.7"/>
+      <circle cx="160" cy="120" r="1.8" fill="#3D3B3A" opacity="0.65"/>
+      <circle cx="270" cy="140" r="2.5" fill="#D99B59" opacity="0.7"/>
+      <circle cx="60" cy="180" r="1.5" fill="#758567" opacity="0.6"/>
+      <circle cx="380" cy="180" r="2" fill="#3D3B3A" opacity="0.7"/>
+      <circle cx="150" cy="260" r="2.8" fill="#C46E52" opacity="0.65"/>
+      <circle cx="210" cy="280" r="1.8" fill="#88967A" opacity="0.6"/>
+      <circle cx="340" cy="300" r="2.2" fill="#B86548" opacity="0.7"/>
+      <circle cx="90" cy="340" r="2" fill="#D99B59" opacity="0.65"/>
+      <circle cx="280" cy="380" r="1.6" fill="#3D3B3A" opacity="0.7"/>
+      <circle cx="170" cy="390" r="2.4" fill="#758567" opacity="0.65"/>
+      <circle cx="380" cy="410" r="1.8" fill="#C46E52" opacity="0.7"/>
+      <circle cx="110" cy="460" r="2.2" fill="#3D3B3A" opacity="0.65"/>
+      <circle cx="240" cy="470" r="1.5" fill="#D99B59" opacity="0.7"/>
+      <circle cx="340" cy="440" r="2.6" fill="#88967A" opacity="0.6"/>
+    </pattern>
+
+    <radialGradient id="terrazzo-vignette" cx="50%" cy="50%" r="70%">
+      <stop offset="40%" stop-color="#ffffff" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#DDD6CA" stop-opacity="0.5"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="800" height="1000" fill="url(#terrazzo-base)"/>
+  <rect width="800" height="1000" fill="url(#terrazzo-tile)"/>
+  <rect width="800" height="1000" fill="url(#terrazzo-vignette)" style="mix-blend-mode: multiply;"/>
+</svg>

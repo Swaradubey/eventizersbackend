@@ -1,0 +1,134 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 700" width="100%" height="100%">
+  <defs>
+    <linearGradient id="coral-petal" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF9D7A"/>
+      <stop offset="60%" stop-color="#FA835B"/>
+      <stop offset="100%" stop-color="#E8623A"/>
+    </linearGradient>
+    <linearGradient id="purple-bell" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#845EC2"/>
+      <stop offset="50%" stop-color="#6037A0"/>
+      <stop offset="100%" stop-color="#4B207E"/>
+    </linearGradient>
+    <linearGradient id="pink-foxglove" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFA8BA"/>
+      <stop offset="60%" stop-color="#F27694"/>
+      <stop offset="100%" stop-color="#D4496E"/>
+    </linearGradient>
+    <linearGradient id="stem-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#7CA368"/>
+      <stop offset="100%" stop-color="#4C7039"/>
+    </linearGradient>
+    <radialGradient id="cone-center" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#633918"/>
+      <stop offset="60%" stop-color="#9E5B28"/>
+      <stop offset="100%" stop-color="#E88A3A"/>
+    </radialGradient>
+
+    <g id="cone-flower">
+      <path d="M 0,0 C -6,20 -15,45 -18,65 C -13,68 -7,66 -4,50 Z" fill="url(#coral-petal)" opacity="0.95"/>
+      <path d="M 0,0 C -12,18 -28,40 -35,58 C -30,62 -24,60 -18,46 Z" fill="url(#coral-petal)" opacity="0.9"/>
+      <path d="M 0,0 C -18,12 -42,28 -52,42 C -48,47 -41,46 -32,34 Z" fill="url(#coral-petal)" opacity="0.85"/>
+      <path d="M 0,0 C 6,20 15,45 18,65 C 13,68 7,66 4,50 Z" fill="url(#coral-petal)" opacity="0.95"/>
+      <path d="M 0,0 C 12,18 28,40 35,58 C 30,62 24,60 18,46 Z" fill="url(#coral-petal)" opacity="0.9"/>
+      <path d="M 0,0 C 18,12 42,28 52,42 C 48,47 41,46 32,34 Z" fill="url(#coral-petal)" opacity="0.85"/>
+      <path d="M 0,0 C 0,22 2,48 0,70 C -3,70 -6,68 -4,50 Z" fill="url(#coral-petal)"/>
+      <ellipse cx="0" cy="-2" rx="20" ry="16" fill="url(#cone-center)"/>
+      <ellipse cx="0" cy="-6" rx="14" ry="10" fill="#4A2508"/>
+      <circle cx="-6" cy="-4" r="2" fill="#E88A3A"/>
+      <circle cx="2" cy="-7" r="2" fill="#E88A3A"/>
+      <circle cx="7" cy="-3" r="2" fill="#E88A3A"/>
+      <circle cx="-2" cy="-9" r="1.5" fill="#FFA552"/>
+    </g>
+
+    <g id="bellflower">
+      <path d="M 0,0 C -12,-8 -18,-24 -12,-32 C -2,-28 2,-28 12,-32 C 18,-24 12,-8 0,0 Z" fill="url(#purple-bell)"/>
+      <path d="M -8,-30 C -12,-36 -4,-38 0,-34 C 4,-38 12,-36 8,-30 Z" fill="#9D71E8"/>
+      <circle cx="0" cy="-16" r="2" fill="#E5D4FF"/>
+    </g>
+
+    <g id="foxglove-floret">
+      <path d="M 0,0 C -10,-4 -14,-16 -12,-24 C -4,-22 4,-22 12,-24 C 14,-16 10,-4 0,0 Z" fill="url(#pink-foxglove)"/>
+      <circle cx="-2" cy="-12" r="1.2" fill="#75152F"/>
+      <circle cx="2" cy="-10" r="1" fill="#75152F"/>
+      <circle cx="0" cy="-15" r="1" fill="#75152F"/>
+      <circle cx="-3" cy="-7" r="1.2" fill="#75152F"/>
+    </g>
+
+    <g id="leaf-delicate">
+      <path d="M 0,0 C -14,-15 -18,-40 0,-60 C 18,-40 14,-15 0,0 Z" fill="url(#stem-grad)" opacity="0.85"/>
+      <line x1="0" y1="0" x2="0" y2="-55" stroke="#3A582A" stroke-width="1.2" stroke-linecap="round"/>
+    </g>
+  </defs>
+
+  <rect width="500" height="700" fill="#FFFFFF" rx="4"/>
+
+  <g id="stems-and-leaves">
+    <path d="M 460,700 C 455,550 435,420 405,250" stroke="url(#stem-grad)" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+    <path d="M 430,700 C 425,560 410,440 370,300" stroke="url(#stem-grad)" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+    <path d="M 475,700 C 470,580 460,490 445,360" stroke="url(#stem-grad)" stroke-width="3" fill="none" stroke-linecap="round"/>
+
+    <path d="M 330,700 C 335,620 345,560 355,480" stroke="url(#stem-grad)" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+    <path d="M 260,700 C 265,630 270,580 275,520" stroke="url(#stem-grad)" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <path d="M 190,700 C 195,640 190,600 185,550" stroke="url(#stem-grad)" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <path d="M 120,700 C 122,650 125,620 120,570" stroke="url(#stem-grad)" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    <path d="M 60,700 C 65,660 70,630 65,590" stroke="url(#stem-grad)" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+
+    <g transform="translate(425, 410) rotate(-35)"><use href="#leaf-delicate" transform="scale(0.7)"/></g>
+    <g transform="translate(440, 480) rotate(40)"><use href="#leaf-delicate" transform="scale(0.8)"/></g>
+    <g transform="translate(415, 340) rotate(-30)"><use href="#leaf-delicate" transform="scale(0.6)"/></g>
+    <g transform="translate(390, 450) rotate(-45)"><use href="#leaf-delicate" transform="scale(0.75)"/></g>
+    <g transform="translate(450, 560) rotate(35)"><use href="#leaf-delicate" transform="scale(0.85)"/></g>
+
+    <g transform="translate(310, 620) rotate(-25)"><use href="#leaf-delicate" transform="scale(0.7)"/></g>
+    <g transform="translate(240, 630) rotate(20)"><use href="#leaf-delicate" transform="scale(0.75)"/></g>
+    <g transform="translate(160, 640) rotate(-35)"><use href="#leaf-delicate" transform="scale(0.7)"/></g>
+    <g transform="translate(90, 650) rotate(25)"><use href="#leaf-delicate" transform="scale(0.65)"/></g>
+    <g transform="translate(40, 660) rotate(-20)"><use href="#leaf-delicate" transform="scale(0.6)"/></g>
+  </g>
+
+  <g transform="translate(405, 250) rotate(-15)">
+    <use href="#cone-flower" transform="scale(0.95)" />
+  </g>
+
+  <g transform="translate(370, 360) rotate(-28)">
+    <use href="#cone-flower" transform="scale(0.85)" />
+  </g>
+
+  <g transform="translate(448, 365) rotate(18)">
+    <use href="#cone-flower" transform="scale(0.75)" />
+  </g>
+
+  <g transform="translate(415, 470) rotate(-10)"><use href="#bellflower" transform="scale(0.9)"/></g>
+  <g transform="translate(425, 515) rotate(15)"><use href="#bellflower" transform="scale(0.95)"/></g>
+  <g transform="translate(395, 530) rotate(-25)"><use href="#bellflower" transform="scale(0.85)"/></g>
+  <g transform="translate(410, 580) rotate(5)"><use href="#bellflower" transform="scale(1)"/></g>
+  <g transform="translate(435, 620) rotate(20)"><use href="#bellflower" transform="scale(0.9)"/></g>
+
+  <g transform="translate(355, 480) rotate(8)"><use href="#foxglove-floret" transform="scale(0.95)"/></g>
+  <g transform="translate(362, 510) rotate(-12)"><use href="#foxglove-floret" transform="scale(1)"/></g>
+  <g transform="translate(350, 540) rotate(10)"><use href="#foxglove-floret" transform="scale(1.05)"/></g>
+  <g transform="translate(358, 575) rotate(-8)"><use href="#foxglove-floret" transform="scale(1.1)"/></g>
+  <g transform="translate(345, 610) rotate(12)"><use href="#foxglove-floret" transform="scale(1.15)"/></g>
+  <g transform="translate(352, 650) rotate(-10)"><use href="#foxglove-floret" transform="scale(1.2)"/></g>
+
+  <g transform="translate(295, 545) rotate(12)">
+    <use href="#cone-flower" transform="scale(0.8)" />
+  </g>
+
+  <g transform="translate(245, 570) rotate(-15)"><use href="#bellflower" transform="scale(0.85)"/></g>
+  <g transform="translate(270, 620) rotate(18)"><use href="#bellflower" transform="scale(0.95)"/></g>
+  <g transform="translate(210, 605) rotate(10)"><use href="#bellflower" transform="scale(0.85)"/></g>
+  <g transform="translate(225, 655) rotate(-12)"><use href="#bellflower" transform="scale(0.9)"/></g>
+
+  <g transform="translate(180, 560) rotate(-6)"><use href="#foxglove-floret" transform="scale(0.9)"/></g>
+  <g transform="translate(186, 595) rotate(10)"><use href="#foxglove-floret" transform="scale(0.95)"/></g>
+  <g transform="translate(175, 630) rotate(-10)"><use href="#foxglove-floret" transform="scale(1)"/></g>
+  <g transform="translate(182, 665) rotate(6)"><use href="#foxglove-floret" transform="scale(1.05)"/></g>
+
+  <g transform="translate(125, 590) rotate(15)"><use href="#bellflower" transform="scale(0.75)"/></g>
+  <g transform="translate(135, 640) rotate(-12)"><use href="#bellflower" transform="scale(0.8)"/></g>
+  <g transform="translate(70, 610) rotate(-18)"><use href="#foxglove-floret" transform="scale(0.8)"/></g>
+  <g transform="translate(80, 650) rotate(12)"><use href="#foxglove-floret" transform="scale(0.85)"/></g>
+  <g transform="translate(35, 640) rotate(-10)"><use href="#bellflower" transform="scale(0.7)"/></g>
+</svg>

@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" width="100%" height="100%">
+  <defs>
+    <!-- Linen Base Tone Gradient -->
+    <linearGradient id="linen-base" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FDFBF7"/>
+      <stop offset="50%" stop-color="#FAF6F0"/>
+      <stop offset="100%" stop-color="#F3ECE2"/>
+    </linearGradient>
+
+    <!-- Fine Linen Weave Pattern -->
+    <pattern id="linen-weave" width="8" height="8" patternUnits="userSpaceOnUse">
+      <rect width="8" height="8" fill="none"/>
+      <!-- Horizontal Weft -->
+      <path d="M 0,2 L 8,2 M 0,6 L 8,6" stroke="#D8CFC4" stroke-width="0.75" opacity="0.35"/>
+      <path d="M 0,1 L 8,1 M 0,5 L 8,5" stroke="#FFFFFF" stroke-width="0.5" opacity="0.6"/>
+      <!-- Vertical Warp -->
+      <path d="M 2,0 L 2,8 M 6,0 L 6,8" stroke="#D3C9BD" stroke-width="0.75" opacity="0.32"/>
+      <path d="M 1,0 L 1,8 M 5,0 L 5,8" stroke="#FFFFFF" stroke-width="0.5" opacity="0.55"/>
+      <!-- Micro Slubs/Neps for authentic raw natural fiber look -->
+      <circle cx="2" cy="6" r="0.6" fill="#C5BAAC" opacity="0.4"/>
+      <circle cx="6" cy="2" r="0.5" fill="#C5BAAC" opacity="0.35"/>
+    </pattern>
+
+    <!-- Soft Ambient Vignette -->
+    <radialGradient id="linen-vignette" cx="50%" cy="50%" r="72%">
+      <stop offset="45%" stop-color="#ffffff" stop-opacity="0.15"/>
+      <stop offset="85%" stop-color="#EBE3D7" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#DECFC0" stop-opacity="0.6"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Base paper -->
+  <rect width="1000" height="1000" fill="url(#linen-base)"/>
+  <!-- Linen Weave Overlay -->
+  <rect width="1000" height="1000" fill="url(#linen-weave)"/>
+  <!-- Ambient Soft Vignette -->
+  <rect width="1000" height="1000" fill="url(#linen-vignette)"/>
+</svg>
