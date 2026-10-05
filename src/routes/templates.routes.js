@@ -163,14 +163,19 @@ router.post('/', authenticate, isAdmin, async (req, res, next) => {
       isPremium = false,
       imageUrl,
       thumbnailUrl,
+      backgroundUrl,
       tags = [],
       aspectRatio = "5x7",
       backgroundColor = "#ffffff",
       description = "",
+      defaultTextLayers,
+      layers,
+      isLayered,
     } = req.body;
 
     const templateName = (title || name || "New Template").trim();
-    let finalImage = (imageUrl || thumbnailUrl || "").trim();
+    // backgroundUrl takes priority over imageUrl/thumbnailUrl for layered templates
+    let finalImage = (backgroundUrl || imageUrl || thumbnailUrl || "").trim();
 
     // If an external web image URL was provided, automatically download and cache it locally
     // to prevent cross-origin blocking, hotlinking 403s, and ensure it always loads!
@@ -200,14 +205,63 @@ router.post('/', authenticate, isAdmin, async (req, res, next) => {
     const effectiveIsPremium = Boolean(isPremium || badge?.toLowerCase() === "premium");
     const effectiveBadge = badge || (effectiveIsPremium ? "Premium" : "Free");
 
+    // Resolve final text layers: use admin-authored layers when provided, else generate defaults
+    const adminLayers = Array.isArray(defaultTextLayers) && defaultTextLayers.length > 0
+      ? defaultTextLayers
+      : Array.isArray(layers) && layers.length > 0
+        ? layers
+        : null;
+
+    const resolvedTextLayers = adminLayers || [
+      {
+        id: "layer-title",
+        key: "title",
+        text: templateName,
+        fontFamily: "'Playfair Display', Georgia, serif",
+        fontSize: 22,
+        color: "#1A1A1A",
+        fontWeight: "600",
+        textAlign: "center",
+        top: 65,
+        left: 50
+      },
+      {
+        id: "layer-datetime",
+        key: "datetime",
+        text: "Saturday, November 14 • 6:00 PM",
+        fontFamily: "'Inter', sans-serif",
+        fontSize: 13,
+        color: "#4A4A4A",
+        fontWeight: "400",
+        textAlign: "center",
+        top: 76,
+        left: 50
+      },
+      {
+        id: "layer-venue",
+        key: "venue",
+        text: "The Grand Plaza • City Center",
+        fontFamily: "'Inter', sans-serif",
+        fontSize: 12,
+        color: "#7A7A7A",
+        fontWeight: "400",
+        textAlign: "center",
+        top: 84,
+        left: 50
+      }
+    ];
+
     // Standardized content payload expected by client/designer
     const contentObj = {
       badge: effectiveBadge,
       thumbnailUrl: finalImage,
       imageUrl: finalImage,
+      backgroundUrl: finalImage,
       category: category || "General",
       tags: Array.isArray(tags) && tags.length > 0 ? tags : [category || "General"],
       description: description || "",
+      // isLayered = true signals the client to treat this as a new layered template
+      isLayered: Boolean(isLayered || adminLayers),
       backdrop: {
         type: "color",
         value: "#FAF8F5",
@@ -227,44 +281,7 @@ router.post('/', authenticate, isAdmin, async (req, res, next) => {
         artworkUrl: finalImage,
         aspectRatio: aspectRatio || "5x7"
       },
-      defaultTextLayers: [
-        {
-          id: "layer-title",
-          key: "title",
-          text: templateName,
-          fontFamily: "'Playfair Display', Georgia, serif",
-          fontSize: 22,
-          color: "#1A1A1A",
-          fontWeight: "600",
-          textAlign: "center",
-          top: 65,
-          left: 50
-        },
-        {
-          id: "layer-datetime",
-          key: "datetime",
-          text: "Saturday, November 14 • 6:00 PM",
-          fontFamily: "'Inter', sans-serif",
-          fontSize: 13,
-          color: "#4A4A4A",
-          fontWeight: "400",
-          textAlign: "center",
-          top: 76,
-          left: 50
-        },
-        {
-          id: "layer-venue",
-          key: "venue",
-          text: "The Grand Plaza • City Center",
-          fontFamily: "'Inter', sans-serif",
-          fontSize: 12,
-          color: "#7A7A7A",
-          fontWeight: "400",
-          textAlign: "center",
-          top: 84,
-          left: 50
-        }
-      ]
+      defaultTextLayers: resolvedTextLayers
     };
 
     const template = await prisma.template.create({
