@@ -145,6 +145,9 @@ const formatTemplateForClient = (t, req) => {
     envelope: formattedEnvelope,
     card: formattedCard,
     defaultTextLayers: resolvedLayers,
+    // Signals the client that this template carries admin-authored text layers
+    // that must be rendered on top of the raw background image.
+    isLayered: Boolean(contentObj.isLayered),
     emoji: contentObj.emoji || t.emoji || null,
     gradient: contentObj.gradient || null,
     accentColor: contentObj.accentColor || null,
