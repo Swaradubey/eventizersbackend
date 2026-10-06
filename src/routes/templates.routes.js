@@ -7,6 +7,7 @@ const isAdmin = authMiddleware.requireAdmin;
 const router = express.Router();
 
 const { newTemplatesDataBackend } = require('../config/newTemplatesBackend');
+const { saveUploadedFile, saveBase64Image, saveRemoteImage } = require('../utils/fileStorage');
 
 // Get all templates
 
@@ -167,18 +168,18 @@ router.get('/', async (req, res, next) => {
         });
       }
     } catch (dbErr) {
-      console.warn("DB query for templates failed, using fallback:", dbErr.message);
+      console.warn("[TemplatesRoutes] DB query for templates failed, using fallback:", dbErr.message);
     }
 
     const fallbackFormatted = (newTemplatesDataBackend || []).map((t) => formatTemplateForClient(t, req));
     
-    // Combine db templates (if any) with fallback templates
+    // Combine db templates (if any) with fallback templates, deduplicating by ID (case-insensitive)
     if (dbTemplates && dbTemplates.length > 0) {
       const dbFormatted = dbTemplates.map((t) => formatTemplateForClient(t, req));
       const combined = [...dbFormatted];
-      const seenIds = new Set(dbFormatted.map(t => t.id));
+      const seenIds = new Set(dbFormatted.map(t => String(t.id).toLowerCase()));
       for (const t of fallbackFormatted) {
-        if (!seenIds.has(t.id)) {
+        if (!seenIds.has(String(t.id).toLowerCase())) {
           combined.push(t);
         }
       }
@@ -195,19 +196,50 @@ router.get('/', async (req, res, next) => {
 router.get('/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
+    if (!id || typeof id !== 'string') {
+      return res.status(400).json({ error: "Template ID parameter is required" });
+    }
     const cleanId = String(id).trim().toLowerCase();
 
-    // Try finding in DB first
-    try {
-      if (prisma && prisma.template) {
-        const dbTpl = await prisma.template.findUnique({ where: { id } });
+    // 1. Try finding in DB first with case-insensitive support
+    if (prisma && prisma.template) {
+      try {
+        let dbTpl = await prisma.template.findUnique({ where: { id } });
+        if (!dbTpl && id.toLowerCase() !== id) {
+          dbTpl = await prisma.template.findUnique({ where: { id: id.toLowerCase() } });
+        }
+        if (!dbTpl) {
+          dbTpl = await prisma.template.findFirst({
+            where: {
+              OR: [
+                { id: { equals: id, mode: 'insensitive' } },
+                { id: { equals: cleanId, mode: 'insensitive' } },
+              ]
+            }
+          });
+        }
         if (dbTpl) {
           return res.json(formatTemplateForClient(dbTpl, req));
         }
+      } catch (dbErr) {
+        console.error(`[TemplatesRoutes] Database query error for template '${id}':`, dbErr.message);
+        // Before failing with 500, check if the fallback list contains this template
+        const fallbackList = (newTemplatesDataBackend || []).map((t) => formatTemplateForClient(t, req));
+        const matchedFallback = fallbackList.find(t => 
+          t.id.toLowerCase() === cleanId || 
+          t.id.toLowerCase().replace(/-/g, '') === cleanId.replace(/-/g, '')
+        );
+        if (matchedFallback) {
+          return res.json(matchedFallback);
+        }
+        return res.status(500).json({
+          error: "Database error while fetching template",
+          details: dbErr.message
+        });
       }
-    } catch (_) {}
+    }
 
-    // Find in predefined backend templates
+    // 2. Find in predefined backend templates
     const fallbackList = (newTemplatesDataBackend || []).map((t) => formatTemplateForClient(t, req));
     const matched = fallbackList.find(t => 
       t.id.toLowerCase() === cleanId || 
@@ -398,7 +430,6 @@ router.delete('/:id', authenticate, isAdmin, async (req, res, next) => {
 });
 
 const multer = require('multer');
-const { saveUploadedFile, saveBase64Image, saveRemoteImage } = require('../utils/fileStorage');
 
 // Multer configuration using memory storage
 const upload = multer({

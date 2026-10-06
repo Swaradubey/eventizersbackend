@@ -3,7 +3,16 @@ const path = require("path");
 const fs = require("fs");
 const crypto = require("crypto");
 const QRCode = require("qrcode");
-const { renderInvitationCardPng } = require("./cardRenderer.service");
+const { renderInvitationCardPng, resolveTemplateConfig } = require("./cardRenderer.service");
+const {
+  resolveEnvelopeDesign,
+  resolveLinerVisual,
+  linerBaseColor,
+  loadLinerImage,
+  renderEnvelopePreviewPng,
+  renderEnvelopeFlapBandPng,
+  renderEnvelopePocketBandPng,
+} = require("./envelopeRenderer.service");
 const {
   saveBase64Image,
   findLocalFilePath,
@@ -524,6 +533,14 @@ const generateInvitationHtml = ({
   titleSize = 28,
   textAlignment = "center",
   gifting,
+  // ── Digital envelope presentation (card wrapped inside its envelope) ──
+  envelope = null,
+  envelopeFlapSrc = null,
+  envelopePocketSrc = null,
+  interactiveLink = null,
+  ctaText = "Open Full Interactive Invitation",
+  cardImageWidth = null,
+  cardImageHeight = null,
 }) => {
   const cardIsDark = isDarkColor(backgroundColor);
   const bodyBg = cardIsDark ? "#0f172a" : "#f4f6f9";
@@ -610,6 +627,62 @@ const generateInvitationHtml = ({
     (qrCodeUrl.trim() === "cid:qrcode" || qrCodeUrl.trim().startsWith("cid:") || /^https:\/\//i.test(qrCodeUrl.trim()))
   );
   const safeQrCodeUrl = isValidQrUrl ? qrCodeUrl.trim() : null;
+
+  // ─── DIGITAL ENVELOPE PRESENTATION CONFIG ───
+  const hasEnvelope = Boolean(envelope && (envelope.outerColor || envelope.linerColor));
+  const envelopeMode = hasEnvelope ? (envelope.mode === "composite" && imageUrl ? "composite" : "table") : null;
+  const envOuter = hasEnvelope ? envelope.outerColor || "#2F3A4A" : null;
+  const envLinerColor = hasEnvelope ? envelope.linerColor || "#F5EFE3" : null;
+  const envLinerBgUrl = hasEnvelope && envelope.linerBgUrl ? envelope.linerBgUrl : null;
+  const envLinerBgStyle = envLinerBgUrl
+    ? `background-image: url('${envLinerBgUrl}'); background-repeat: no-repeat; background-position: center; background-size: cover;`
+    : "";
+  const ctaLink = interactiveLink || previewLink || null;
+  const safeCtaText = ctaText || "Open Full Interactive Invitation";
+
+  // Interactive link and event-details link may differ (unboxing page vs details page)
+  const showSecondaryDetailsLink =
+    interactiveLink && previewLink && interactiveLink !== previewLink;
+
+  const cardImageHtml = imageUrl
+    ? `${ctaLink ? `<a href="${ctaLink}" target="_blank" style="display: block; text-decoration: none; border: 0; outline: 0; line-height: 0; font-size: 0;">` : ""}
+      <img
+        src="${imageUrl}"
+        alt="${cleanAltText}"
+        ${cardImageWidth ? `width="${cardImageWidth}"` : `width="100%"`}
+        ${cardImageHeight ? `height="${cardImageHeight}"` : ""}
+        border="0"
+        style="display: block; ${cardImageWidth ? "width: 100%; max-width: 560px;" : "max-width: 500px; width: 100%;"} height: auto; margin: 0 auto; border-radius: 12px; outline: none; border: 0; text-decoration: none; box-shadow: 0 8px 26px rgba(0,0,0,0.20); mso-border-alt: 0px;"
+      />
+    ${ctaLink ? `</a>` : ""}`
+    : "";
+
+  const fallbackBannerHtml = `
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: ${backgroundColor}; border-radius: 8px; padding: 24px 20px; text-align: ${textAlignment}; border: 1px solid ${metaBoxBorder}; box-shadow: 0 4px 12px rgba(0,0,0,0.04);">
+                <tr>
+                  <td align="${textAlignment}">
+                    <h3 style="margin: 0 0 8px 0; font-size: 20px; font-weight: 700; color: ${textColor}; font-family: ${fontStack};">
+                      ${cleanTitle}
+                    </h3>
+                    ${subtitle ? `
+                    <p style="margin: 0 0 8px 0; font-size: 14px; font-weight: 500; color: ${textColor}; opacity: 0.85;">
+                      ${subtitle}
+                    </p>
+                    ` : ""}
+                    ${date ? `
+                    <p style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600; color: ${accent};">
+                      📅 ${date}${time ? ` at ${time}` : ""}
+                    </p>
+                    ` : ""}
+                    ${venue ? `
+                    <p style="margin: 0; font-size: 14px; color: ${textColor};">
+                      📍 ${venue}
+                    </p>
+                    ` : ""}
+                  </td>
+                </tr>
+              </table>`;
+
   return `
 <!DOCTYPE html>
 <html lang="en" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
@@ -671,7 +744,7 @@ const generateInvitationHtml = ({
     <tr>
       <td align="center">
         <!-- Main Card Container -->
-        <table role="presentation" class="email-container dark-container" align="center" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 580px; width: 100%; background-color: ${containerBg}; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08); border: 1px solid ${metaBoxBorder};">
+        <table role="presentation" class="email-container dark-container" align="center" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; width: 100%; background-color: ${containerBg}; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08); border: 1px solid ${metaBoxBorder};">
           
           <!-- ─── TOP BADGE & CLEAN GREETING HEADER ─── -->
           <tr>
@@ -691,11 +764,43 @@ const generateInvitationHtml = ({
             </td>
           </tr>
 
-          <!-- ─── 1. CLEAN INVITATION CARD IMAGE ─── -->
-          ${imageUrl ? `
+          <!-- ─── 1. DIGITAL ENVELOPE FRAMING THE INVITATION CARD ─── -->
+          ${hasEnvelope ? `
+          <tr>
+            <td align="center" style="padding: 8px 10px 6px 10px;">
+              <table role="presentation" class="email-envelope" align="center" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; width: 100%; margin: 0 auto; background-color: ${envOuter}; border-radius: 16px; overflow: hidden; box-shadow: 0 14px 34px rgba(0,0,0,0.18); border: 1px solid rgba(0,0,0,0.10);">
+                ${envelopeMode === "composite" ? `
+                <!-- Composite preview: flap + liner + card + pocket rendered as one pixel-perfect image -->
+                <tr>
+                  <td align="center" style="padding: 14px; background-color: ${envOuter}; line-height: 0; font-size: 0; mso-line-height-rule: exactly;">
+                    ${cardImageHtml || fallbackBannerHtml}
+                  </td>
+                </tr>` : `
+                <!-- Envelope flap & liner band -->
+                <tr>
+                  <td align="center" style="padding: 0; background-color: ${envOuter}; line-height: 0; font-size: 0; mso-line-height-rule: exactly;">
+                    ${envelopeFlapSrc ? `<img src="${envelopeFlapSrc}" width="1200" height="340" alt="" border="0" style="display: block; width: 100%; max-width: 600px; height: auto; border: 0; outline: none; text-decoration: none;" />` : `<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 0;"><tr><td height="130" align="center" valign="middle" style="height: 130px; background-color: ${envOuter}; font-size: 0; line-height: 0; mso-line-height-rule: exactly;">&nbsp;</td></tr></table>`}
+                  </td>
+                </tr>
+                <!-- Invitation card seated inside the envelope liner / pocket -->
+                <tr>
+                  <td align="center" style="padding: 22px 30px 26px 30px; background-color: ${envLinerColor}; ${envLinerBgStyle} mso-line-height-rule: exactly;">
+                    ${cardImageHtml || fallbackBannerHtml}
+                  </td>
+                </tr>
+                <!-- Envelope lower base / pocket front -->
+                <tr>
+                  <td align="center" style="padding: 0; background-color: ${envOuter}; line-height: 0; font-size: 0; mso-line-height-rule: exactly;">
+                    ${envelopePocketSrc ? `<img src="${envelopePocketSrc}" width="1200" height="300" alt="" border="0" style="display: block; width: 100%; max-width: 600px; height: auto; border: 0; outline: none; text-decoration: none;" />` : `<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 0;"><tr><td height="96" align="center" valign="middle" style="height: 96px; background-color: ${envOuter}; border-top: 3px solid rgba(255,255,255,0.35); font-size: 0; line-height: 0; mso-line-height-rule: exactly;">&nbsp;</td></tr></table>`}
+                  </td>
+                </tr>`}
+              </table>
+            </td>
+          </tr>
+          ` : imageUrl ? `
           <tr>
             <td align="center" style="padding: 10px 16px 20px 16px;">
-              ${previewLink ? `<a href="${previewLink}" target="_blank" style="display: block; text-decoration: none; border: none; outline: none;">` : ""}
+              ${ctaLink ? `<a href="${ctaLink}" target="_blank" style="display: block; text-decoration: none; border: none; outline: none;">` : ""}
                 <img 
                   src="${imageUrl}" 
                   alt="${cleanAltText}" 
@@ -703,57 +808,34 @@ const generateInvitationHtml = ({
                   border="0"
                   style="display: block; max-width: 500px; width: 100%; height: auto; margin: 0 auto; border-radius: 12px; outline: none; border: none; text-decoration: none; box-shadow: 0 6px 24px rgba(0,0,0,0.12);" 
                 />
-              ${previewLink ? `</a>` : ""}
+              ${ctaLink ? `</a>` : ""}
             </td>
           </tr>
           ` : `
           <!-- ─── FALLBACK THEMED CARD BANNER (WHEN NO IMAGE IS PROVIDED) ─── -->
           <tr>
             <td style="padding: 12px 24px 16px 24px;">
-              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: ${backgroundColor}; border-radius: 8px; padding: 24px 20px; text-align: ${textAlignment}; border: 1px solid ${metaBoxBorder}; box-shadow: 0 4px 12px rgba(0,0,0,0.04);">
-                <tr>
-                  <td align="${textAlignment}">
-                    <h3 style="margin: 0 0 8px 0; font-size: 20px; font-weight: 700; color: ${textColor}; font-family: ${fontStack};">
-                      ${cleanTitle}
-                    </h3>
-                    ${subtitle ? `
-                    <p style="margin: 0 0 8px 0; font-size: 14px; font-weight: 500; color: ${textColor}; opacity: 0.85;">
-                      ${subtitle}
-                    </p>
-                    ` : ""}
-                    ${date ? `
-                    <p style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600; color: ${accent};">
-                      📅 ${date}${time ? ` at ${time}` : ""}
-                    </p>
-                    ` : ""}
-                    ${venue ? `
-                    <p style="margin: 0; font-size: 14px; color: ${textColor};">
-                      📍 ${venue}
-                    </p>
-                    ` : ""}
-                  </td>
-                </tr>
-              </table>
+              ${fallbackBannerHtml}
             </td>
           </tr>
           `}
 
-          <!-- ─── 2. CALL TO ACTION BUTTON ─── -->
-          ${previewLink ? `
+          <!-- ─── 2. CALL TO ACTION BUTTON (DIRECTLY BELOW THE ENVELOPE) ─── -->
+          ${ctaLink ? `
           <tr>
-            <td align="center" style="padding: 4px 24px 22px 24px;">
+            <td align="center" style="padding: 6px 24px 22px 24px;">
               <table role="presentation" border="0" cellspacing="0" cellpadding="0" align="center" style="margin: 0 auto;">
                 <tr>
                   <td align="center" style="border-radius: ${btnRadius}px; background-color: ${btnColor};">
                     <!--[if mso]>
-                    <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${previewLink}" style="height:52px;v-text-anchor:middle;width:280px;" arcsize="${Math.min(50, Math.round(btnRadius * 4))}%" stroke="f" fillcolor="${btnColor}">
+                    <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${ctaLink}" style="height:52px;v-text-anchor:middle;width:340px;" arcsize="${Math.min(50, Math.round(btnRadius * 4))}%" stroke="f" fillcolor="${btnColor}">
                     <w:anchorlock/>
-                    <center style="color:#ffffff;font-family:sans-serif;font-size:15px;font-weight:bold;">${safeButtonText}</center>
+                    <center style="color:#ffffff;font-family:sans-serif;font-size:15px;font-weight:bold;">${safeCtaText}</center>
                     </v:roundrect>
                     <![endif]-->
                     <!--[if !mso]><!-- -->
-                    <a class="cta-button" href="${previewLink}" target="_blank" style="background-color: ${btnColor}; color: #ffffff; font-weight: 700; font-size: 15px; border-radius: ${btnRadius}px; padding: 14px 38px; text-decoration: none; display: inline-block; border: none; letter-spacing: 0.3px; box-shadow: 0 4px 16px ${btnColor}40; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-                      ${safeButtonText}
+                    <a class="cta-button" href="${ctaLink}" target="_blank" style="background-color: ${btnColor}; color: #ffffff; font-weight: 700; font-size: 15px; border-radius: ${btnRadius}px; padding: 15px 34px; text-decoration: none; display: inline-block; border: none; letter-spacing: 0.3px; box-shadow: 0 4px 16px ${btnColor}40; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; mso-padding-alt: 15px 34px;">
+                      ${safeCtaText}
                     </a>
                     <!--<![endif]-->
                   </td>
@@ -772,7 +854,8 @@ const generateInvitationHtml = ({
               </table>
               ` : ""}
               <p class="dark-secondary" style="margin: 10px 0 0 0; font-size: 12px; color: ${secondaryText}; text-align: center;">
-                Click above to view full event details and submit your RSVP online.
+                Opens the full interactive invitation &mdash; watch the envelope unboxing, view event details and submit your RSVP.
+                ${showSecondaryDetailsLink ? `<br /><a href="${previewLink}" target="_blank" style="color: ${accent}; text-decoration: underline;">View the plain event details page</a>` : ""}
               </p>
             </td>
           </tr>
@@ -1193,6 +1276,8 @@ const sendInvitationEmails = async ({
   const trackBase = (trackingBaseUrl || process.env.API_BASE_URL || process.env.BACKEND_URL || "http://localhost:5000").replace(/\/+$/, "");
   const invitationTargetId = invitation?.id || invitation?.eventId || event?.id;
   const previewLink = `${baseUrl}/invitation/${invitationTargetId}`;
+  // Public interactive page: envelope unboxing animation + card details + RSVP
+  const interactiveLinkBase = `${baseUrl}/invite/${invitationTargetId}`;
 
   // ─── RESOLVE EVENT GIFTING & REGISTRIES (EVITE-STYLE) ───
   const effectiveGifting = (() => {
@@ -1348,9 +1433,18 @@ const sendInvitationEmails = async ({
   // 3. Priority: Fallback to composite card render via backend cardRenderer service
   if (!invitationCardPngBuffer && !htmlCardImageSrc) {
     try {
+      // The renderer must receive the chosen template schema (artwork URLs, card/envelope
+      // colours) — without it the composite degrades to a generic layout with default colours.
+      const resolvedTemplateConfig = resolveTemplateConfig(invitation, event);
+      if (resolvedTemplateConfig) {
+        console.log(
+          `[EmailService] Rendering composite card with templateConfig id=${resolvedTemplateConfig.id || "(derived)"}`
+        );
+      }
       invitationCardPngBuffer = await renderInvitationCardPng({
         invitation,
         event,
+        templateConfig: resolvedTemplateConfig,
         options,
       });
       if (invitationCardPngBuffer && invitationCardPngBuffer.length > 0) {
@@ -1376,6 +1470,91 @@ const sendInvitationEmails = async ({
     } catch (renderErr) {
     }
   }
+
+  const priorCardImageSrc = htmlCardImageSrc;
+
+  // ─── RESOLVE DIGITAL ENVELOPE DESIGN (flap, liner, pocket, seal) ───
+  const envelopeDesign = resolveEnvelopeDesign(invitation, event, accentColor);
+  let envelopeLinerVisual = null;
+  try {
+    envelopeLinerVisual = resolveLinerVisual(envelopeDesign, baseUrl);
+  } catch (linerErr) {
+    console.warn("[EmailService] Envelope liner resolution skipped:", linerErr.message);
+  }
+
+  // ─── OPTION B (PREFERRED): COMPOSITE PREVIEW — envelope + card as ONE image ───
+  let envelopePreviewPng = null;
+  if (invitationCardPngBuffer && invitationCardPngBuffer.length > 500) {
+    try {
+      envelopePreviewPng = await renderEnvelopePreviewPng({
+        cardBuffer: invitationCardPngBuffer,
+        envelope: envelopeDesign,
+        accentColor,
+        backgroundColor,
+        baseUrl,
+      });
+      if (envelopePreviewPng) {
+        console.log(`[EmailService] Rendered composite envelope + card preview (${(envelopePreviewPng.buffer.length / 1024).toFixed(1)} KB, ${envelopePreviewPng.width}x${envelopePreviewPng.height})`);
+      }
+    } catch (envErr) {
+      console.warn("[EmailService] Composite envelope preview skipped:", envErr.message);
+    }
+  }
+
+  // Card only available as a hosted URL: fetch it so it can still be composited
+  if (!envelopePreviewPng && htmlCardImageSrc && /^https:\/\//i.test(htmlCardImageSrc)) {
+    try {
+      const remoteCardRes = await fetch(htmlCardImageSrc, { signal: AbortSignal.timeout(6000) });
+      if (remoteCardRes.ok) {
+        const remoteCardBuf = Buffer.from(await remoteCardRes.arrayBuffer());
+        if (remoteCardBuf.length > 500) {
+          envelopePreviewPng = await renderEnvelopePreviewPng({
+            cardBuffer: remoteCardBuf,
+            envelope: envelopeDesign,
+            accentColor,
+            backgroundColor,
+            baseUrl,
+          });
+        }
+      }
+    } catch (remoteErr) {
+      console.warn("[EmailService] Composite preview from hosted card skipped:", remoteErr.message);
+    }
+  }
+
+  // ─── OPTION A (FALLBACK): TABLE LAYOUT WITH INLINE CID ENVELOPE PIECES ───
+  let envelopeMode = "table";
+  let envelopeFlapPng = null;
+  let envelopePocketPng = null;
+  if (envelopePreviewPng) {
+    envelopeMode = "composite";
+    htmlCardImageSrc = "cid:invitation_preview";
+  } else {
+    try {
+      const linerImage = await loadLinerImage(envelopeLinerVisual);
+      envelopeFlapPng = renderEnvelopeFlapBandPng({ envelope: envelopeDesign, visual: envelopeLinerVisual, linerImage });
+      envelopePocketPng = renderEnvelopePocketBandPng({ envelope: envelopeDesign, accentColor });
+      console.log(`[EmailService] Rendered envelope pieces for table layout — flap: ${(envelopeFlapPng.length / 1024).toFixed(1)} KB, pocket: ${(envelopePocketPng.length / 1024).toFixed(1)} KB`);
+    } catch (bandErr) {
+      console.warn("[EmailService] Envelope band rendering skipped:", bandErr.message);
+    }
+  }
+
+  const envelopeEmailConfig = {
+    mode: envelopeMode,
+    outerColor: envelopeDesign.outerColor,
+    linerColor: linerBaseColor(envelopeDesign, envelopeLinerVisual),
+    linerBgUrl:
+      envelopeLinerVisual &&
+      envelopeLinerVisual.kind === "image" &&
+      envelopeLinerVisual.absoluteUrl &&
+      !/\.svg(\?|$)/i.test(envelopeLinerVisual.absoluteUrl)
+        ? envelopeLinerVisual.absoluteUrl
+        : null,
+    shadowColor: envelopeDesign.shadowColor,
+  };
+  const htmlFlapSrc = envelopeFlapPng ? "cid:envelope_flap" : null;
+  const htmlPocketSrc = envelopePocketPng ? "cid:envelope_pocket" : null;
 
   const displayTitle = getCleanDisplayTitle(title, event?.title || "Special Event");
   // Clean subject line without spam-trigger symbols or excessive emojis
@@ -1461,7 +1640,7 @@ const sendInvitationEmails = async ({
   let sentCount = 0;
   let lastMessageId = null;
 
-  console.log(`[EmailService] Preparing email dispatch for: "${displayTitle}", cardSrc: ${htmlCardImageSrc || "(themed card layout)"}, recipients: ${normalizedRecipients.length}`);
+  console.log(`[EmailService] Preparing email dispatch for: "${displayTitle}", envelope: ${envelopeMode}, cardSrc: ${htmlCardImageSrc || "(themed card layout)"}, recipients: ${normalizedRecipients.length}`);
 
   // Dispatch individual emails with personalized tracking pixels and click tracking
   for (const recipient of normalizedRecipients) {
@@ -1472,6 +1651,13 @@ const sendInvitationEmails = async ({
     const trackedPreviewLink = recipient.guestId
       ? `${trackBase}/api/track/click?guestId=${encodeURIComponent(recipient.guestId)}&eventId=${encodeURIComponent(event?.id || invitation?.eventId || "")}&target=${encodeURIComponent(previewLink)}`
       : previewLink;
+
+    // Tracked link to the public interactive invitation (unboxing + RSVP)
+    const guestQuery = recipient.name ? `?to=${encodeURIComponent(recipient.name)}` : "";
+    const interactiveTarget = `${interactiveLinkBase}${guestQuery}`;
+    const trackedInteractiveLink = recipient.guestId
+      ? `${trackBase}/api/track/click?guestId=${encodeURIComponent(recipient.guestId)}&eventId=${encodeURIComponent(event?.id || invitation?.eventId || "")}&target=${encodeURIComponent(interactiveTarget)}`
+      : interactiveTarget;
 
     // Feature options computation
     const greetingText = (options?.personalizedGreeting !== false && recipient.name)
@@ -1497,12 +1683,41 @@ const sendInvitationEmails = async ({
     let qrLinkUrl = previewLink;
     const recipientInlineAttachments = [];
 
-    // Attach backend-rendered invitation card PNG directly as inline attachment
-    if (invitationCardPngBuffer && htmlCardImageSrc === "cid:invitation_card") {
+    // Attach composite envelope + card preview directly as inline attachment (Option B)
+    if (htmlCardImageSrc === "cid:invitation_preview" && envelopePreviewPng && envelopePreviewPng.buffer) {
+      recipientInlineAttachments.push({
+        filename: "invitation-envelope-preview.png",
+        content: envelopePreviewPng.buffer,
+        cid: "invitation_preview",
+        contentType: "image/png",
+        contentDisposition: "inline",
+      });
+    } else if (invitationCardPngBuffer && htmlCardImageSrc === "cid:invitation_card") {
+      // Attach backend-rendered invitation card PNG directly as inline attachment
       recipientInlineAttachments.push({
         filename: "invitation-card.png",
         content: invitationCardPngBuffer,
         cid: "invitation_card",
+        contentType: "image/png",
+        contentDisposition: "inline",
+      });
+    }
+
+    // Attach envelope flap + liner band and pocket front band (Option A)
+    if (envelopeFlapPng && htmlFlapSrc === "cid:envelope_flap") {
+      recipientInlineAttachments.push({
+        filename: "envelope-flap.png",
+        content: envelopeFlapPng,
+        cid: "envelope_flap",
+        contentType: "image/png",
+        contentDisposition: "inline",
+      });
+    }
+    if (envelopePocketPng && htmlPocketSrc === "cid:envelope_pocket") {
+      recipientInlineAttachments.push({
+        filename: "envelope-pocket.png",
+        content: envelopePocketPng,
+        cid: "envelope_pocket",
         contentType: "image/png",
         contentDisposition: "inline",
       });
@@ -1582,6 +1797,13 @@ const sendInvitationEmails = async ({
         nearbyParking: event?.nearbyParking || event?.nearby_parking || null,
       },
       cardImageSrc: htmlCardImageSrc,
+      cardImageWidth: envelopePreviewPng ? envelopePreviewPng.width : null,
+      cardImageHeight: envelopePreviewPng ? envelopePreviewPng.height : null,
+      envelope: envelopeEmailConfig,
+      envelopeFlapSrc: htmlFlapSrc,
+      envelopePocketSrc: htmlPocketSrc,
+      interactiveLink: trackedInteractiveLink,
+      ctaText: options.interactiveCtaText || "Open Full Interactive Invitation",
       previewLink: trackedPreviewLink,
       senderName,
       trackingPixelUrl,
@@ -1626,7 +1848,10 @@ const sendInvitationEmails = async ({
           ]
         : []),
       "",
-      "View full details and RSVP online:",
+      "Open your full interactive invitation (unboxing, details & RSVP):",
+      interactiveTarget,
+      "",
+      "View full event details and RSVP online:",
       trackedPreviewLink || previewLink,
       "",
       "---",
@@ -1682,7 +1907,7 @@ const sendInvitationEmails = async ({
     recipientCount: sentCount,
     messageId: lastMessageId,
     previewUrl: testMessageUrl,
-    snapshotUrl: htmlCardImageSrc,
+    snapshotUrl: priorCardImageSrc && /^https:\/\//i.test(priorCardImageSrc) ? priorCardImageSrc : htmlCardImageSrc,
     cardImageBuffer: invitationCardPngBuffer,
   };
 };

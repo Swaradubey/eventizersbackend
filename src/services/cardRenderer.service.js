@@ -1,6 +1,8 @@
 const path = require("path");
 const fs = require("fs");
-const { createCanvas, loadImage } = require("@napi-rs/canvas");
+const napiCanvas = require("@napi-rs/canvas");
+const { createCanvas, loadImage } = napiCanvas;
+const GlobalFonts = napiCanvas.GlobalFonts || null;
 
 // Base directories for template assets
 const TEMPLATES_DIRS = [
@@ -16,6 +18,133 @@ const TEMPLATES_DIRS = [
   path.resolve(__dirname, "../../../public/images"),
   path.resolve(__dirname, "../../public/images"),
 ];
+
+// ─── Backend canvas font registration ───────────────────────────────────────────
+// @napi-rs/canvas has no browser, so it can only draw families that are installed on the
+// host or explicitly registered from a font file. Drop .ttf/.otf/.woff2 files into
+// backend/public/fonts/ to make template typography render exactly as in the designer.
+// Absence of font files must NEVER break rendering.
+const FONT_DIRS = [
+  path.resolve(__dirname, "../../public/fonts"),
+  path.resolve(__dirname, "../../../public/fonts"),
+  path.resolve(__dirname, "../../fonts"),
+];
+
+const GENERIC_FALLBACKS = [
+  { match: ["caveat", "dancing script", "great vibes", "alex brush", "pinyon script", "parisienne", "pacifico", "permanent marker", "londrina", "satisfy", "allura", "sacramento"], generic: "cursive" },
+  { match: ["playfair", "cinzel", "cormorant", "bodoni", "prata", "marcellus", "libre baskerville", "lora", "merriweather", "garamond", "georgia", "times"], generic: "serif" },
+  { match: ["questrial", "inter", "montserrat", "poppins", "raleway", "lato", "roboto", "open sans", "nunito", "work sans", "dm sans"], generic: "sans-serif" },
+];
+
+let FONT_REGISTRY_ATTEMPTED = false;
+let REGISTERED_FAMILIES = null;
+
+function registerLocalFonts() {
+  if (FONT_REGISTRY_ATTEMPTED) return;
+  FONT_REGISTRY_ATTEMPTED = true;
+  if (!GlobalFonts || typeof GlobalFonts.registerFromPath !== "function") return;
+  try {
+    let registeredCount = 0;
+    for (const dir of FONT_DIRS) {
+      if (!fs.existsSync(dir)) continue;
+      for (const file of fs.readdirSync(dir)) {
+        if (!/\.(ttf|otf|ttc|woff2?)$/i.test(file)) continue;
+        try {
+          if (GlobalFonts.registerFromPath(path.join(dir, file))) registeredCount += 1;
+        } catch (fontErr) {
+          console.warn(`[CardRenderer] Skipped font ${file}: ${fontErr.message}`);
+        }
+      }
+    }
+    REGISTERED_FAMILIES = new Set(
+      (GlobalFonts.families || [])
+        .map((f) => String((f && (f.family || f.name)) || f || "").trim().toLowerCase())
+        .filter(Boolean)
+    );
+    if (registeredCount > 0) {
+      console.log(`[CardRenderer] Registered ${registeredCount} custom font file(s) for canvas rendering`);
+    }
+  } catch (err) {
+    console.warn("[CardRenderer] Font registration skipped:", err.message);
+  }
+}
+
+/**
+ * Resolve a CSS font-family stack into something canvas can actually paint.
+ * Prefers an installed/registered family, otherwise degrades to the closest generic family
+ * so text never renders in an unintended default face.
+ */
+function resolveCanvasFontFamily(rawFamily) {
+  const raw = String(rawFamily || "").trim();
+  if (!raw) return "serif";
+  const primary = raw.split(",")[0].replace(/^['"]|['"]$/g, "").replace(/\s*!important$/i, "").trim();
+  if (!primary) return "serif";
+
+  registerLocalFonts();
+  const lower = primary.toLowerCase();
+  if (REGISTERED_FAMILIES && REGISTERED_FAMILIES.has(lower)) {
+    return `'${primary}', serif`;
+  }
+
+  const rest = raw
+    .split(",")
+    .slice(1)
+    .map((f) => f.replace(/^['"]|['"]$/g, "").trim())
+    .filter((f) => f && !/^(sans-serif|serif|monospace|cursive|fantasy|system-ui|inherit|initial)$/i.test(f));
+
+  for (const rule of GENERIC_FALLBACKS) {
+    if (rule.match.some((m) => lower.includes(m))) {
+      return [`'${primary}'`, ...rest.map((f) => `'${f}'`), rule.generic].join(", ");
+    }
+  }
+  return [`'${primary}'`, ...rest.map((f) => `'${f}'`), "serif"].join(", ");
+}
+
+/**
+ * Resolve the template schema for an invitation/event.
+ * Priority: frontend-sent templateConfig → backend template registry → canvasState-derived.
+ */
+function resolveTemplateConfig(invitation = {}, event = {}) {
+  if (invitation.templateConfig && typeof invitation.templateConfig === "object") {
+    return invitation.templateConfig;
+  }
+
+  const candidateIds = [
+    invitation.templateId,
+    event.selectedTemplateId,
+    event.templateId,
+    typeof invitation.canvasState === "object" ? invitation.canvasState?.templateId : null,
+    typeof invitation.canvasState === "object" ? invitation.canvasState?.activeTemplateId : null,
+  ].filter(Boolean);
+
+  try {
+    const { newTemplatesDataBackend } = require("../config/newTemplatesBackend");
+    for (const id of candidateIds) {
+      const found = (newTemplatesDataBackend || []).find(
+        (t) => t && typeof t.id === "string" && t.id.toLowerCase() === String(id).toLowerCase()
+      );
+      if (found) return found;
+    }
+  } catch (registryErr) {
+    console.warn("[CardRenderer] Template registry unavailable:", registryErr.message);
+  }
+
+  // Derive a minimal config straight from the persisted canvasState
+  const cs =
+    (typeof invitation.canvasState === "object" && invitation.canvasState) ||
+    (typeof event.canvasState === "object" && event.canvasState) ||
+    null;
+  if (cs) {
+    return {
+      id: cs.templateId || cs.activeTemplateId || null,
+      card: cs.card,
+      envelope: cs.envelope,
+      backdrop: cs.backdrop || cs.stageBackdrop,
+      backgroundColor: cs.cardBg && cs.cardBg.type === "color" ? cs.cardBg.value : null,
+    };
+  }
+  return null;
+}
 
 // Fallback artwork map for categories and template IDs
 const CATEGORY_ARTWORK_MAP = {
@@ -75,10 +204,80 @@ const resolveAssetPath = (assetUrl) => {
 };
 
 /**
- * Helper to wrap text into lines fitting within maxWidth
+ * Lighten (amount > 0) or darken (amount < 0) a hex colour by a 0-255 channel delta.
  */
-function wrapText(ctx, text, maxWidth) {
+function shiftColor(hex, amount) {
+  const m = /^#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$/.exec(String(hex || "").trim());
+  if (!m) return hex;
+  let h = m[1];
+  if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+  const n = parseInt(h, 16);
+  const clamp = (v) => Math.max(0, Math.min(255, Math.round(v)));
+  const r = clamp(((n >> 16) & 255) + amount);
+  const g = clamp(((n >> 8) & 255) + amount);
+  const b = clamp((n & 255) + amount);
+  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, "0")}`;
+}
+
+/**
+ * Parse a CSS gradient (e.g. "linear-gradient(135deg, #A 0%, #B 100%)") into canvas stops.
+ * Returns null when the input cannot be interpreted.
+ */
+function parseGradientStops(css) {
+  if (!css || typeof css !== "string") return null;
+  const innerMatch = css.match(/gradient\((.*)\)/);
+  if (!innerMatch) return null;
+  const body = innerMatch[1];
+  // Drop leading direction/position arguments such as 135deg, to right, 0px 0px
+  const parts = body.split(",").map((p) => p.trim());
+  const stops = [];
+  let positionalSeen = false;
+  for (const part of parts) {
+    const colorMatch = part.match(/(#[0-9a-fA-F]{3,8}|rgba?\([^)]*\)|hsla?\([^)]*\))/);
+    if (!colorMatch) {
+      positionalSeen = true;
+      continue;
+    }
+    if (positionalSeen && !/\d/.test(part.replace(colorMatch[0], ""))) {
+      positionalSeen = false;
+    }
+    const afterColor = part.slice(part.indexOf(colorMatch[0]) + colorMatch[0].length).trim();
+    const pct = afterColor.match(/(-?\d*\.?\d+)%/);
+    stops.push({ color: colorMatch[1], offsetPct: pct ? parseFloat(pct[1]) : null });
+  }
+  if (stops.length < 2) return null;
+  // Normalise offsets
+  let sawOffset = false;
+  stops.forEach((s) => {
+    if (s.offsetPct !== null) sawOffset = true;
+  });
+  if (!sawOffset) {
+    stops.forEach((s, i) => {
+      s.offsetPct = (i / (stops.length - 1)) * 100;
+    });
+  } else {
+    let last = 0;
+    stops.forEach((s) => {
+      if (s.offsetPct === null) s.offsetPct = last;
+      last = s.offsetPct;
+    });
+  }
+  const min = stops[0].offsetPct;
+  const max = stops[stops.length - 1].offsetPct;
+  const span = max - min || 100;
+  return stops.map((s) => ({
+    offset: Math.min(1, Math.max(0, (s.offsetPct - min) / span)),
+    color: s.color,
+  }));
+}
+
+/**
+ * Helper to wrap text into lines fitting within maxWidth (accounting for letter spacing)
+ */
+function wrapText(ctx, text, maxWidth, letterSpacing = 0) {
   if (!text) return [];
+  const ls = Number(letterSpacing) || 0;
+  const measure = (s) => ctx.measureText(s).width + (s.length > 0 ? (s.length - 1) * ls : 0);
   const rawParagraphs = String(text).split("\n");
   const lines = [];
 
@@ -88,7 +287,7 @@ function wrapText(ctx, text, maxWidth) {
 
     for (let i = 1; i < words.length; i++) {
       const word = words[i];
-      const width = ctx.measureText(currentLine + " " + word).width;
+      const width = measure(currentLine + " " + word);
       if (width < maxWidth) {
         currentLine += " " + word;
       } else {
@@ -102,6 +301,29 @@ function wrapText(ctx, text, maxWidth) {
   }
 
   return lines;
+}
+
+/**
+ * Draw a single line of text honouring ctx.textAlign, with manual letter-spacing support.
+ */
+function drawTextLine(ctx, text, x, y, letterSpacing = 0) {
+  const ls = Number(letterSpacing) || 0;
+  if (!ls) {
+    ctx.fillText(text, x, y);
+    return;
+  }
+  const width = ctx.measureText(text).width + (text.length > 0 ? (text.length - 1) * ls : 0);
+  let startX = x;
+  const align = ctx.textAlign;
+  if (align === "center") startX = x - width / 2;
+  else if (align === "right" || align === "end") startX = x - width;
+  const prevAlign = ctx.textAlign;
+  ctx.textAlign = "left";
+  for (const ch of text) {
+    ctx.fillText(ch, startX, y);
+    startX += ctx.measureText(ch).width + ls;
+  }
+  ctx.textAlign = prevAlign;
 }
 
 /**
@@ -165,6 +387,14 @@ async function renderInvitationCardPng({ invitation = {}, event = {}, templateCo
   const canvas = createCanvas(CANVAS_WIDTH, CANVAS_HEIGHT);
   const ctx = canvas.getContext("2d");
 
+  registerLocalFonts();
+
+  // Resolve the chosen template schema — without this the composite falls back to a generic
+  // layout with default colours instead of the designer's template.
+  if (!templateConfig) {
+    templateConfig = resolveTemplateConfig(invitation, event);
+  }
+
   // Extract core design parameters
   const title = (
     invitation.eventTitle ||
@@ -206,19 +436,63 @@ async function renderInvitationCardPng({ invitation = {}, event = {}, templateCo
   const venue = (invitation.eventVenue || event.venue || "").trim();
   const address = (event.address || "").trim();
 
-  // Color tokens
-  const accentColor = invitation.accentColor || templateConfig?.accentColor || "#C49B45";
-  const textColor = invitation.textColor || templateConfig?.textColor || "#1E293B";
-  const secondaryColor = "#64748B";
-  const cardBgColor = invitation.card?.backgroundColor || invitation.backgroundColor || templateConfig?.card?.backgroundColor || "#FAF9F6";
-  const envelopeOuterColor = templateConfig?.envelope?.outerColor || (invitation.accentColor ? `${invitation.accentColor}dd` : "#1E293B");
+  // Color tokens — resolve from the designer's 4-layer model before falling back to defaults
+  const canvasState =
+    (typeof invitation.canvasState === "object" && invitation.canvasState) ||
+    (typeof event.canvasState === "object" && event.canvasState) ||
+    null;
+
+  const colorToken = (v) =>
+    typeof v === "string" && v.trim() && (v.startsWith("#") || /^(rgb|hsl)a?\(/i.test(v.trim()))
+      ? v.trim()
+      : null;
+
+  const cardBgToken = invitation.cardBg || invitation.background || canvasState?.cardBg || null;
+  const cardBgColor =
+    colorToken(invitation.card?.backgroundColor) ||
+    colorToken(invitation.backgroundColor) ||
+    (cardBgToken && cardBgToken.type === "color" ? colorToken(cardBgToken.value) : null) ||
+    colorToken(templateConfig?.card?.backgroundColor) ||
+    colorToken(templateConfig?.innerCardLayer?.backgroundColor) ||
+    colorToken(templateConfig?.backgroundColor) ||
+    "#FAF9F6";
+
+  const accentColor =
+    colorToken(invitation.accentColor) ||
+    colorToken(invitation.eventDetails?.accentColor) ||
+    colorToken(templateConfig?.accentColor) ||
+    colorToken(templateConfig?.envelope?.outerColor) ||
+    "#C49B45";
+  const textColor =
+    colorToken(invitation.textColor) ||
+    colorToken(canvasState?.textColor) ||
+    colorToken(templateConfig?.textColor) ||
+    "#1E293B";
+  const secondaryColor = colorToken(templateConfig?.secondaryColor) || "#64748B";
+  const envelopeOuterColor =
+    colorToken(invitation.envelope?.outerColor) ||
+    colorToken(canvasState?.envelope?.outerColor) ||
+    colorToken(templateConfig?.envelope?.outerColor) ||
+    (invitation.accentColor ? `${invitation.accentColor}dd` : "#1E293B");
 
   // ─── 1. BACKDROP LAYER ───
-  const backdropGrad = ctx.createLinearGradient(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-  backdropGrad.addColorStop(0, "#F3F0EA");
-  backdropGrad.addColorStop(0.5, "#EAE5DC");
-  backdropGrad.addColorStop(1, "#DFD8CC");
-  ctx.fillStyle = backdropGrad;
+  const backdropCss = templateConfig?.backdrop?.gradient || null;
+  const backdropStops = parseGradientStops(backdropCss);
+  const backdropColor =
+    colorToken(templateConfig?.backdrop?.color) || colorToken(templateConfig?.backdrop?.value) || null;
+  if (backdropStops && backdropStops.length >= 2) {
+    const grad = ctx.createLinearGradient(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    backdropStops.forEach((s) => grad.addColorStop(s.offset, s.color));
+    ctx.fillStyle = grad;
+  } else if (backdropColor) {
+    ctx.fillStyle = backdropColor;
+  } else {
+    const backdropGrad = ctx.createLinearGradient(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    backdropGrad.addColorStop(0, "#F3F0EA");
+    backdropGrad.addColorStop(0.5, "#EAE5DC");
+    backdropGrad.addColorStop(1, "#DFD8CC");
+    ctx.fillStyle = backdropGrad;
+  }
   ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
   // Subtle vignette / grain effect
@@ -252,13 +526,24 @@ async function renderInvitationCardPng({ invitation = {}, event = {}, templateCo
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 0;
 
-  // Envelope liner flap (gold foil shimmer gradient)
+  // Envelope liner flap — honour the template's liner colour, otherwise gold foil shimmer
+  const linerBase =
+    colorToken(templateConfig?.envelope?.linerColor) ||
+    colorToken(invitation.envelope?.linerColor) ||
+    null;
   const linerGrad = ctx.createLinearGradient(envX, envY, envX + envWidth, envY + envHeight * 0.55);
-  linerGrad.addColorStop(0, "#FDF2B8");
-  linerGrad.addColorStop(0.3, "#D4AF37");
-  linerGrad.addColorStop(0.6, "#AA771C");
-  linerGrad.addColorStop(0.85, "#F3E5AB");
-  linerGrad.addColorStop(1, "#8B5E14");
+  if (linerBase) {
+    linerGrad.addColorStop(0, shiftColor(linerBase, 34));
+    linerGrad.addColorStop(0.35, linerBase);
+    linerGrad.addColorStop(0.7, shiftColor(linerBase, -26));
+    linerGrad.addColorStop(1, shiftColor(linerBase, 14));
+  } else {
+    linerGrad.addColorStop(0, "#FDF2B8");
+    linerGrad.addColorStop(0.3, "#D4AF37");
+    linerGrad.addColorStop(0.6, "#AA771C");
+    linerGrad.addColorStop(0.85, "#F3E5AB");
+    linerGrad.addColorStop(1, "#8B5E14");
+  }
 
   ctx.save();
   ctx.beginPath();
@@ -318,26 +603,37 @@ async function renderInvitationCardPng({ invitation = {}, event = {}, templateCo
 
   // ─── 4. TEMPLATE ARTWORK / FLORAL FRAME LAYER ───
   let artworkPath = null;
+  const canvasStateArt =
+    (typeof invitation.canvasState === "object" && invitation.canvasState) ||
+    (typeof event.canvasState === "object" && event.canvasState) ||
+    null;
+  const templateIdForArt =
+    invitation.templateId || event.selectedTemplateId || event.templateId ||
+    canvasStateArt?.templateId || canvasStateArt?.activeTemplateId || null;
+
   const candidateArtworks = [
+    // Template schema supplied by the designer (authoritative)
+    templateConfig?.card?.artworkUrl,
+    templateConfig?.card?.decorativeBorderSvgUrl,
+    templateConfig?.card?.borderIllustration,
+    templateConfig?.canvasData?.backgroundImage,
+    templateConfig?.imageUrl,
+    // Template-ID derived textless asset — preferred over any stored snapshot
+    templateIdForArt ? `/assets/templates/${templateIdForArt}-bg.svg` : null,
+    templateIdForArt ? `/assets/templates/${templateIdForArt}.svg` : null,
     // Full 4-layer card object (when available from frontend payload)
     invitation.card?.artworkUrl,
     invitation.card?.decorativeBorderSvgUrl,
-    // Template config from registered templates
-    templateConfig?.card?.decorativeBorderSvgUrl,
-    templateConfig?.card?.artworkUrl,
-    templateConfig?.imageUrl,
-    // Invitation saved fields
-    invitation.imageUrl,
-    invitation.coverImage,
-    // Background object fields (cardBg / background)
+    invitation.card?.borderIllustration,
     typeof invitation.cardBg?.value === "string" && invitation.cardBg.type === "image" ? invitation.cardBg.value : null,
     typeof invitation.background?.value === "string" && invitation.background.type === "image" ? invitation.background.value : null,
-    // Event fields
+    canvasStateArt?.backgroundImageUrl || null,
+    // LAST RESORT: stored snapshots / cover images (these bake in text — avoid when we
+    // are about to draw our own text layers on top)
+    invitation.imageUrl,
+    invitation.coverImage,
     event.coverImage,
     event.imageUrl,
-    // Template ID based asset resolution
-    event.selectedTemplateId ? `/assets/templates/${event.selectedTemplateId}.svg` : null,
-    invitation.templateId ? `/assets/templates/${invitation.templateId}.svg` : null,
   ];
 
   const hasCustomTextLayers = Boolean(
@@ -345,19 +641,22 @@ async function renderInvitationCardPng({ invitation = {}, event = {}, templateCo
     (Array.isArray(invitation.textLayers) && invitation.textLayers.length > 0)
   );
 
+  const isSnapshotLike = (cand) => {
+    const lower = String(cand).toLowerCase();
+    return (
+      lower.includes("snapshot") ||
+      lower.includes("canvas_snapshot") ||
+      lower.includes("invitation_snapshot") ||
+      lower.includes("invitation_cover") ||
+      lower.includes("/uploads/") && (lower.includes("cover") || lower.includes("preview"))
+    );
+  };
+
   for (const cand of candidateArtworks) {
     if (cand && typeof cand === "string" && !cand.startsWith("#") && !cand.startsWith("data:")) {
-      if (hasCustomTextLayers) {
-        const lower = cand.toLowerCase();
-        if (
-          lower.includes("snapshot") ||
-          lower.includes("canvas_snapshot") ||
-          lower.includes("invitation_snapshot") ||
-          lower.includes("invitation_cover")
-        ) {
-          continue;
-        }
-      }
+      // When we draw our own text layers on top, never reuse a rendered snapshot that already
+      // contains text — it would double-print the copy.
+      if (hasCustomTextLayers && isSnapshotLike(cand)) continue;
       const resolved = resolveAssetPath(cand);
       if (resolved) {
         artworkPath = resolved;
@@ -386,8 +685,14 @@ async function renderInvitationCardPng({ invitation = {}, event = {}, templateCo
       // Clip inside card rounded rectangle
       drawRoundedRect(ctx, cardX + 6, cardY + 6, cardWidth - 12, cardHeight - 12, cardRadius - 2);
       ctx.clip();
-      // Render crisp decorative frame / floral border
-      ctx.globalAlpha = 0.85;
+      // Template artwork IS the card design (paper colour + border illustrations) so it must be
+      // composited at full opacity; photos/textures blend over the card colour instead.
+      const isTemplateArtwork =
+        /-bg\.svg$/i.test(artworkPath) ||
+        artworkPath.includes(`assets${path.sep}templates`) ||
+        artworkPath.includes(`/assets/templates/`) ||
+        artworkPath.includes(`templates${path.sep}`);
+      ctx.globalAlpha = isTemplateArtwork ? 1 : 0.85;
       ctx.drawImage(artImg, cardX, cardY, cardWidth, cardHeight);
       ctx.restore();
     } catch (artErr) {
@@ -424,12 +729,7 @@ async function renderInvitationCardPng({ invitation = {}, event = {}, templateCo
       const scaledSize = Math.max(12, Math.round(baseSize * 1.24));
 
       const fontWeight = layer.fontWeight || (baseSize > 28 ? "bold" : "normal");
-      const rawFamily = layer.fontFamily || "serif";
-      let cleanFamily = "serif";
-      if (rawFamily.includes("Playfair")) cleanFamily = "'Playfair Display', Georgia, 'Times New Roman', serif";
-      else if (rawFamily.includes("Montserrat")) cleanFamily = "'Montserrat', 'Inter', sans-serif";
-      else if (rawFamily.includes("Inter") || rawFamily.includes("sans-serif")) cleanFamily = "'Inter', 'Segoe UI', Arial, sans-serif";
-      else cleanFamily = rawFamily;
+      const cleanFamily = resolveCanvasFontFamily(layer.fontFamily || "serif");
 
       ctx.font = `${fontWeight} ${scaledSize}px ${cleanFamily}`;
 
@@ -461,18 +761,29 @@ async function renderInvitationCardPng({ invitation = {}, event = {}, templateCo
         }
         ctx.fillStyle = foilGrad;
       } else {
-        ctx.fillStyle = layer.color || textColor;
+        ctx.fillStyle = colorToken(layer.color) || textColor;
+      }
+
+      const rotation = Number(layer.rotation || layer.rotate || 0);
+      const letterSpacing = Number(layer.letterSpacing || 0);
+
+      ctx.save();
+      if (rotation) {
+        ctx.translate(textX, textY);
+        ctx.rotate((rotation * Math.PI) / 180);
+        ctx.translate(-textX, -textY);
       }
 
       const maxLineWidth = Math.max(100, cardWidth - 80);
-      const lines = wrapText(ctx, displayText, maxLineWidth);
+      const lines = wrapText(ctx, displayText, maxLineWidth, letterSpacing);
       const lineHeight = scaledSize * (layer.lineHeight || 1.25);
       const totalTextHeight = lines.length * lineHeight;
       const startY = textY - (totalTextHeight / 2) + (lineHeight / 2);
 
       for (let i = 0; i < lines.length; i++) {
-        ctx.fillText(lines[i], textX, startY + i * lineHeight);
+        drawTextLine(ctx, lines[i], textX, startY + i * lineHeight, letterSpacing);
       }
+      ctx.restore();
     }
     ctx.restore();
   } else {
@@ -599,4 +910,5 @@ async function renderInvitationCardPng({ invitation = {}, event = {}, templateCo
 module.exports = {
   renderInvitationCardPng,
   resolveAssetPath,
+  resolveTemplateConfig,
 };

@@ -648,6 +648,100 @@ const ensureGuestsForEvent = async (eventId, emails, existingGuestIds = []) => {
 };
 
 /**
+ * Merge the frontend 4-layer design model (card, cardBg, text elements, decorations,
+ * envelope, effects) plus the persisted Event/Invitation canvasState onto the DB invitation
+ * so cardRenderer.service.js can rebuild the chosen template when a client snapshot is absent.
+ *
+ * The Invitation table has no card/textColumns — that rich design state lives in
+ * Event.canvasState (and Invitation.canvasState), so it MUST be hydrated from there as well
+ * as from the request body.
+ */
+const buildEnrichedInvitation = (invitation, event, body = {}) => {
+  const parse = (v) => {
+    if (!v) return null;
+    if (typeof v === "string") {
+      const s = v.trim();
+      if (!s) return null;
+      try {
+        return JSON.parse(s);
+      } catch (_) {
+        return null;
+      }
+    }
+    return typeof v === "object" ? v : null;
+  };
+
+  const reqCanvas = parse(body.canvasState);
+  const invCanvas = parse(invitation?.canvasState);
+  const evtCanvas = parse(event?.canvasState);
+  // Highest priority first: request payload (freshest) > invitation record > event record
+  const canvasStates = [reqCanvas, invCanvas, evtCanvas].filter(Boolean);
+
+  const pick = (...values) => values.find((v) => v !== undefined && v !== null);
+
+  // Text layers can live under textLayers or layers depending on how canvasState was packaged
+  const textLayers = pick(
+    body.textElements,
+    body.layers,
+    ...canvasStates.map((cs) => cs.textLayers || cs.layers)
+  );
+
+  const templateId = pick(
+    body.selectedTemplateId,
+    body.templateId,
+    ...canvasStates.map((cs) => cs.activeTemplateId || cs.templateId),
+    event?.selectedTemplateId,
+    invitation?.templateId,
+    event?.templateId
+  );
+
+  const backgroundImageUrl = pick(
+    body.backgroundImageUrl,
+    ...canvasStates.map((cs) => cs.backgroundImageUrl)
+  );
+
+  const hydrated = {
+    ...invitation,
+    ...(body.card ? { card: body.card } : {}),
+    ...(body.cardBg ? { cardBg: body.cardBg } : {}),
+    ...(body.background ? { background: body.background } : {}),
+    ...(textLayers ? { textElements: textLayers } : {}),
+    ...(body.decorations ? { decorations: body.decorations } : {}),
+    ...(body.envelope ? { envelope: body.envelope } : {}),
+    ...(body.effects ? { effects: body.effects } : {}),
+    ...(body.gifting ? { gifting: body.gifting } : {}),
+    ...(body.designData ? { designData: body.designData } : {}),
+    ...(body.templateConfig ? { templateConfig: body.templateConfig } : {}),
+    templateId: templateId || null,
+    canvasState: reqCanvas || invCanvas || evtCanvas || invitation?.canvasState || null,
+  };
+
+  // Fill any design slot the request payload omitted from the persisted canvasState
+  const fill = (key, csKey = key) => {
+    if (hydrated[key] !== undefined && hydrated[key] !== null) return;
+    for (const cs of canvasStates) {
+      if (cs[csKey] !== undefined && cs[csKey] !== null) {
+        hydrated[key] = cs[csKey];
+        return;
+      }
+    }
+  };
+  fill("card");
+  fill("cardBg");
+  fill("background", "cardBg");
+  fill("decorations");
+  fill("envelope");
+  fill("effects");
+  fill("backside");
+  fill("stageBackdrop");
+  if (hydrated.backgroundImageUrl === undefined || hydrated.backgroundImageUrl === null) {
+    hydrated.backgroundImageUrl = backgroundImageUrl || null;
+  }
+
+  return hydrated;
+};
+
+/**
  * Send invitation via email
  * POST /api/invitations/:id/send
  */
@@ -828,21 +922,10 @@ const sendInvitation = async (req, res) => {
 
     // Send emails via Nodemailer service with personalized tracking pixel and hosted public card image
     // Pass both resolved URL and raw snapshot data so email service can resolve public image URLs
-    // Merge frontend payload (card, cardBg, textElements, decorations) onto the DB invitation
-    // so the cardRenderer fallback can access artwork URLs and text layer positions
-    const enrichedInvitation = {
-      ...invitation,
-      ...(req.body.card ? { card: req.body.card } : {}),
-      ...(req.body.cardBg ? { cardBg: req.body.cardBg } : {}),
-      ...(req.body.background ? { background: req.body.background } : {}),
-      ...(req.body.textElements ? { textElements: req.body.textElements } : {}),
-      ...(req.body.decorations ? { decorations: req.body.decorations } : {}),
-      ...(req.body.envelope ? { envelope: req.body.envelope } : {}),
-      ...(req.body.effects ? { effects: req.body.effects } : {}),
-      ...(req.body.gifting ? { gifting: req.body.gifting } : {}),
-      ...(req.body.designData ? { designData: req.body.designData } : {}),
-      templateId: req.body.templateId || invitation.templateId || null,
-    };
+    // Merge frontend payload (card, cardBg, textElements, decorations) AND the persisted
+    // canvasState onto the DB invitation so the cardRenderer fallback can access artwork URLs
+    // and text layer positions.
+    const enrichedInvitation = buildEnrichedInvitation(invitation, event, req.body || {});
 
     const sendResult = await emailService.sendInvitationEmails({
       recipients: resolvedGuests.length > 0 ? resolvedGuests : targetEmails,
@@ -1128,21 +1211,13 @@ const sendInvitationToGuests = async (req, res) => {
 
     // Pass both resolved URL and raw snapshot data so email service can resolve
     // hosted public URLs for the invitation card image
-    // Merge frontend payload (card, cardBg, textElements, decorations) onto the DB invitation
-    // so the cardRenderer fallback can access artwork URLs and text layer positions
-    const enrichedInvitation = {
-      ...invitation,
-      ...(req.body.card ? { card: req.body.card } : {}),
-      ...(req.body.cardBg ? { cardBg: req.body.cardBg } : {}),
-      ...(req.body.background ? { background: req.body.background } : {}),
-      ...(req.body.textElements ? { textElements: req.body.textElements } : {}),
-      ...(req.body.decorations ? { decorations: req.body.decorations } : {}),
-      ...(req.body.envelope ? { envelope: req.body.envelope } : {}),
-      ...(req.body.effects ? { effects: req.body.effects } : {}),
-      ...(resolvedGifting !== undefined && resolvedGifting !== null ? { gifting: resolvedGifting } : {}),
-      ...(req.body.designData ? { designData: req.body.designData } : {}),
-      templateId: req.body.templateId || invitation.templateId || null,
-    };
+    // Merge frontend payload (card, cardBg, textElements, decorations) AND the persisted
+    // canvasState onto the DB invitation so the cardRenderer fallback can access artwork
+    // URLs and text layer positions
+    const enrichedInvitation = buildEnrichedInvitation(invitation, event, req.body || {});
+    if (resolvedGifting !== undefined && resolvedGifting !== null) {
+      enrichedInvitation.gifting = resolvedGifting;
+    }
 
     const sendResult = await emailService.sendInvitationEmails({
       recipients: resolvedGuests.length > 0 ? resolvedGuests : targetEmails,

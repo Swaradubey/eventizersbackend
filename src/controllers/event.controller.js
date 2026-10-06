@@ -290,6 +290,59 @@ const TEMPLATE_STYLES = {
   ...require("../config/newTemplatesBackend").newTemplateStylesBackend
 };
 
+/**
+ * Build the exact canvas payload for the selected template so a newly created Event
+ * stores that template's real design data (layers/background/dimensions) instead of
+ * falling back to a hardcoded default schema.
+ * A canvasState supplied by the client always wins.
+ */
+const buildCanvasStateFromTemplate = (template, templateId, clientCanvasState) => {
+  let clientState = clientCanvasState;
+  if (typeof clientState === "string" && clientState.trim()) {
+    try {
+      clientState = JSON.parse(clientState);
+    } catch (_) {
+      clientState = null;
+    }
+  }
+  if (clientState && typeof clientState === "object" && Object.keys(clientState).length > 0) {
+    return {
+      ...clientState,
+      templateId: clientState.templateId || templateId || null,
+      activeTemplateId: clientState.activeTemplateId || clientState.templateId || templateId || null,
+    };
+  }
+
+  if (!template || !templateId) return null;
+
+  let content = {};
+  try {
+    content = typeof template.content === "string" ? JSON.parse(template.content) : (template.content || {});
+  } catch (_) {}
+
+  const canvasData =
+    content.canvasData && typeof content.canvasData === "object" ? content.canvasData : {};
+  const layers = content.defaultTextLayers || canvasData.layers || content.textElements || [];
+  const backgroundImage =
+    canvasData.backgroundImage || content.backgroundImage || content.backgroundUrl || content.imageUrl || null;
+
+  return {
+    ...canvasData,
+    templateId,
+    activeTemplateId: templateId,
+    layers,
+    textLayers: layers,
+    backgroundImage,
+    canvasData: { ...canvasData, backgroundImage, layers },
+    card: content.card || undefined,
+    envelope: content.envelope || undefined,
+    stageBackdrop: content.backdrop || undefined,
+    width: canvasData.width || content.width || undefined,
+    height: canvasData.height || content.height || undefined,
+    aspectRatio: canvasData.aspectRatio || content.aspectRatio || undefined,
+  };
+};
+
 const { saveUploadedFile, saveBase64Image } = require("../utils/fileStorage");
 
 /**
@@ -364,9 +417,27 @@ const createEvent = async (req, res) => {
     req.body.eventDate = eventDate;
     req.body.eventTime = eventTime;
 
+    // Resolve the selected template BEFORE creating the event so its exact canvas
+    // payload can be persisted on the Event record (never a hardcoded default schema).
+    let template = null;
+    if (effectiveTemplateId) {
+      try {
+        template = await prisma.template.findUnique({ where: { id: effectiveTemplateId } });
+      } catch (tplErr) {
+        console.warn("[WARN] Template lookup failed for id:", effectiveTemplateId, tplErr.message);
+      }
+    }
+
+    const templateCanvasState = buildCanvasStateFromTemplate(
+      template,
+      effectiveTemplateId,
+      req.body.canvasState
+    );
+
     const newEvent = await eventService.createEvent({
       ...req.body,
-      selectedTemplateId: effectiveTemplateId
+      selectedTemplateId: effectiveTemplateId,
+      canvasState: templateCanvasState
     }, userId);
 
     // Synchronize resolved image URLs onto the response event object
@@ -380,42 +451,42 @@ const createEvent = async (req, res) => {
       uploadedFileUrl: resolvedCover,
     };
 
-    // Automatically create invitation if templateId is provided or if uploaded cover image exists
-    let template = null;
+    // Automatically create invitation if templateId is provided or if uploaded cover image exists.
+    // NOTE: `template` was already resolved above (before the event row was created) so the
+    // exact selected template drives both the event's canvasState and this invitation.
     if (effectiveTemplateId) {
-      try {
-        template = await prisma.template.findUnique({ where: { id: effectiveTemplateId } });
-      } catch (tplErr) {
-        console.warn("[WARN] Template lookup failed for id:", effectiveTemplateId, tplErr.message);
-      }
       if (template) {
         let design = {};
         try {
-          design = JSON.parse(template.content);
+          design =
+            typeof template.content === "string" ? JSON.parse(template.content) : template.content || {};
         } catch (e) {
           console.error("Failed to parse template content:", e);
         }
 
+        // The template's own content is authoritative; TEMPLATE_STYLES is a legacy fallback
+        // and must never override a valid template payload.
         const style = TEMPLATE_STYLES[effectiveTemplateId] || {};
 
         await prisma.invitation.create({
           data: {
             eventId: newEvent.id,
+            templateId: effectiveTemplateId,
             title: newEvent.title,
             subtitle: newEvent.venue || "TBD",
             mainText: design.description || newEvent.description || "Join us for an unforgettable experience filled with joy and celebration. Please RSVP using the button below to secure your spot.",
             message: design.description || newEvent.description || "",
-            accentColor: style.accentColor || design.accentColor || "#5B5FEF",
-            backgroundColor: style.backgroundColor || design.backgroundColor || "#FAF8F5",
-            textColor: style.textColor || "#2D1B3D",
-            titleSize: style.titleSize || 48,
-            fontWeight: style.fontWeight || "700",
-            fontFamily: style.fontFamily || "Playfair Display",
-            textAlignment: style.textAlignment || "center",
-            imageUrl: resolvedCover || style.imageUrl || null,
+            accentColor: design.accentColor || style.accentColor || "#5B5FEF",
+            backgroundColor: design.backgroundColor || style.backgroundColor || "#FAF8F5",
+            textColor: design.textColor || style.textColor || "#2D1B3D",
+            titleSize: design.titleSize || style.titleSize || 48,
+            fontWeight: design.fontWeight || style.fontWeight || "700",
+            fontFamily: design.fontFamily || style.fontFamily || "Playfair Display",
+            textAlignment: design.textAlignment || style.textAlignment || "center",
+            imageUrl: resolvedCover || design.imageUrl || style.imageUrl || null,
             buttonText: "RSVP Now",
-            buttonColor: style.buttonColor || style.accentColor || "#5B5FEF",
-            buttonRadius: style.buttonRadius || 12,
+            buttonColor: design.buttonColor || style.buttonColor || design.accentColor || style.accentColor || "#5B5FEF",
+            buttonRadius: design.buttonRadius || style.buttonRadius || 12,
             status: "draft"
           }
         });

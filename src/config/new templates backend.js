@@ -1,6 +1,6 @@
 /**
  * Canonical Backend Templates Configuration
- * Exactly 18 Templates:
+ * Exactly 21 Templates:
  *  1. botanical-sketch-art (Botanical Sketch (Art))
  *  2. tpl-chic-dinner-cake (Chic Dinner & Cake Celebration)
  *  3. tpl-modern-gold-black-balloon (Modern Gold & Black Balloon Bash)
@@ -19,6 +19,9 @@
  * 16. golden-foliage-holiday (Golden Foliage Holiday)
  * 17. citrus-splash (Citrus Splash)
  * 18. garden-blooms (Garden Blooms)
+ * 19. template-everyones-family (Everyone's Family)
+ * 20. template-give-thanks (Give Thanks)
+ * 21. template-thanksgiving-branches (Thanksgiving Branches)
  */
 
 const newTemplatesDataBackend = [
@@ -1148,6 +1151,231 @@ const newTemplatesDataBackend = [
           top: 76,
           left: 50
         }
+      ]
+    })
+  },
+
+  // -------------------------------------------------------------
+  // 19. TEMPLATE EVERYONE'S FAMILY (Thanksgiving / Autumn)
+  // -------------------------------------------------------------
+  {
+    id: "template-everyones-family",
+    name: "Everyone's Family",
+    title: "Everyone's Family",
+    category: "Thanksgiving / Friendsgiving",
+    tags: ["Thanksgiving", "Friendsgiving", "Autumn", "Fall", "Feast", "All"],
+    isPremium: true,
+    tier: "premium",
+    dimensions: { width: 600, height: 840 },
+    content: JSON.stringify({
+      badge: "Premium",
+      isPremium: true,
+      tier: "premium",
+      tags: ["Thanksgiving", "Friendsgiving", "Autumn", "Fall", "Feast", "All"],
+      description: "Woodland feast table with family-style place settings",
+      thumbnailUrl: "/assets/templates/template-everyones-family-mockup.svg",
+      imageUrl: "/assets/templates/template-everyones-family-mockup.svg",
+      mockupUrl: "/assets/templates/template-everyones-family-mockup.svg",
+      dimensions: { width: 600, height: 840 },
+      canvasBackground: {
+        color: "#FAF5EC",
+        texture: "paper-grain",
+        artworkUrl: "/templates/assets/woodland-feast-table.svg",
+        artworkLock: true
+      },
+      editableElements: [
+        { id: "text-title", type: "text", content: "LET'S FEAST!", fontFamily: "Cinzel, 'Playfair Display', serif", fontSize: 26, fontWeight: "700", letterSpacing: "3px", color: "#5A2E17", textAlign: "center", x: 300, y: 305, zIndex: 12 },
+        { id: "text-datetime", type: "text", content: "Thursday\n11/24 at 1 PM", fontFamily: "Merriweather, serif", fontSize: 15, lineHeight: 1.4, color: "#6B4423", textAlign: "center", x: 300, y: 355, zIndex: 12 },
+        { id: "text-location", type: "text", content: "Our place\n56 Willow St.", fontFamily: "Merriweather, serif", fontSize: 14, lineHeight: 1.4, color: "#6B4423", textAlign: "center", x: 300, y: 420, zIndex: 12 }
+      ],
+      backdrop: {
+        type: "texture",
+        value: "/assets/backdrops/olive-green-texture.svg",
+        color: "#7E8A6B",
+        gradient: "url('/assets/backdrops/olive-green-texture.svg') center / cover no-repeat, linear-gradient(150deg, #8B9677 0%, #6F7B5F 100%)"
+      },
+      envelope: {
+        enabled: true,
+        style: "kraft-paper",
+        linerPattern: "plaid-tan-green",
+        position: "left-angled-behind",
+        envelopeColor: "#B89772",
+        linerBorder: "#8C6D4F",
+        outerColor: "#B89772",
+        flapColor: "#9e8262",
+        linerCss: "repeating-linear-gradient(90deg, rgba(29,59,46,0.55) 0px, rgba(29,59,46,0.55) 5px, transparent 5px, transparent 30px), repeating-linear-gradient(0deg, rgba(29,59,46,0.55) 0px, rgba(29,59,46,0.55) 5px, transparent 5px, transparent 30px), repeating-linear-gradient(90deg, rgba(140,109,79,0.4) 0px, rgba(140,109,79,0.4) 2px, transparent 2px, transparent 15px), repeating-linear-gradient(0deg, rgba(140,109,79,0.4) 0px, rgba(140,109,79,0.4) 2px, transparent 2px, transparent 15px), linear-gradient(135deg, #E9D6B8 0%, #DCC39C 55%, #E4CFAC 100%)",
+        innerLiner: "repeating-linear-gradient(90deg, rgba(29,59,46,0.55) 0px, rgba(29,59,46,0.55) 5px, transparent 5px, transparent 30px), repeating-linear-gradient(0deg, rgba(29,59,46,0.55) 0px, rgba(29,59,46,0.55) 5px, transparent 5px, transparent 30px), repeating-linear-gradient(90deg, rgba(140,109,79,0.4) 0px, rgba(140,109,79,0.4) 2px, transparent 2px, transparent 15px), repeating-linear-gradient(0deg, rgba(140,109,79,0.4) 0px, rgba(140,109,79,0.4) 2px, transparent 2px, transparent 15px), linear-gradient(135deg, #E9D6B8 0%, #DCC39C 55%, #E4CFAC 100%)",
+        linerColor: "#8C6D4F",
+        linerPatternUrl: "plaid-tan-green",
+        shadowColor: "rgba(0,0,0,0.32)",
+        isOpen: true,
+        isOpenUpward: true,
+        flapStyle: "triangle"
+      },
+      card: {
+        artworkUrl: "/templates/assets/woodland-feast-table.svg",
+        decorativeBorderSvgUrl: "/templates/assets/woodland-feast-table.svg",
+        backgroundColor: "#FAF5EC",
+        aspectRatio: "5x7",
+        border: "1px solid rgba(0,0,0,0.06)",
+        cssConfig: {
+          backgroundColor: "#FAF5EC",
+          borderRadius: "14px",
+          paperShadow: "0 14px 30px -6px rgba(0, 0, 0, 0.28)"
+        }
+      },
+      defaultTextLayers: [
+        { id: "text-title", key: "title", text: "LET'S FEAST!", fontFamily: "Cinzel, 'Playfair Display', serif", fontSize: 26, fontWeight: "700", letterSpacing: "3px", color: "#5A2E17", textAlign: "center", top: 36.31, left: 50, zIndex: 12 },
+        { id: "text-datetime", key: "datetime", text: "Thursday\n11/24 at 1 PM", fontFamily: "Merriweather, serif", fontSize: 15, fontWeight: "400", color: "#6B4423", textAlign: "center", lineHeight: 1.4, top: 42.26, left: 50, zIndex: 12 },
+        { id: "text-location", key: "venue", text: "Our place\n56 Willow St.", fontFamily: "Merriweather, serif", fontSize: 14, fontWeight: "400", color: "#6B4423", textAlign: "center", lineHeight: 1.4, top: 50, left: 50, zIndex: 12 }
+      ]
+    })
+  },
+
+  // -------------------------------------------------------------
+  // 20. TEMPLATE GIVE THANKS (Thanksgiving / Autumn)
+  // -------------------------------------------------------------
+  {
+    id: "template-give-thanks",
+    name: "Give Thanks",
+    title: "Give Thanks",
+    category: "Thanksgiving",
+    tags: ["Thanksgiving", "Autumn", "Fall", "Turkey", "All"],
+    isPremium: true,
+    tier: "premium",
+    dimensions: { width: 600, height: 840 },
+    content: JSON.stringify({
+      badge: "Premium",
+      isPremium: true,
+      tier: "premium",
+      tags: ["Thanksgiving", "Autumn", "Fall", "Turkey", "All"],
+      description: "Folk-art turkey framed by warm autumn leaves",
+      thumbnailUrl: "/assets/templates/template-give-thanks-mockup.svg",
+      imageUrl: "/assets/templates/template-give-thanks-mockup.svg",
+      mockupUrl: "/assets/templates/template-give-thanks-mockup.svg",
+      dimensions: { width: 600, height: 840 },
+      canvasBackground: {
+        color: "#FFF9E6",
+        artworkUrl: "/templates/assets/folk-art-turkey-leaves.svg",
+        artworkLock: true
+      },
+      editableElements: [
+        { id: "text-heading", type: "text", content: "Give\nThanks.", fontFamily: "'Caveat', 'Reenie Beanie', cursive", fontSize: 48, lineHeight: 1.1, color: "#1C1C1C", textAlign: "left", x: 220, y: 140, zIndex: 12 },
+        { id: "text-subtext", type: "text", content: "Please join us for an all-day\nThanksgiving celebration!", fontFamily: "Inter, sans-serif", fontSize: 13, lineHeight: 1.4, color: "#333333", textAlign: "left", x: 210, y: 340, zIndex: 12 },
+        { id: "text-details", type: "text", content: "Thursday, November 24 at 12 PM\nOur place\n351 Riverway Blvd.", fontFamily: "Inter, sans-serif", fontSize: 12, lineHeight: 1.5, color: "#444444", textAlign: "left", x: 210, y: 395, zIndex: 12 }
+      ],
+      backdrop: {
+        type: "texture",
+        value: "/assets/backdrops/off-white-linen.svg",
+        color: "#F6F1E8",
+        gradient: "url('/assets/backdrops/off-white-linen.svg') center / cover no-repeat, linear-gradient(160deg, #FAF6EE 0%, #EFE8DC 100%)"
+      },
+      envelope: {
+        enabled: true,
+        style: "forest-green",
+        linerPattern: "warm-gingham",
+        position: "left-angled-behind",
+        envelopeColor: "#1D3B2E",
+        linerBorder: "#14281F",
+        outerColor: "#1D3B2E",
+        flapColor: "#193328",
+        linerCss: "repeating-linear-gradient(90deg, rgba(198,92,48,0.42) 0px, rgba(198,92,48,0.42) 13px, transparent 13px, transparent 27px), repeating-linear-gradient(0deg, rgba(198,92,48,0.42) 0px, rgba(198,92,48,0.42) 13px, transparent 13px, transparent 27px), linear-gradient(135deg, #F8EAD1 0%, #F1DCB9 100%)",
+        innerLiner: "repeating-linear-gradient(90deg, rgba(198,92,48,0.42) 0px, rgba(198,92,48,0.42) 13px, transparent 13px, transparent 27px), repeating-linear-gradient(0deg, rgba(198,92,48,0.42) 0px, rgba(198,92,48,0.42) 13px, transparent 13px, transparent 27px), linear-gradient(135deg, #F8EAD1 0%, #F1DCB9 100%)",
+        linerColor: "#14281F",
+        linerPatternUrl: "warm-gingham",
+        shadowColor: "rgba(0,0,0,0.32)",
+        isOpen: true,
+        isOpenUpward: true,
+        flapStyle: "triangle"
+      },
+      card: {
+        artworkUrl: "/templates/assets/folk-art-turkey-leaves.svg",
+        decorativeBorderSvgUrl: "/templates/assets/folk-art-turkey-leaves.svg",
+        backgroundColor: "#FFF9E6",
+        aspectRatio: "5x7",
+        border: "1px solid rgba(0,0,0,0.06)",
+        cssConfig: {
+          backgroundColor: "#FFF9E6",
+          borderRadius: "14px",
+          paperShadow: "0 14px 30px -6px rgba(0, 0, 0, 0.28)"
+        }
+      },
+      defaultTextLayers: [
+        { id: "text-heading", key: "heading", text: "Give\nThanks.", fontFamily: "'Caveat', 'Reenie Beanie', cursive", fontSize: 48, fontWeight: "400", color: "#1C1C1C", textAlign: "left", lineHeight: 1.1, top: 16.67, left: 36.67, zIndex: 12 },
+        { id: "text-subtext", key: "subtitle", text: "Please join us for an all-day\nThanksgiving celebration!", fontFamily: "Inter, sans-serif", fontSize: 13, fontWeight: "400", color: "#333333", textAlign: "left", lineHeight: 1.4, top: 40.48, left: 35, zIndex: 12 },
+        { id: "text-details", key: "datetime", text: "Thursday, November 24 at 12 PM\nOur place\n351 Riverway Blvd.", fontFamily: "Inter, sans-serif", fontSize: 12, fontWeight: "400", color: "#444444", textAlign: "left", lineHeight: 1.5, top: 47.02, left: 35, zIndex: 12 }
+      ]
+    })
+  },
+
+  // -------------------------------------------------------------
+  // 21. TEMPLATE THANKSGIVING BRANCHES (Thanksgiving / Autumn - Free)
+  // -------------------------------------------------------------
+  {
+    id: "template-thanksgiving-branches",
+    name: "Thanksgiving Branches",
+    title: "Thanksgiving Branches",
+    category: "Thanksgiving Dinner",
+    tags: ["Thanksgiving", "Dinner", "Autumn", "Botanical", "Fall", "All"],
+    isPremium: false,
+    tier: "free",
+    dimensions: { width: 600, height: 840 },
+    content: JSON.stringify({
+      badge: "Free",
+      isPremium: false,
+      tier: "free",
+      tags: ["Thanksgiving", "Dinner", "Autumn", "Botanical", "Fall", "All"],
+      description: "Delicate botanical branch etchings with a pumpkin vignette",
+      thumbnailUrl: "/assets/templates/template-thanksgiving-branches-mockup.svg",
+      imageUrl: "/assets/templates/template-thanksgiving-branches-mockup.svg",
+      mockupUrl: "/assets/templates/template-thanksgiving-branches-mockup.svg",
+      dimensions: { width: 600, height: 840 },
+      canvasBackground: {
+        color: "#EED8CB",
+        artworkUrl: "/templates/assets/botanical-pumpkin-etching.svg",
+        artworkLock: true
+      },
+      editableElements: [
+        { id: "text-title", type: "text", content: "THANKS\nGIVING", fontFamily: "'Playfair Display', serif", fontSize: 42, letterSpacing: "2px", lineHeight: 1.1, color: "#4A2216", textAlign: "center", x: 340, y: 310, zIndex: 12 },
+        { id: "text-invite", type: "text", content: "Join us for dinner and drinks!", fontFamily: "'Playfair Display', italic, serif", fontSize: 15, color: "#633122", textAlign: "center", x: 340, y: 430, zIndex: 12 },
+        { id: "text-time-place", type: "text", content: "Thursday, November 23 at Noon\nOur home\n1321 Harvest Lane", fontFamily: "'Playfair Display', serif", fontSize: 13, lineHeight: 1.5, color: "#54281B", textAlign: "center", x: 340, y: 480, zIndex: 12 }
+      ],
+      backdrop: {
+        type: "texture",
+        value: "/assets/backdrops/subtle-white-marble.svg",
+        color: "#F3F1EE",
+        gradient: "url('/assets/backdrops/subtle-white-marble.svg') center / cover no-repeat, linear-gradient(160deg, #F7F5F2 0%, #EBE8E3 100%)"
+      },
+      envelope: {
+        enabled: false,
+        position: "left-angled-behind",
+        outerColor: "#B89772",
+        flapColor: "#9e8262",
+        linerCss: "",
+        innerLiner: "",
+        linerColor: "#93795b",
+        linerPatternUrl: "",
+        shadowColor: "rgba(0,0,0,0.32)",
+        isOpen: false,
+        isOpenUpward: true,
+        flapStyle: "triangle"
+      },
+      card: {
+        artworkUrl: "/templates/assets/botanical-pumpkin-etching.svg",
+        decorativeBorderSvgUrl: "/templates/assets/botanical-pumpkin-etching.svg",
+        backgroundColor: "#EED8CB",
+        aspectRatio: "5x7",
+        border: "1px solid rgba(0,0,0,0.06)",
+        cssConfig: {
+          backgroundColor: "#EED8CB",
+          borderRadius: "14px",
+          paperShadow: "0 14px 30px -6px rgba(0, 0, 0, 0.28)"
+        }
+      },
+      defaultTextLayers: [
+        { id: "text-title", key: "title", text: "THANKS\nGIVING", fontFamily: "'Playfair Display', serif", fontSize: 42, fontWeight: "400", letterSpacing: "2px", color: "#4A2216", textAlign: "center", lineHeight: 1.1, top: 36.9, left: 56.67, zIndex: 12 },
+        { id: "text-invite", key: "invite", text: "Join us for dinner and drinks!", fontFamily: "'Playfair Display', italic, serif", fontSize: 15, fontWeight: "400", color: "#633122", textAlign: "center", top: 51.19, left: 56.67, zIndex: 12 },
+        { id: "text-time-place", key: "datetime", text: "Thursday, November 23 at Noon\nOur home\n1321 Harvest Lane", fontFamily: "'Playfair Display', serif", fontSize: 13, fontWeight: "400", color: "#54281B", textAlign: "center", lineHeight: 1.5, top: 57.14, left: 56.67, zIndex: 12 }
       ]
     })
   }

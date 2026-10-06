@@ -183,6 +183,17 @@ app.use("/api/user/settings", userSettingsRoutes);
 // Templates Routes
 const templatesRoutes = require("./routes/templates.routes");
 app.use("/api/templates", templatesRoutes);
+app.use("/templates", templatesRoutes);
+
+// Direct template alias handlers (supports /tpl-* and /api/tpl-*)
+app.use("/tpl-*", (req, res, next) => {
+  req.url = req.originalUrl || req.url;
+  templatesRoutes(req, res, next);
+});
+app.use("/api/tpl-*", (req, res, next) => {
+  req.url = (req.originalUrl || req.url).replace(/^\/api/, "");
+  templatesRoutes(req, res, next);
+});
 
 // Analytics Routes
 const analyticsRoutes = require("./routes/analytics.routes");

@@ -1,0 +1,453 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 800" width="100%" height="100%">
+  <defs>
+    
+  <filter id="mk-card-shadow" x="-40%" y="-30%" width="180%" height="170%">
+    <feDropShadow dx="0" dy="16" stdDeviation="18" flood-color="#241a10" flood-opacity="0.34"/>
+    <feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#241a10" flood-opacity="0.2"/>
+  </filter>
+  <filter id="mk-env-shadow" x="-40%" y="-30%" width="180%" height="170%">
+    <feDropShadow dx="-8" dy="20" stdDeviation="18" flood-color="#241a10" flood-opacity="0.35"/>
+  </filter>
+  <filter id="mk-grain" x="0" y="0" width="100%" height="100%">
+    <feTurbulence type="fractalNoise" baseFrequency="0.7" numOctaves="3" stitchTiles="stitch" result="n"/>
+    <feColorMatrix type="saturate" values="0" in="n" result="ng"/>
+    <feComponentTransfer in="ng" result="nc"><feFuncA type="linear" slope="0.06"/></feComponentTransfer>
+    <feComposite in="nc" in2="SourceGraphic" operator="over"/>
+  </filter>
+  <clipPath id="mk-clip-card"><rect x="0" y="0" width="600" height="840" rx="10"/></clipPath>
+    <linearGradient id="tb-mk-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F6F4F1"/>
+      <stop offset="60%" stop-color="#EDEAE5"/>
+      <stop offset="100%" stop-color="#E2DED7"/>
+    </linearGradient>
+  
+  <pattern id="lin-tan" width="30" height="30" patternUnits="userSpaceOnUse">
+    <rect width="30" height="30" fill="#E5D0AE"/>
+    <rect width="30" height="10.200000000000001" fill="#1D3B2E" opacity="0.55"/>
+    <rect width="10.200000000000001" height="30" fill="#1D3B2E" opacity="0.55"/>
+    <rect width="30" height="4.2" y="15" fill="#8C6D4F" opacity="0.5"/>
+    <rect width="4.2" height="30" x="15" fill="#8C6D4F" opacity="0.5"/>
+  </pattern>
+     
+  <pattern id="lin-warm" width="27" height="27" patternUnits="userSpaceOnUse">
+    <rect width="27" height="27" fill="#F5E4C6"/>
+    <rect width="27" height="9.180000000000001" fill="#C65C30" opacity="0.55"/>
+    <rect width="9.180000000000001" height="27" fill="#C65C30" opacity="0.55"/>
+    <rect width="27" height="3.7800000000000002" y="13.5" fill="#E8B25A" opacity="0.5"/>
+    <rect width="3.7800000000000002" height="27" x="13.5" fill="#E8B25A" opacity="0.5"/>
+  </pattern>
+    </defs>
+
+  <!-- Neutral studio surface (flat card — no envelope stage) -->
+  <rect width="600" height="800" fill="url(#tb-mk-bg)"/>
+  <rect width="600" height="800" fill="#DCD6CD" opacity="0.45" filter="url(#mk-grain)"/>
+  <ellipse cx="300" cy="700" rx="240" ry="54" fill="rgba(90,70,60,0.12)"/>
+
+  
+  <g transform="translate(150 108) scale(0.64)" filter="url(#mk-card-shadow)">
+    <g clip-path="url(#mk-clip-card)">
+<defs>
+  <filter id="tb-grain" x="0" y="0" width="100%" height="100%">
+    <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" stitchTiles="stitch" result="n"/>
+    <feColorMatrix type="saturate" values="0" in="n" result="ng"/>
+    <feComponentTransfer in="ng" result="nc"><feFuncA type="linear" slope="0.05"/></feComponentTransfer>
+    <feComposite in="nc" in2="SourceGraphic" operator="over"/>
+  </filter>
+  <clipPath id="tb-card"><rect width="600" height="840" rx="4"/></clipPath>
+</defs>
+
+<g clip-path="url(#tb-card)">
+  <!-- Layer 0: dusty rose paper (canvasBackground.color #EED8CB) -->
+  <rect width="600" height="840" fill="#EED8CB"/>
+  <rect width="600" height="840" fill="#D8B7A6" opacity="0.32" filter="url(#tb-grain)"/>
+  <rect x="16" y="16" width="568" height="808" fill="none" stroke="rgba(120,60,45,0.45)" stroke-width="2"/>
+  <rect x="23" y="23" width="554" height="794" fill="none" stroke="rgba(120,60,45,0.28)" stroke-width="1"/>
+
+  <!-- Layer 1 (locked artwork): vintage botanical etchings in terracotta -->
+  
+  <g transform="translate(74 800) rotate(-8) scale(1.36)" fill="none" stroke="#A8553F" stroke-width="2.2" stroke-linecap="round">
+    <path d="M0 0 C 6 -40 4 -84 -4 -124 C -10 -156 -8 -186 0 -214"/>
+    
+      <g transform="translate(-6 -34) rotate(-46)">
+        <path d="M0 0 C 8 -6 18 -6 26 0 C 18 6 8 6 0 0 Z" stroke-width="2"/>
+        <path d="M0 0 L26 0" stroke-width="1.4"/>
+        <path d="M6 -3 L6 3 M13 -4 L13 4 M20 -3 L20 3" stroke-width="1.1"/>
+      </g>
+      <g transform="translate(8 -62) rotate(44)">
+        <path d="M0 0 C 8 -6 18 -6 26 0 C 18 6 8 6 0 0 Z" stroke-width="2"/>
+        <path d="M0 0 L26 0" stroke-width="1.4"/>
+        <path d="M6 -3 L6 3 M13 -4 L13 4 M20 -3 L20 3" stroke-width="1.1"/>
+      </g>
+      <g transform="translate(-8 -96) rotate(-50)">
+        <path d="M0 0 C 8 -6 18 -6 26 0 C 18 6 8 6 0 0 Z" stroke-width="2"/>
+        <path d="M0 0 L26 0" stroke-width="1.4"/>
+        <path d="M6 -3 L6 3 M13 -4 L13 4 M20 -3 L20 3" stroke-width="1.1"/>
+      </g>
+      <g transform="translate(6 -124) rotate(46)">
+        <path d="M0 0 C 8 -6 18 -6 26 0 C 18 6 8 6 0 0 Z" stroke-width="2"/>
+        <path d="M0 0 L26 0" stroke-width="1.4"/>
+        <path d="M6 -3 L6 3 M13 -4 L13 4 M20 -3 L20 3" stroke-width="1.1"/>
+      </g>
+      <g transform="translate(-6 -156) rotate(-46)">
+        <path d="M0 0 C 8 -6 18 -6 26 0 C 18 6 8 6 0 0 Z" stroke-width="2"/>
+        <path d="M0 0 L26 0" stroke-width="1.4"/>
+        <path d="M6 -3 L6 3 M13 -4 L13 4 M20 -3 L20 3" stroke-width="1.1"/>
+      </g>
+      <g transform="translate(4 -184) rotate(42)">
+        <path d="M0 0 C 8 -6 18 -6 26 0 C 18 6 8 6 0 0 Z" stroke-width="2"/>
+        <path d="M0 0 L26 0" stroke-width="1.4"/>
+        <path d="M6 -3 L6 3 M13 -4 L13 4 M20 -3 L20 3" stroke-width="1.1"/>
+      </g>
+    
+      <g transform="translate(2 -44) scale(1)">
+        <ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(0)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(72)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(144)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(216)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(288)"/>
+        <circle r="6.5" stroke-width="2"/>
+        <circle r="2.4" stroke-width="1.4"/>
+      </g>
+      <g transform="translate(-2 -110) scale(-1)">
+        <ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(0)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(72)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(144)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(216)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(288)"/>
+        <circle r="6.5" stroke-width="2"/>
+        <circle r="2.4" stroke-width="1.4"/>
+      </g>
+      <g transform="translate(2 -174) scale(1)">
+        <ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(0)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(72)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(144)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(216)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(288)"/>
+        <circle r="6.5" stroke-width="2"/>
+        <circle r="2.4" stroke-width="1.4"/>
+      </g>
+    
+      <g transform="translate(14 -74)">
+        <circle r="7" stroke-width="2"/><circle cx="9" cy="6" r="6" stroke-width="2"/>
+        <path d="M0 -7 L0 -13" stroke-width="1.6"/>
+      </g>
+      <g transform="translate(-16 -142)">
+        <circle r="7" stroke-width="2"/><circle cx="9" cy="6" r="6" stroke-width="2"/>
+        <path d="M0 -7 L0 -13" stroke-width="1.6"/>
+      </g>
+      <g transform="translate(12 -198)">
+        <circle r="7" stroke-width="2"/><circle cx="9" cy="6" r="6" stroke-width="2"/>
+        <path d="M0 -7 L0 -13" stroke-width="1.6"/>
+      </g>
+  </g>
+  
+  <g transform="translate(150 830) rotate(12) scale(1)" fill="none" stroke="rgba(168,85,63,0.85)" stroke-width="2.2" stroke-linecap="round">
+    <path d="M0 0 C 6 -40 4 -84 -4 -124 C -10 -156 -8 -186 0 -214"/>
+    
+      <g transform="translate(-6 -34) rotate(-46)">
+        <path d="M0 0 C 8 -6 18 -6 26 0 C 18 6 8 6 0 0 Z" stroke-width="2"/>
+        <path d="M0 0 L26 0" stroke-width="1.4"/>
+        <path d="M6 -3 L6 3 M13 -4 L13 4 M20 -3 L20 3" stroke-width="1.1"/>
+      </g>
+      <g transform="translate(8 -62) rotate(44)">
+        <path d="M0 0 C 8 -6 18 -6 26 0 C 18 6 8 6 0 0 Z" stroke-width="2"/>
+        <path d="M0 0 L26 0" stroke-width="1.4"/>
+        <path d="M6 -3 L6 3 M13 -4 L13 4 M20 -3 L20 3" stroke-width="1.1"/>
+      </g>
+      <g transform="translate(-8 -96) rotate(-50)">
+        <path d="M0 0 C 8 -6 18 -6 26 0 C 18 6 8 6 0 0 Z" stroke-width="2"/>
+        <path d="M0 0 L26 0" stroke-width="1.4"/>
+        <path d="M6 -3 L6 3 M13 -4 L13 4 M20 -3 L20 3" stroke-width="1.1"/>
+      </g>
+      <g transform="translate(6 -124) rotate(46)">
+        <path d="M0 0 C 8 -6 18 -6 26 0 C 18 6 8 6 0 0 Z" stroke-width="2"/>
+        <path d="M0 0 L26 0" stroke-width="1.4"/>
+        <path d="M6 -3 L6 3 M13 -4 L13 4 M20 -3 L20 3" stroke-width="1.1"/>
+      </g>
+      <g transform="translate(-6 -156) rotate(-46)">
+        <path d="M0 0 C 8 -6 18 -6 26 0 C 18 6 8 6 0 0 Z" stroke-width="2"/>
+        <path d="M0 0 L26 0" stroke-width="1.4"/>
+        <path d="M6 -3 L6 3 M13 -4 L13 4 M20 -3 L20 3" stroke-width="1.1"/>
+      </g>
+      <g transform="translate(4 -184) rotate(42)">
+        <path d="M0 0 C 8 -6 18 -6 26 0 C 18 6 8 6 0 0 Z" stroke-width="2"/>
+        <path d="M0 0 L26 0" stroke-width="1.4"/>
+        <path d="M6 -3 L6 3 M13 -4 L13 4 M20 -3 L20 3" stroke-width="1.1"/>
+      </g>
+    
+      <g transform="translate(2 -44) scale(1)">
+        <ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(0)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(72)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(144)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(216)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(288)"/>
+        <circle r="6.5" stroke-width="2"/>
+        <circle r="2.4" stroke-width="1.4"/>
+      </g>
+      <g transform="translate(-2 -110) scale(-1)">
+        <ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(0)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(72)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(144)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(216)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(288)"/>
+        <circle r="6.5" stroke-width="2"/>
+        <circle r="2.4" stroke-width="1.4"/>
+      </g>
+      <g transform="translate(2 -174) scale(1)">
+        <ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(0)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(72)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(144)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(216)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(288)"/>
+        <circle r="6.5" stroke-width="2"/>
+        <circle r="2.4" stroke-width="1.4"/>
+      </g>
+    
+      <g transform="translate(14 -74)">
+        <circle r="7" stroke-width="2"/><circle cx="9" cy="6" r="6" stroke-width="2"/>
+        <path d="M0 -7 L0 -13" stroke-width="1.6"/>
+      </g>
+      <g transform="translate(-16 -142)">
+        <circle r="7" stroke-width="2"/><circle cx="9" cy="6" r="6" stroke-width="2"/>
+        <path d="M0 -7 L0 -13" stroke-width="1.6"/>
+      </g>
+      <g transform="translate(12 -198)">
+        <circle r="7" stroke-width="2"/><circle cx="9" cy="6" r="6" stroke-width="2"/>
+        <path d="M0 -7 L0 -13" stroke-width="1.6"/>
+      </g>
+  </g>
+  
+  <g transform="translate(528 340) rotate(166) scale(0.78)" fill="none" stroke="rgba(168,85,63,0.9)" stroke-width="2.2" stroke-linecap="round">
+    <path d="M0 0 C 6 -40 4 -84 -4 -124 C -10 -156 -8 -186 0 -214"/>
+    
+      <g transform="translate(-6 -34) rotate(-46)">
+        <path d="M0 0 C 8 -6 18 -6 26 0 C 18 6 8 6 0 0 Z" stroke-width="2"/>
+        <path d="M0 0 L26 0" stroke-width="1.4"/>
+        <path d="M6 -3 L6 3 M13 -4 L13 4 M20 -3 L20 3" stroke-width="1.1"/>
+      </g>
+      <g transform="translate(8 -62) rotate(44)">
+        <path d="M0 0 C 8 -6 18 -6 26 0 C 18 6 8 6 0 0 Z" stroke-width="2"/>
+        <path d="M0 0 L26 0" stroke-width="1.4"/>
+        <path d="M6 -3 L6 3 M13 -4 L13 4 M20 -3 L20 3" stroke-width="1.1"/>
+      </g>
+      <g transform="translate(-8 -96) rotate(-50)">
+        <path d="M0 0 C 8 -6 18 -6 26 0 C 18 6 8 6 0 0 Z" stroke-width="2"/>
+        <path d="M0 0 L26 0" stroke-width="1.4"/>
+        <path d="M6 -3 L6 3 M13 -4 L13 4 M20 -3 L20 3" stroke-width="1.1"/>
+      </g>
+      <g transform="translate(6 -124) rotate(46)">
+        <path d="M0 0 C 8 -6 18 -6 26 0 C 18 6 8 6 0 0 Z" stroke-width="2"/>
+        <path d="M0 0 L26 0" stroke-width="1.4"/>
+        <path d="M6 -3 L6 3 M13 -4 L13 4 M20 -3 L20 3" stroke-width="1.1"/>
+      </g>
+      <g transform="translate(-6 -156) rotate(-46)">
+        <path d="M0 0 C 8 -6 18 -6 26 0 C 18 6 8 6 0 0 Z" stroke-width="2"/>
+        <path d="M0 0 L26 0" stroke-width="1.4"/>
+        <path d="M6 -3 L6 3 M13 -4 L13 4 M20 -3 L20 3" stroke-width="1.1"/>
+      </g>
+      <g transform="translate(4 -184) rotate(42)">
+        <path d="M0 0 C 8 -6 18 -6 26 0 C 18 6 8 6 0 0 Z" stroke-width="2"/>
+        <path d="M0 0 L26 0" stroke-width="1.4"/>
+        <path d="M6 -3 L6 3 M13 -4 L13 4 M20 -3 L20 3" stroke-width="1.1"/>
+      </g>
+    
+      <g transform="translate(2 -44) scale(1)">
+        <ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(0)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(72)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(144)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(216)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(288)"/>
+        <circle r="6.5" stroke-width="2"/>
+        <circle r="2.4" stroke-width="1.4"/>
+      </g>
+      <g transform="translate(-2 -110) scale(-1)">
+        <ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(0)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(72)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(144)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(216)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(288)"/>
+        <circle r="6.5" stroke-width="2"/>
+        <circle r="2.4" stroke-width="1.4"/>
+      </g>
+      <g transform="translate(2 -174) scale(1)">
+        <ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(0)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(72)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(144)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(216)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(288)"/>
+        <circle r="6.5" stroke-width="2"/>
+        <circle r="2.4" stroke-width="1.4"/>
+      </g>
+    
+      <g transform="translate(14 -74)">
+        <circle r="7" stroke-width="2"/><circle cx="9" cy="6" r="6" stroke-width="2"/>
+        <path d="M0 -7 L0 -13" stroke-width="1.6"/>
+      </g>
+      <g transform="translate(-16 -142)">
+        <circle r="7" stroke-width="2"/><circle cx="9" cy="6" r="6" stroke-width="2"/>
+        <path d="M0 -7 L0 -13" stroke-width="1.6"/>
+      </g>
+      <g transform="translate(12 -198)">
+        <circle r="7" stroke-width="2"/><circle cx="9" cy="6" r="6" stroke-width="2"/>
+        <path d="M0 -7 L0 -13" stroke-width="1.6"/>
+      </g>
+  </g>
+  
+  <g transform="translate(556 118) rotate(200) scale(0.62)" fill="none" stroke="rgba(168,85,63,0.8)" stroke-width="2.2" stroke-linecap="round">
+    <path d="M0 0 C 6 -40 4 -84 -4 -124 C -10 -156 -8 -186 0 -214"/>
+    
+      <g transform="translate(-6 -34) rotate(-46)">
+        <path d="M0 0 C 8 -6 18 -6 26 0 C 18 6 8 6 0 0 Z" stroke-width="2"/>
+        <path d="M0 0 L26 0" stroke-width="1.4"/>
+        <path d="M6 -3 L6 3 M13 -4 L13 4 M20 -3 L20 3" stroke-width="1.1"/>
+      </g>
+      <g transform="translate(8 -62) rotate(44)">
+        <path d="M0 0 C 8 -6 18 -6 26 0 C 18 6 8 6 0 0 Z" stroke-width="2"/>
+        <path d="M0 0 L26 0" stroke-width="1.4"/>
+        <path d="M6 -3 L6 3 M13 -4 L13 4 M20 -3 L20 3" stroke-width="1.1"/>
+      </g>
+      <g transform="translate(-8 -96) rotate(-50)">
+        <path d="M0 0 C 8 -6 18 -6 26 0 C 18 6 8 6 0 0 Z" stroke-width="2"/>
+        <path d="M0 0 L26 0" stroke-width="1.4"/>
+        <path d="M6 -3 L6 3 M13 -4 L13 4 M20 -3 L20 3" stroke-width="1.1"/>
+      </g>
+      <g transform="translate(6 -124) rotate(46)">
+        <path d="M0 0 C 8 -6 18 -6 26 0 C 18 6 8 6 0 0 Z" stroke-width="2"/>
+        <path d="M0 0 L26 0" stroke-width="1.4"/>
+        <path d="M6 -3 L6 3 M13 -4 L13 4 M20 -3 L20 3" stroke-width="1.1"/>
+      </g>
+      <g transform="translate(-6 -156) rotate(-46)">
+        <path d="M0 0 C 8 -6 18 -6 26 0 C 18 6 8 6 0 0 Z" stroke-width="2"/>
+        <path d="M0 0 L26 0" stroke-width="1.4"/>
+        <path d="M6 -3 L6 3 M13 -4 L13 4 M20 -3 L20 3" stroke-width="1.1"/>
+      </g>
+      <g transform="translate(4 -184) rotate(42)">
+        <path d="M0 0 C 8 -6 18 -6 26 0 C 18 6 8 6 0 0 Z" stroke-width="2"/>
+        <path d="M0 0 L26 0" stroke-width="1.4"/>
+        <path d="M6 -3 L6 3 M13 -4 L13 4 M20 -3 L20 3" stroke-width="1.1"/>
+      </g>
+    
+      <g transform="translate(2 -44) scale(1)">
+        <ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(0)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(72)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(144)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(216)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(288)"/>
+        <circle r="6.5" stroke-width="2"/>
+        <circle r="2.4" stroke-width="1.4"/>
+      </g>
+      <g transform="translate(-2 -110) scale(-1)">
+        <ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(0)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(72)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(144)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(216)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(288)"/>
+        <circle r="6.5" stroke-width="2"/>
+        <circle r="2.4" stroke-width="1.4"/>
+      </g>
+      <g transform="translate(2 -174) scale(1)">
+        <ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(0)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(72)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(144)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(216)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(288)"/>
+        <circle r="6.5" stroke-width="2"/>
+        <circle r="2.4" stroke-width="1.4"/>
+      </g>
+    
+      <g transform="translate(14 -74)">
+        <circle r="7" stroke-width="2"/><circle cx="9" cy="6" r="6" stroke-width="2"/>
+        <path d="M0 -7 L0 -13" stroke-width="1.6"/>
+      </g>
+      <g transform="translate(-16 -142)">
+        <circle r="7" stroke-width="2"/><circle cx="9" cy="6" r="6" stroke-width="2"/>
+        <path d="M0 -7 L0 -13" stroke-width="1.6"/>
+      </g>
+      <g transform="translate(12 -198)">
+        <circle r="7" stroke-width="2"/><circle cx="9" cy="6" r="6" stroke-width="2"/>
+        <path d="M0 -7 L0 -13" stroke-width="1.6"/>
+      </g>
+  </g>
+
+  
+  <g transform="translate(150 652) scale(1)" fill="none" stroke="#A8553F" stroke-width="2.4" stroke-linecap="round">
+    <path d="M0 -46 C 4 -60 14 -66 24 -64 C 14 -60 10 -54 10 -44"/>
+    <ellipse cx="0" cy="0" rx="76" ry="48"/>
+    <path d="M-46 -36 C -56 -12 -56 14 -46 36"/>
+    <path d="M46 -36 C 56 -12 56 14 46 36"/>
+    <path d="M-24 -44 C -32 -14 -32 16 -24 42"/>
+    <path d="M24 -44 C 32 -14 32 16 24 42"/>
+    <path d="M0 -48 C -6 -16 -6 18 0 47"/>
+    <path d="M-70 34 C -78 44 -84 46 -92 44" stroke-width="2"/>
+    <path d="M-92 44 C -84 34 -74 36 -76 46 C -78 54 -90 54 -92 44" stroke-width="2"/>
+    <path d="M74 -28 C 86 -36 96 -32 98 -22" stroke-width="2"/>
+    <path d="M-30 -30 C -14 -38 6 -38 22 -30" stroke-width="1.4" opacity="0.7"/>
+  </g>
+  
+  <g transform="translate(344 726) scale(1.24)" fill="none" stroke="rgba(168,85,63,0.95)" stroke-width="2.4" stroke-linecap="round">
+    <path d="M0 -46 C 4 -60 14 -66 24 -64 C 14 -60 10 -54 10 -44"/>
+    <ellipse cx="0" cy="0" rx="76" ry="48"/>
+    <path d="M-46 -36 C -56 -12 -56 14 -46 36"/>
+    <path d="M46 -36 C 56 -12 56 14 46 36"/>
+    <path d="M-24 -44 C -32 -14 -32 16 -24 42"/>
+    <path d="M24 -44 C 32 -14 32 16 24 42"/>
+    <path d="M0 -48 C -6 -16 -6 18 0 47"/>
+    <path d="M-70 34 C -78 44 -84 46 -92 44" stroke-width="2"/>
+    <path d="M-92 44 C -84 34 -74 36 -76 46 C -78 54 -90 54 -92 44" stroke-width="2"/>
+    <path d="M74 -28 C 86 -36 96 -32 98 -22" stroke-width="2"/>
+    <path d="M-30 -30 C -14 -38 6 -38 22 -30" stroke-width="1.4" opacity="0.7"/>
+  </g>
+  
+  <g transform="translate(510 664) scale(0.86)" fill="none" stroke="rgba(168,85,63,0.85)" stroke-width="2.4" stroke-linecap="round">
+    <path d="M0 -46 C 4 -60 14 -66 24 -64 C 14 -60 10 -54 10 -44"/>
+    <ellipse cx="0" cy="0" rx="76" ry="48"/>
+    <path d="M-46 -36 C -56 -12 -56 14 -46 36"/>
+    <path d="M46 -36 C 56 -12 56 14 46 36"/>
+    <path d="M-24 -44 C -32 -14 -32 16 -24 42"/>
+    <path d="M24 -44 C 32 -14 32 16 24 42"/>
+    <path d="M0 -48 C -6 -16 -6 18 0 47"/>
+    <path d="M-70 34 C -78 44 -84 46 -92 44" stroke-width="2"/>
+    <path d="M-92 44 C -84 34 -74 36 -76 46 C -78 54 -90 54 -92 44" stroke-width="2"/>
+    <path d="M74 -28 C 86 -36 96 -32 98 -22" stroke-width="2"/>
+    <path d="M-30 -30 C -14 -38 6 -38 22 -30" stroke-width="1.4" opacity="0.7"/>
+  </g>
+
+  <!-- Ground line & fine engraving hatch -->
+  <path d="M40 792 C 180 776 420 776 560 792" fill="none" stroke="rgba(120,60,45,0.5)" stroke-width="2"/>
+  <path d="M70 766 l 16 -12 M78 776 l 16 -12" stroke="rgba(120,60,45,0.4)" stroke-width="1.6" fill="none"/><path d="M118 766 l 16 -12 M126 776 l 16 -12" stroke="rgba(120,60,45,0.4)" stroke-width="1.6" fill="none"/><path d="M470 766 l 16 -12 M478 776 l 16 -12" stroke="rgba(120,60,45,0.4)" stroke-width="1.6" fill="none"/><path d="M518 766 l 16 -12 M526 776 l 16 -12" stroke="rgba(120,60,45,0.4)" stroke-width="1.6" fill="none"/>
+
+  <!-- Corner flourishes kept clear of the centered text block -->
+  
+  <g transform="translate(556 560) rotate(150) scale(0.5)" fill="none" stroke="rgba(168,85,63,0.7)" stroke-width="2.2" stroke-linecap="round">
+    <path d="M0 0 C 6 -40 4 -84 -4 -124 C -10 -156 -8 -186 0 -214"/>
+    
+      <g transform="translate(-6 -34) rotate(-46)">
+        <path d="M0 0 C 8 -6 18 -6 26 0 C 18 6 8 6 0 0 Z" stroke-width="2"/>
+        <path d="M0 0 L26 0" stroke-width="1.4"/>
+        <path d="M6 -3 L6 3 M13 -4 L13 4 M20 -3 L20 3" stroke-width="1.1"/>
+      </g>
+      <g transform="translate(8 -62) rotate(44)">
+        <path d="M0 0 C 8 -6 18 -6 26 0 C 18 6 8 6 0 0 Z" stroke-width="2"/>
+        <path d="M0 0 L26 0" stroke-width="1.4"/>
+        <path d="M6 -3 L6 3 M13 -4 L13 4 M20 -3 L20 3" stroke-width="1.1"/>
+      </g>
+      <g transform="translate(-8 -96) rotate(-50)">
+        <path d="M0 0 C 8 -6 18 -6 26 0 C 18 6 8 6 0 0 Z" stroke-width="2"/>
+        <path d="M0 0 L26 0" stroke-width="1.4"/>
+        <path d="M6 -3 L6 3 M13 -4 L13 4 M20 -3 L20 3" stroke-width="1.1"/>
+      </g>
+      <g transform="translate(6 -124) rotate(46)">
+        <path d="M0 0 C 8 -6 18 -6 26 0 C 18 6 8 6 0 0 Z" stroke-width="2"/>
+        <path d="M0 0 L26 0" stroke-width="1.4"/>
+        <path d="M6 -3 L6 3 M13 -4 L13 4 M20 -3 L20 3" stroke-width="1.1"/>
+      </g>
+      <g transform="translate(-6 -156) rotate(-46)">
+        <path d="M0 0 C 8 -6 18 -6 26 0 C 18 6 8 6 0 0 Z" stroke-width="2"/>
+        <path d="M0 0 L26 0" stroke-width="1.4"/>
+        <path d="M6 -3 L6 3 M13 -4 L13 4 M20 -3 L20 3" stroke-width="1.1"/>
+      </g>
+      <g transform="translate(4 -184) rotate(42)">
+        <path d="M0 0 C 8 -6 18 -6 26 0 C 18 6 8 6 0 0 Z" stroke-width="2"/>
+        <path d="M0 0 L26 0" stroke-width="1.4"/>
+        <path d="M6 -3 L6 3 M13 -4 L13 4 M20 -3 L20 3" stroke-width="1.1"/>
+      </g>
+    
+      <g transform="translate(2 -44) scale(1)">
+        <ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(0)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(72)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(144)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(216)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(288)"/>
+        <circle r="6.5" stroke-width="2"/>
+        <circle r="2.4" stroke-width="1.4"/>
+      </g>
+      <g transform="translate(-2 -110) scale(-1)">
+        <ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(0)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(72)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(144)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(216)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(288)"/>
+        <circle r="6.5" stroke-width="2"/>
+        <circle r="2.4" stroke-width="1.4"/>
+      </g>
+      <g transform="translate(2 -174) scale(1)">
+        <ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(0)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(72)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(144)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(216)"/><ellipse cx="0" cy="-15" rx="7" ry="15" stroke-width="2" transform="rotate(288)"/>
+        <circle r="6.5" stroke-width="2"/>
+        <circle r="2.4" stroke-width="1.4"/>
+      </g>
+    
+      <g transform="translate(14 -74)">
+        <circle r="7" stroke-width="2"/><circle cx="9" cy="6" r="6" stroke-width="2"/>
+        <path d="M0 -7 L0 -13" stroke-width="1.6"/>
+      </g>
+      <g transform="translate(-16 -142)">
+        <circle r="7" stroke-width="2"/><circle cx="9" cy="6" r="6" stroke-width="2"/>
+        <path d="M0 -7 L0 -13" stroke-width="1.6"/>
+      </g>
+      <g transform="translate(12 -198)">
+        <circle r="7" stroke-width="2"/><circle cx="9" cy="6" r="6" stroke-width="2"/>
+        <path d="M0 -7 L0 -13" stroke-width="1.6"/>
+      </g>
+  </g>
+  <path d="M470 76 q 26 18 58 8" fill="none" stroke="rgba(168,85,63,0.7)" stroke-width="2.2"/>
+  <path d="M58 470 q -20 34 -4 74" fill="none" stroke="rgba(168,85,63,0.6)" stroke-width="2.2"/>
+  <ellipse cx="488" cy="120" rx="9" ry="16" fill="none" stroke="rgba(168,85,63,0.75)" stroke-width="2" transform="rotate(34 488 120)"/><ellipse cx="492" cy="146" rx="9" ry="16" fill="none" stroke="rgba(168,85,63,0.75)" stroke-width="2" transform="rotate(40 492 146)"/><ellipse cx="496" cy="172" rx="9" ry="16" fill="none" stroke="rgba(168,85,63,0.75)" stroke-width="2" transform="rotate(46 496 172)"/><ellipse cx="500" cy="198" rx="9" ry="16" fill="none" stroke="rgba(168,85,63,0.75)" stroke-width="2" transform="rotate(52 500 198)"/>
+
+  
+  <g font-family="'Playfair Display', Georgia, serif" text-anchor="middle" fill="#4A2216">
+    <text x="340" y="300" font-size="58" font-weight="700" letter-spacing="2.5">THANKS</text>
+    <text x="340" y="362" font-size="58" font-weight="700" letter-spacing="2.5">GIVING</text>
+  </g>
+  <text x="340" y="437" font-family="'Playfair Display', Georgia, serif" font-style="italic" font-size="20" fill="#633122" text-anchor="middle">Join us for dinner and drinks!</text>
+  <g font-family="'Playfair Display', Georgia, serif" text-anchor="middle" fill="#54281B">
+    <text x="340" y="484" font-size="17">Thursday, November 23 at Noon</text>
+    <text x="340" y="511" font-size="17">Our home</text>
+    <text x="340" y="538" font-size="17">1321 Harvest Lane</text>
+  </g>
+</g></g>
+  </g>
+</svg>
