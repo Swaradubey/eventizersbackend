@@ -207,6 +207,124 @@ app.use("/api/track", trackRoutes);
 const cronRoutes = require("./routes/cron.routes");
 app.use("/api/cron", cronRoutes);
 
+// Universal CORS Reverse Proxy for template background images and canvas assets
+const https = require("https");
+const http = require("http");
+
+const proxyImageHandler = (req, res) => {
+  const rawUrl = req.query.url;
+  if (!rawUrl || typeof rawUrl !== "string") {
+    return res.status(400).json({ error: "Missing required 'url' query parameter" });
+  }
+
+  const decodedUrl = decodeURIComponent(rawUrl).trim();
+  if (!/^https?:\/\//i.test(decodedUrl)) {
+    return res.status(400).json({ error: "Invalid URL protocol: only HTTP and HTTPS are allowed" });
+  }
+
+  const CORS_HEADERS = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+    "Access-Control-Allow-Headers": "*",
+    "Cross-Origin-Resource-Policy": "cross-origin",
+  };
+
+  const requestImage = (target, redirectsLeft) => {
+    let client;
+    try {
+      client = target.startsWith("https") ? https : http;
+    } catch (_) {
+      return res.status(400).json({ error: "Invalid target URL" });
+    }
+
+    const proxyReq = client.get(
+      target,
+      {
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+          Accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+        },
+        timeout: 12000,
+      },
+      (proxyRes) => {
+        const status = proxyRes.statusCode || 502;
+        const location = proxyRes.headers.location;
+
+        if (status >= 300 && status < 400 && location) {
+          proxyRes.resume();
+          if (redirectsLeft <= 0) {
+            if (!res.headersSent) {
+              return res.status(502).json({ error: "Too many redirects", url: target });
+            }
+            return;
+          }
+          let next;
+          try {
+            next = new URL(location, target).toString();
+          } catch (_) {
+            next = null;
+          }
+          if (!next || !/^https?:\/\//i.test(next)) {
+            if (!res.headersSent) {
+              return res.status(400).json({ error: "Invalid redirect target", location });
+            }
+            return;
+          }
+          return requestImage(next, redirectsLeft - 1);
+        }
+
+        if (status < 200 || status >= 300) {
+          proxyRes.resume();
+          if (!res.headersSent) {
+            res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+            Object.entries(CORS_HEADERS).forEach(([key, value]) => res.setHeader(key, value));
+            return res.status(status).json({
+              error: `Upstream returned status ${status}`,
+              status,
+              url: target,
+            });
+          }
+          return;
+        }
+
+        Object.entries(CORS_HEADERS).forEach(([key, value]) => res.setHeader(key, value));
+        res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+        res.setHeader("Content-Type", proxyRes.headers["content-type"] || "image/png");
+        proxyRes.pipe(res);
+      }
+    );
+
+    proxyReq.on("timeout", () => {
+      proxyReq.destroy();
+      if (!res.headersSent) {
+        res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+        Object.entries(CORS_HEADERS).forEach(([key, value]) => res.setHeader(key, value));
+        return res.status(504).json({ error: "Upstream image request timed out" });
+      }
+    });
+
+    proxyReq.on("error", (err) => {
+      if (!res.headersSent) {
+        res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+        Object.entries(CORS_HEADERS).forEach(([key, value]) => res.setHeader(key, value));
+        return res.status(502).json({ error: "Error fetching remote image", details: err.message });
+      }
+    });
+  };
+
+  requestImage(decodedUrl, 5);
+};
+
+app.get(["/api/proxy-image", "/proxy-image"], proxyImageHandler);
+app.options(["/api/proxy-image", "/proxy-image"], (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "*");
+  res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+  res.sendStatus(204);
+});
+
 // Preflight OPTIONS handler for public static assets
 app.options(["/uploads*", "/assets*", "/templates*"], (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
