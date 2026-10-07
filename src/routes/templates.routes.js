@@ -301,6 +301,8 @@ router.post('/', authenticate, isAdmin, async (req, res, next) => {
             error: dlErr.message || "The link provided points to a webpage, not a direct image."
           });
         }
+        // Transient download failure: keep the original URL. The canvas loader
+        // automatically fails over to /api/proxy-image, so it still renders.
       }
     }
 
@@ -360,16 +362,23 @@ router.post('/', authenticate, isAdmin, async (req, res, next) => {
       }
     ];
 
-    // Standardized content payload expected by client/designer
+    // Standardized content payload expected by client/designer.
+    // NOTE: every image field is forced to `finalImage` (the uploaded/re-hosted
+    // storage URL) so a fragile external third-party link can never leak into
+    // the stored canvasData/card payload and break the creation canvas later.
+    const incomingCanvasData = (canvasData && typeof canvasData === "object") ? canvasData : {};
     const contentObj = {
       badge: effectiveBadge,
       thumbnailUrl: finalImage,
       imageUrl: finalImage,
       backgroundUrl: finalImage,
       backgroundImage: finalImage,
-      canvasData: canvasData || {
+      canvasData: {
+        ...incomingCanvasData,
         backgroundImage: finalImage,
-        layers: resolvedTextLayers,
+        layers: (Array.isArray(incomingCanvasData.layers) && incomingCanvasData.layers.length > 0)
+          ? incomingCanvasData.layers
+          : resolvedTextLayers,
       },
       category: category || "General",
       tags: Array.isArray(tags) && tags.length > 0 ? tags : [category || "General"],
@@ -524,35 +533,70 @@ router.get('/proxy-image', async (req, res) => {
 
     const https = require('https');
     const http = require('http');
-    const client = decodedUrl.startsWith('https') ? https : http;
 
-    const proxyReq = client.get(decodedUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
-      },
-      timeout: 15000,
-    }, (proxyRes) => {
-      if (proxyRes.statusCode >= 300 && proxyRes.statusCode < 400 && proxyRes.headers.location) {
-        return res.redirect(proxyRes.headers.location);
-      }
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
-      res.setHeader('Access-Control-Allow-Headers', '*');
-      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-      res.setHeader('Cache-Control', 'public, max-age=86400');
-      if (proxyRes.headers['content-type']) {
-        res.setHeader('Content-Type', proxyRes.headers['content-type']);
-      }
-      proxyRes.pipe(res);
-    });
+    const CORS_HEADERS = {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
+      'Access-Control-Allow-Headers': '*',
+      'Cross-Origin-Resource-Policy': 'cross-origin',
+    };
 
-    proxyReq.on('error', (err) => {
-      console.error('[proxy-image] Request error:', err.message);
-      if (!res.headersSent) {
-        res.status(502).send('Error fetching remote image');
-      }
-    });
+    // Follow redirects server-side so the browser never has to re-fetch a
+    // third-party Location header directly (which would reintroduce CORS).
+    const requestImage = (target, redirectsLeft) => {
+      const client = target.startsWith('https') ? https : http;
+      const proxyReq = client.get(target, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+        },
+        timeout: 15000,
+      }, (proxyRes) => {
+        const status = proxyRes.statusCode || 502;
+        const location = proxyRes.headers.location;
+
+        if (status >= 300 && status < 400 && location) {
+          proxyRes.resume();
+          if (redirectsLeft <= 0) {
+            if (!res.headersSent) res.status(502).send('Too many redirects');
+            return;
+          }
+          let next;
+          try { next = new URL(location, target).toString(); } catch (_) { next = null; }
+          if (!next || !/^https?:\/\//i.test(next)) {
+            if (!res.headersSent) res.status(400).send('Invalid redirect target');
+            return;
+          }
+          requestImage(next, redirectsLeft - 1);
+          return;
+        }
+
+        if (status < 200 || status >= 300) {
+          proxyRes.resume();
+          if (!res.headersSent) res.status(status).send(`Upstream returned ${status}`);
+          return;
+        }
+
+        Object.entries(CORS_HEADERS).forEach(([key, value]) => res.setHeader(key, value));
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        res.setHeader('Content-Type', proxyRes.headers['content-type'] || 'image/png');
+        proxyRes.pipe(res);
+      });
+
+      proxyReq.on('timeout', () => {
+        proxyReq.destroy();
+        if (!res.headersSent) res.status(504).send('Upstream image request timed out');
+      });
+
+      proxyReq.on('error', (err) => {
+        console.error('[proxy-image] Request error:', err.message);
+        if (!res.headersSent) {
+          res.status(err.message === 'timeout' ? 504 : 502).send('Error fetching remote image');
+        }
+      });
+    };
+
+    requestImage(decodedUrl, 5);
   } catch (err) {
     if (!res.headersSent) {
       res.status(500).send('Internal server error');

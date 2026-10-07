@@ -39,6 +39,14 @@ router.patch("/:id/design", restrictGuest, eventController.updateDesignSettings)
 // Send invitations route
 router.post("/:id/send-invitations", restrictGuest, eventController.sendEventInvitations);
 
+// Review-stage "Email me a preview" — Evite-styled mail + inline CID canvas card
+const previewController = require("../controllers/preview.controller");
+router.post(
+  "/:id/send-preview-email",
+  restrictGuest,
+  previewController.sendPreviewEmailHandler
+);
+
 // Event Reminders routes
 router.get("/:id/reminders", eventController.getEventReminders);
 router.put("/:id/reminders", restrictGuest, eventController.updateEventReminders);
