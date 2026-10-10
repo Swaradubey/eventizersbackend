@@ -11,12 +11,9 @@ require("dotenv").config({ path: envPath });
 
 console.log("[database] Environment loaded");
 
-// Gemini API key diagnostic (log only whether loaded, not the actual key)
-const geminiKey = process.env.GEMINI_API_KEY;
-console.log(`Gemini API key loaded: ${geminiKey && geminiKey !== 'your_gemini_api_key_here' && geminiKey !== '' ? 'yes' : 'no'}`);
-
-// Gemini model diagnostic
-console.log(`Gemini model used: ${process.env.GEMINI_MODEL || 'gemini-3.6-flash'}`);
+// Replicate API diagnostic
+const replicateToken = process.env.REPLICATE_API_TOKEN;
+console.log(`[replicate] Replicate API token loaded: ${replicateToken && replicateToken.trim().length > 10 ? 'yes' : 'no'}`);
 
 // Validate Stripe environment variables
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY?.trim();

@@ -62,6 +62,7 @@ const isValidPublicUrl = (url) => {
  */
 const getPublicBaseUrl = (req) => {
   const cloudCandidates = [
+    process.env.CLOUDFLARE_R2_PUBLIC_URL,
     process.env.PUBLIC_STORAGE_URL,
     process.env.PUBLIC_CDN_URL,
     process.env.CLOUDINARY_URL,
@@ -108,17 +109,27 @@ const getPublicBaseUrl = (req) => {
   return isProduction ? "" : "http://localhost:5000";
 };
 
+const { uploadToR2 } = require("./r2Storage");
+
 /**
  * Determine file extension from mimetype or original filename
  */
 const getFileExtension = (mimetype = "", originalname = "") => {
   if (originalname && originalname.includes(".")) {
     const ext = originalname.split(".").pop().toLowerCase();
-    if (["png", "jpg", "jpeg", "webp", "gif", "svg", "heic", "heif", "avif", "pdf"].includes(ext)) {
+    if (["png", "jpg", "jpeg", "webp", "gif", "svg", "heic", "heif", "avif", "pdf", "mp4", "webm", "mov", "m4v"].includes(ext)) {
       return `.${ext}`;
     }
   }
   switch (mimetype.toLowerCase()) {
+    case "video/mp4":
+      return ".mp4";
+    case "video/webm":
+      return ".webm";
+    case "video/quicktime":
+      return ".mov";
+    case "video/x-m4v":
+      return ".m4v";
     case "image/jpeg":
     case "image/jpg":
       return ".jpg";
@@ -421,7 +432,19 @@ const uploadToCloudStorage = async (fileBufferOrBase64, filename = "image.png", 
     }
   }
 
-  // 1. Cloudinary
+  // 1. Cloudflare R2 Storage (Top Priority)
+  if (buffer) {
+    try {
+      const r2Url = await uploadToR2(buffer, filename, mimetype, folder);
+      if (r2Url) {
+        return { success: true, url: r2Url, provider: "cloudflare-r2" };
+      }
+    } catch (err) {
+      console.warn("[FileStorage] Cloudflare R2 provider skipped:", err.message);
+    }
+  }
+
+  // 2. Cloudinary
   try {
     const cloudinaryUrl = await uploadToCloudinary(buffer || fileBufferOrBase64, filename, folder);
     if (cloudinaryUrl) {
@@ -431,7 +454,7 @@ const uploadToCloudStorage = async (fileBufferOrBase64, filename = "image.png", 
     console.warn("[FileStorage] Cloudinary provider skipped:", err.message);
   }
 
-  // 2. Supabase Storage
+  // 3. Supabase Storage
   if (buffer) {
     try {
       const supabaseUrl = await uploadToSupabase(buffer, filename, mimetype);

@@ -443,10 +443,10 @@ router.delete('/:id', authenticate, isAdmin, async (req, res, next) => {
 
 const multer = require('multer');
 
-// Multer configuration using memory storage
+// Multer configuration using memory storage (supports images and video templates up to 50MB)
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 15 * 1024 * 1024 }, // 15MB limit
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit
 });
 
 // Resolve, validate and pre-cache a remote image link for real-time live preview
