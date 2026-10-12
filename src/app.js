@@ -123,6 +123,16 @@ app.use("/api/events", eventRoutes);
 // AI Routes
 app.use("/api/ai", aiRoutes);
 
+// Direct Video Generation Routes (/api/generate-video & /api/video-status)
+const aiController = require("./controllers/ai.controller");
+app.post("/api/generate-video", aiController.generateVideo);
+app.get("/api/video-status/:predictionId", aiController.checkVideoStatus);
+
+// Video Invites Image-to-Video Routes
+const videoInvitesRoutes = require("./routes/videoInvites.routes");
+app.use("/api/video-invites", videoInvitesRoutes);
+app.use("/api/video", videoInvitesRoutes);
+
 // Dashboard Routes
 app.use("/api/dashboard", dashboardRoutes);
 

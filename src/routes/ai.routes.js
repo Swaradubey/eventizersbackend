@@ -12,8 +12,16 @@ router.post("/scan-invitation", aiController.scanInvitationImage);
 // POST /api/ai/generate-event-template — Replicate AI image generation for invitation backgrounds
 router.post("/generate-event-template", aiController.generateEventTemplate);
 
+const videoInvitesController = require("../controllers/videoInvites.controller");
+
+// POST /api/ai/generate-video — Template-Driven AI Video Generation
+router.post("/generate-video", aiController.generateVideo);
+
 // POST /api/ai/generate-video-template — Replicate AI Video Generation
 router.post("/generate-video-template", aiController.generateVideoTemplate);
+
+// POST /api/ai/create-ai-template — Replicate Image-to-Video Workflow
+router.post("/create-ai-template", videoInvitesController.createAiTemplate);
 
 // GET /api/ai/video-status/:predictionId — Replicate Video Prediction Polling
 router.get("/video-status/:predictionId", aiController.checkVideoStatus);

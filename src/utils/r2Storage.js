@@ -1,3 +1,9 @@
+const path = require("path");
+try {
+  require("dotenv").config();
+  require("dotenv").config({ path: path.resolve(__dirname, "../../.env") });
+} catch (_) {}
+
 const { S3Client, PutObjectCommand, DeleteObjectCommand } = require("@aws-sdk/client-s3");
 
 let s3ClientInstance = null;

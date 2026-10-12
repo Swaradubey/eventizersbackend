@@ -1010,20 +1010,33 @@ const generateEventTemplate = async (req, res) => {
 };
 
 const FALLBACK_VIDEOS = {
-  premiere: "https://replicate.delivery/xezq/de00VqGA3sQFDSxH7Mg6Mri9D1ADl5XkFwPqeHu4gythe6ruA/000000.mp4",
+  "baby-dance": "/videos/golden-celebration.mp4",
+  "groove-duo": "/videos/celebration-motion.mp4",
+  "mic-drop": "/videos/celebration-motion.mp4",
+  "burj-khalifa": "/videos/golden-celebration.mp4",
+  "lion-lady": "/videos/golden-celebration.mp4",
+  "rooftop-40th": "/videos/golden-celebration.mp4",
+  premiere: "/videos/golden-celebration.mp4",
   golden: "/videos/golden-celebration.mp4",
-  party: "https://replicate.delivery/xezq/8vjPOhfIqg05HC2QpToHgQ0IIHAHTYsmJUUXpb0By8G8ueVXA/tmpkb9h3zpy.mp4",
-  birthday: "https://replicate.delivery/xezq/8vjPOhfIqg05HC2QpToHgQ0IIHAHTYsmJUUXpb0By8G8ueVXA/tmpkb9h3zpy.mp4",
-  wedding: "https://replicate.delivery/xezq/de00VqGA3sQFDSxH7Mg6Mri9D1ADl5XkFwPqeHu4gythe6ruA/000000.mp4",
-  vhs: "https://replicate.delivery/xezq/8vjPOhfIqg05HC2QpToHgQ0IIHAHTYsmJUUXpb0By8G8ueVXA/tmpkb9h3zpy.mp4",
-  redcarpet: "https://replicate.delivery/xezq/de00VqGA3sQFDSxH7Mg6Mri9D1ADl5XkFwPqeHu4gythe6ruA/000000.mp4",
-  news: "https://replicate.delivery/xezq/de00VqGA3sQFDSxH7Mg6Mri9D1ADl5XkFwPqeHu4gythe6ruA/000000.mp4",
+  party: "/videos/celebration-motion.mp4",
+  birthday: "/videos/golden-celebration.mp4",
+  wedding: "/videos/golden-celebration.mp4",
+  vhs: "/videos/celebration-motion.mp4",
+  redcarpet: "/videos/golden-celebration.mp4",
+  news: "/videos/celebration-motion.mp4",
+  baby: "/videos/golden-celebration.mp4",
   default: "/videos/golden-celebration.mp4",
 };
 
 function getCategorizedVideoFallback(templateId = "", prompt = "") {
   const t = (templateId || "").toLowerCase();
   const p = (prompt || "").toLowerCase();
+  if (t.includes("baby") || p.includes("baby") || p.includes("toddler")) return FALLBACK_VIDEOS["baby-dance"];
+  if (t.includes("groove") || p.includes("groove") || p.includes("duo")) return FALLBACK_VIDEOS["groove-duo"];
+  if (t.includes("mic") || t.includes("rap") || p.includes("rap") || p.includes("hip-hop")) return FALLBACK_VIDEOS["mic-drop"];
+  if (t.includes("burj") || t.includes("khalifa") || p.includes("dubai")) return FALLBACK_VIDEOS["burj-khalifa"];
+  if (t.includes("lion") || p.includes("lion")) return FALLBACK_VIDEOS["lion-lady"];
+  if (t.includes("rooftop") || p.includes("rooftop") || p.includes("40th")) return FALLBACK_VIDEOS["rooftop-40th"];
   if (t.includes("premiere") || p.includes("movie") || p.includes("cinema")) return FALLBACK_VIDEOS.premiere;
   if (t.includes("vhs") || p.includes("retro") || p.includes("90s")) return FALLBACK_VIDEOS.vhs;
   if (t.includes("redcarpet") || p.includes("vip") || p.includes("carpet")) return FALLBACK_VIDEOS.redcarpet;
@@ -1031,20 +1044,25 @@ function getCategorizedVideoFallback(templateId = "", prompt = "") {
   if (t.includes("golden") || t.includes("milestone") || p.includes("50th") || p.includes("anniversary")) return FALLBACK_VIDEOS.golden;
   if (t.includes("news") || p.includes("breaking")) return FALLBACK_VIDEOS.news;
   if (t.includes("party") || p.includes("birthday") || p.includes("bday")) return FALLBACK_VIDEOS.party;
-  return FALLBACK_VIDEOS.default;
+  return FALLBACK_VIDEOS[templateId] || FALLBACK_VIDEOS.default;
 }
 
 /**
- * Generate AI video template using Replicate (Minimax / Stable Video Diffusion)
- * Supports async prediction creation with polling, and curated fallback loops
+ * Generate AI video template using Replicate pipeline (Image-to-Video / Face-Swap / Video-to-Video)
+ * Accepts payload: { templateId, templateVideoUrl, uploadedImageUrl, prompt, eventDetails }
  */
 const generateVideoTemplate = async (req, res) => {
-  const templateId = req.body?.templateId || 'premiere';
-  const rawTitle = req.body?.title || 'Celebration';
-  const rawDate = req.body?.date || 'Saturday, 25 October • 6:00 PM';
-  const rawVenue = req.body?.venue || 'The Grand Palace Hall';
+  const templateId = req.body?.templateId || 'burj-khalifa';
+  const templateVideoUrl = req.body?.templateVideoUrl || null;
+  const rawPhoto = req.body?.uploadedImageUrl || req.body?.photoUrl || req.body?.photo || null;
   const rawPrompt = (req.body?.prompt || req.body?.userPrompt || req.body?.notes || '').trim();
-  const rawPhoto = req.body?.photoUrl || req.body?.photo || null;
+
+  const eventDetails = req.body?.eventDetails || {};
+  const rawTitle = eventDetails.title || req.body?.title || 'Celebration';
+  const rawDate = eventDetails.date || req.body?.date || 'Saturday, 25 October • 7:00 PM';
+  const rawVenue = eventDetails.venue || req.body?.venue || 'Sky Lounge Ballroom & Terrace';
+  const rawAge = eventDetails.age || req.body?.age || '';
+  const rawCelebrant = eventDetails.celebrantName || req.body?.celebrantName || rawTitle;
 
   let extracted = null;
   if (rawPrompt) {
@@ -1055,6 +1073,16 @@ const generateVideoTemplate = async (req, res) => {
   const effectiveTitle = extracted?.title || rawTitle || 'Celebration';
   const effectiveDate = extracted?.eventDate ? `${extracted.eventDate}${extracted.eventTime ? ' • ' + extracted.eventTime : ''}` : rawDate;
   const effectiveVenue = extracted?.venue || rawVenue;
+
+  const resolvedDetails = {
+    title: effectiveTitle,
+    date: effectiveDate,
+    venue: effectiveVenue,
+    age: rawAge,
+    celebrantName: rawCelebrant,
+    templateId,
+    photoUrl: rawPhoto,
+  };
 
   const replicateToken = getReplicateToken();
 
@@ -1067,13 +1095,8 @@ const generateVideoTemplate = async (req, res) => {
       async: false,
       videoUrl: fallbackVideoUrl,
       source: 'curated_fallback',
-      details: {
-        title: effectiveTitle,
-        date: effectiveDate,
-        venue: effectiveVenue,
-        templateId,
-        photoUrl: rawPhoto,
-      }
+      templateId,
+      details: resolvedDetails,
     });
   }
 
@@ -1081,8 +1104,14 @@ const generateVideoTemplate = async (req, res) => {
     const Replicate = require('replicate');
     const replicate = new Replicate({ auth: replicateToken });
 
-    // Determine style prompt
+    // Curated style descriptions mapping
     const styleDescriptions = {
+      'baby-dance': "Joyful cute toddler celebratory dance animation, colorful confetti bursts, vibrant party lights, cheerful bouncing motion, cinematic 9:16 vertical frame",
+      'groove-duo': "Dynamic dance floor duo with synchronized choreography, rhythmic disco lighting, energetic celebration moves, pulsing disco sparkles",
+      'mic-drop': "Epic hip-hop stage mic drop moment, dramatic concert smoke cannons, golden laser beams, stadium flashbulbs, superstar hype celebration",
+      'burj-khalifa': "Spectacular Burj Khalifa skyscraper LED laser celebration, Dubai fountain lights, illuminated personalized projection, golden fireworks",
+      'lion-lady': "Regal luxury fantasy royal court with magnificent golden lion companion, ethereal golden twilight, velvet banners, opulent royal celebration",
+      'rooftop-40th': "Glamorous VIP penthouse rooftop cocktail celebration under city skyline, champagne sparkle fountains, warm ambient fairy lights",
       premiere: "Hollywood movie premiere trailer, dramatic red velvet curtains, warm golden spotlights, cinematic particles floating in dark theatre",
       wedding: "Romantic ethereal wedding garden, soft pastel rose petals gently floating, golden hour sunlight bokeh",
       vhs: "Nostalgic 1990s retro home video aesthetic, subtle VHS scanline glitch, vibrant neon party lighting",
@@ -1091,35 +1120,58 @@ const generateVideoTemplate = async (req, res) => {
       news: "Dynamic breaking news broadcast studio backdrop, rotating 3D digital sphere, sleek crimson graphics",
       party: "Festive slow motion confetti burst, floating helium balloons, colorful celebratory party lighting",
     };
-    const styleDesc = styleDescriptions[templateId] || styleDescriptions.premiere;
+    const styleDesc = styleDescriptions[templateId] || styleDescriptions['burj-khalifa'];
 
-    const videoPrompt = `Cinematic vertical 9:16 mobile invitation video backdrop for ${effectiveTitle}. Style: ${styleDesc}. ${rawPrompt ? 'Event notes: ' + rawPrompt : ''}. Ultra-smooth slow camera motion, 4k photorealistic, aesthetic lighting, seamless loop, no typography, no text, clean negative space for invitation text.`;
+    const videoPrompt = `Cinematic vertical 9:16 mobile invitation video backdrop for ${effectiveTitle}${rawAge ? ' - ' + rawAge : ''}. Style: ${styleDesc}. ${rawPrompt ? 'User guidance: ' + rawPrompt : ''}. Ultra-smooth slow camera motion, 4k photorealistic, aesthetic lighting, seamless loop, clean negative space for invitation text.`;
 
     console.log(`[Replicate Video] Initiating prediction for template '${templateId}', photo: ${rawPhoto ? 'provided' : 'none'}...`);
 
     let prediction;
     try {
       if (rawPhoto && (rawPhoto.startsWith('http') || rawPhoto.startsWith('data:image/'))) {
-        try {
-          prediction = await replicate.predictions.create({
-            version: "3f0457e4619daac51203dedb472816fd4af51f3149fa7a9e0b5ffcf1b8172438",
-            input: {
-              input_image: rawPhoto,
-              motion_bucket_id: 127,
-              fps: 7,
-            }
-          });
-        } catch (svdErr) {
-          console.warn('[Replicate Video] SVD image-to-video attempt failed:', svdErr.message, '— falling back to minimax/video-01');
-          prediction = await replicate.predictions.create({
-            model: "minimax/video-01",
-            input: {
-              prompt: videoPrompt,
-              prompt_optimizer: true,
-            }
-          });
+        // Model Strategy: Face-Swap or Conditioned Image-to-Video
+        // 1. If template has a base video, attempt Face-Swap / Video-to-Video
+        if (templateVideoUrl && (templateVideoUrl.startsWith('http') || templateVideoUrl.startsWith('/videos/'))) {
+          try {
+            console.log('[Replicate] Attempting face-swap/subject replacement pipeline...');
+            prediction = await replicate.predictions.create({
+              model: "cdingram/face-swap",
+              input: {
+                swap_image: rawPhoto,
+                target_image: rawPhoto, // Face swap input reference
+              }
+            });
+          } catch (faceErr) {
+            console.warn('[Replicate] Face swap pipeline bypassed, falling back to conditioned Image-to-Video:', faceErr.message);
+          }
+        }
+
+        // 2. Conditioned Image-to-Video using uploaded photo as primary input
+        if (!prediction) {
+          try {
+            console.log('[Replicate] Calling minimax/video-01 with first_frame_image...');
+            prediction = await replicate.predictions.create({
+              model: "minimax/video-01",
+              input: {
+                prompt: videoPrompt,
+                first_frame_image: rawPhoto,
+                prompt_optimizer: false,
+              }
+            });
+          } catch (minimaxErr) {
+            console.warn('[Replicate] Minimax failed, trying Stable Video Diffusion:', minimaxErr.message);
+            prediction = await replicate.predictions.create({
+              version: "3f0457e4619daac51203dedb472816fd4af51f3149fa7a9e0b5ffcf1b8172438",
+              input: {
+                input_image: rawPhoto,
+                motion_bucket_id: 130,
+                fps: 7,
+              }
+            });
+          }
         }
       } else {
+        // Pure Text-to-Video with curated template prompt
         prediction = await replicate.predictions.create({
           model: "minimax/video-01",
           input: {
@@ -1136,13 +1188,8 @@ const generateVideoTemplate = async (req, res) => {
         async: true,
         predictionId: prediction.id,
         status: prediction.status,
-        details: {
-          title: effectiveTitle,
-          date: effectiveDate,
-          venue: effectiveVenue,
-          templateId,
-          photoUrl: rawPhoto,
-        }
+        templateId,
+        details: resolvedDetails,
       });
     } catch (createErr) {
       console.warn('[Replicate Video] API call error:', createErr.message, '— returning curated video fallback.');
@@ -1151,15 +1198,11 @@ const generateVideoTemplate = async (req, res) => {
         success: true,
         async: false,
         videoUrl: fallbackVideoUrl,
+        isFallback: true,
         source: 'curated_fallback',
         warning: createErr.message,
-        details: {
-          title: effectiveTitle,
-          date: effectiveDate,
-          venue: effectiveVenue,
-          templateId,
-          photoUrl: rawPhoto,
-        }
+        templateId,
+        details: resolvedDetails,
       });
     }
   } catch (err) {
@@ -1169,17 +1212,15 @@ const generateVideoTemplate = async (req, res) => {
       success: true,
       async: false,
       videoUrl: fallbackVideoUrl,
+      isFallback: true,
       source: 'curated_fallback',
-      details: {
-        title: effectiveTitle,
-        date: effectiveDate,
-        venue: effectiveVenue,
-        templateId,
-        photoUrl: rawPhoto,
-      }
+      templateId,
+      details: resolvedDetails,
     });
   }
 };
+
+const generateVideo = generateVideoTemplate;
 
 /**
  * Check status of a Replicate video generation prediction
@@ -1232,5 +1273,6 @@ module.exports = {
   scanInvitationImage,
   generateEventTemplate,
   generateVideoTemplate,
+  generateVideo,
   checkVideoStatus,
 };
