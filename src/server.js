@@ -184,23 +184,35 @@ function handleConnectionError(error) {
   process.exit(1);
 }
 
-async function connectDatabase() {
-  try {
-    await prisma.$connect();
-    await prisma.$queryRaw`SELECT 1`;
-    console.log("[database] PostgreSQL connected successfully.");
-  } catch (error) {
-    console.error(
-      "[database] PostgreSQL connection failed:",
-      error instanceof Error ? error.message : "Unknown database error"
-    );
-
-    console.error(
-      "[database] Check DATABASE_URL, Neon project status, SSL mode, database, role, branch, and network access."
-    );
-
-    throw error;
+async function connectDatabase(maxRetries = 3, retryDelayMs = 2000) {
+  let lastError;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      if (attempt > 1) {
+        console.log(`[database] Retrying Prisma connection (attempt ${attempt}/${maxRetries})...`);
+      }
+      await prisma.$connect();
+      await prisma.$queryRaw`SELECT 1`;
+      console.log("[database] PostgreSQL connected successfully.");
+      return;
+    } catch (error) {
+      lastError = error;
+      const msg = error instanceof Error ? error.message : "Unknown database error";
+      if (attempt < maxRetries) {
+        console.warn(`[database] Connection attempt ${attempt}/${maxRetries} failed (${msg}). Retrying in ${retryDelayMs / 1000}s...`);
+        await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+      }
+    }
   }
+
+  console.error(
+    "[database] PostgreSQL connection failed after retries:",
+    lastError instanceof Error ? lastError.message : "Unknown database error"
+  );
+  console.error(
+    "[database] Check DATABASE_URL, Neon project status, SSL mode, database, role, branch, and network access."
+  );
+  throw lastError;
 }
 
 async function startServer() {
@@ -227,16 +239,6 @@ async function startServer() {
     const { cleanOrphanTicketsAndOrders } = require("./utils/orphanTicketCleaner");
     await cleanOrphanTicketsAndOrders();
 
-    // Start auto-waive and no-show penalty notification daily scheduled cron jobs
-    const { startAutoWaiveCron } = require("./jobs/autoWaive.job");
-    startAutoWaiveCron();
-
-    const { startProcessNoShowsCron } = require("./jobs/processNoShows.job");
-    startProcessNoShowsCron();
-
-    // Start daily event reminder dispatch cron (08:00 AM)
-    const { startRemindersCron } = require("./jobs/reminders.job");
-    startRemindersCron();
 
     app.listen(PORT, () => {
       console.log(`[Eventizers Backend] Server is running on port ${PORT}`);

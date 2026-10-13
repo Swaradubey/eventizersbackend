@@ -23,6 +23,7 @@ model User {
   plan                 String              @default("FREE")
   subscriptionStatus   String              @default("ACTIVE") @map("subscription_status")
   billingStatus        String              @default("PAID") @map("billing_status")
+  credits              Int                 @default(30) @map("credits")
   planStartDate        DateTime            @default(now()) @map("plan_start_date")
   planExpiryDate       DateTime            @default(now()) @map("plan_expiry_date")
   stripeCustomerId     String?             @map("stripe_customer_id")

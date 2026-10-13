@@ -898,54 +898,191 @@ function getCategorizedFallback(prompt = "") {
   return FALLBACK_TEMPLATES.default;
 }
 
+// Curated master prompts and visual styles for each image invitation template
+const CURATED_TEMPLATE_PROMPTS = {
+  marcus: {
+    title: "Milestone birthday",
+    prompt: "Ultra-luxurious 50th milestone birthday gala portrait, distinguished celebrant in bespoke navy tailored tuxedo with gold floral lapel pin, warm ambient golden lighting, cinematic bokeh champagne glasses in background, photorealistic 8k, mobile vertical 9:16 portrait, ample negative space for invitation text typography, no text, no lettering",
+    fallbackImg: "/images/marcus.webp",
+  },
+  jessica: {
+    title: "Milestone birthday",
+    prompt: "Glamorous milestone birthday celebration, stunning celebrant in elegant crimson red cocktail evening gown on a twilight rooftop terrace, skyline bokeh and warm fairy lights, 8k cinematic photography, mobile vertical 9:16 portrait, ample space for text, no text, no lettering",
+    fallbackImg: "/images/jessica.webp",
+  },
+  party: {
+    title: "House party",
+    prompt: "High-energy house party celebration, cheerful celebratory atmosphere, colorful confetti bursts, floating metallic balloons, warm ambient party illumination, vibrant lifestyle photography, mobile vertical 9:16, no text, no lettering",
+    fallbackImg: "/images/party.webp",
+  },
+  wedding: {
+    title: "Wedding",
+    prompt: "Romantic luxury wedding celebration, couple in haute couture bridal gown and tailored suit standing amidst golden meadow flowers at sunset, soft ethereal sunlight flare, floral archway, hyperrealistic 8k, mobile vertical 9:16, no text, no lettering",
+    fallbackImg: "/images/couple.webp",
+  },
+  "pumpkin-patch": {
+    title: "Halloween · Kids trick-or-treat",
+    prompt: "Charming family autumn Halloween festival, cute children in creative costumes trick-or-treating in cozy lantern-lit suburban street, glowing carved jack-o'-lanterns, warm autumn leaves, vertical 9:16, no text, no lettering",
+    fallbackImg: "/images/halloween-kids.png",
+  },
+  haunting: {
+    title: "Halloween · Haunted house",
+    prompt: "Atmospheric gothic haunted mansion at midnight, glowing carved pumpkins on historic stone steps, full moon illuminating mysterious mist, dark fantasy celebration aesthetic, 8k cinematic, mobile vertical 9:16, no text, no lettering",
+    fallbackImg: "/images/halloween-house.png",
+  },
+  baby: {
+    title: "Baby shower",
+    prompt: "Whimsical pastel baby shower celebration, soft ivory and mint organic balloon garland, delicate floral arrangements, golden twinkle lights, gentle joyful morning light, 8k aesthetic, mobile vertical 9:16, no text, no lettering",
+    fallbackImg: "/images/baby.webp",
+  },
+  concert: {
+    title: "Afterparty",
+    prompt: "VIP concert afterparty, energetic crowd under pulsating golden stage laser spotlights, stadium atmosphere, champagne spray in slow motion, luxury nightlife celebration, 8k mobile vertical 9:16, no text, no lettering",
+    fallbackImg: "/images/concert.webp",
+  },
+  reunion: {
+    title: "Reunion",
+    prompt: "Heartwarming family and alumni reunion party, smiling people sharing nostalgic moments in a sunlit historic courtyard garden, warm string lights, 8k lifestyle portraiture, mobile vertical 9:16, no text, no lettering",
+    fallbackImg: "/images/reunion.webp",
+  },
+  grad: {
+    title: "Graduation",
+    prompt: "Triumphant university graduation celebration, proud graduate in academic gown tossing graduation cap in the air, historic stone campus in background, golden hour sunlight, inspirational 8k, mobile vertical 9:16, no text, no lettering",
+    fallbackImg: "/images/grad.webp",
+  },
+  premiere: {
+    title: "Movie Premiere",
+    prompt: "Hollywood red carpet movie premiere, dramatic velvet stanchions, flashing camera flashes, warm golden spotlights against evening sky, VIP cinema gala aesthetic, 8k mobile vertical 9:16, no text, no lettering",
+    fallbackImg: "/images/rooftop.webp",
+  },
+  anniversary: {
+    title: "Anniversary",
+    prompt: "Timeless golden wedding anniversary gala, loving couple embracing in a candlelit ballroom with chandeliers, champagne toast, warm romantic bokeh, 8k editorial photography, mobile vertical 9:16, no text, no lettering",
+    fallbackImg: "/images/anniversary.webp",
+  },
+  vhs: {
+    title: "Retro VHS",
+    prompt: "Nostalgic 1990s retro house party celebration, subtle VHS magnetic film texture, neon vibrant party glow, candid cheerful friends enjoying retro celebration, mobile vertical 9:16, no text, no lettering",
+    fallbackImg: "/images/party.webp",
+  },
+};
+
 /**
  * Generate a dynamic event invitation template image using Replicate FLUX.
- * Uses black-forest-labs/flux-schnell via Replicate to create luxury
- * invitation card backgrounds, with smart curated fallbacks.
+ * Uses template-specific prompts, user-uploaded photo integration, and Prisma sync.
  */
 const generateEventTemplate = async (req, res) => {
-  const rawPrompt = (req.body?.prompt || req.body?.userPrompt || 'Event Celebration').trim();
-  const rawEventType = req.body?.eventType || 'Event';
-  const rawTitle =
-    req.body?.title ||
-    rawPrompt.split(' for ')[0].split(' with ')[0].slice(0, 50) ||
-    'Grand Celebration';
+  const rawPrompt = (req.body?.prompt || req.body?.userPrompt || '').trim();
+  const rawEventType = req.body?.eventType || 'Celebration';
+  const rawTitle = req.body?.title || 'Grand Celebration';
   const rawDate = req.body?.date || 'Saturday, 25 October • 6:00 PM';
   const rawVenue = req.body?.venue || 'The Grand Palace Hall, City Center';
+  const templateId = (req.body?.templateId || req.body?.selectedTemplateId || 'marcus').toLowerCase();
+  const rawPhoto = req.body?.userPhoto || req.body?.photoUrl || req.body?.uploadedImageUrl || null;
+  const eventId = req.body?.eventId || null;
+
+  console.log(`[AI Event Template] Request received: template='${templateId}', photoProvided=${Boolean(rawPhoto)}, title='${rawTitle}'`);
+
+  // Find template configuration from master registry or Prisma
+  let templateConfig = CURATED_TEMPLATE_PROMPTS[templateId] || null;
+
+  // Check Prisma for template if not found or for custom admin prompt override
+  if (prisma && prisma.template) {
+    try {
+      const dbTemplate = await prisma.template.findFirst({
+        where: {
+          OR: [{ id: templateId }, { name: { equals: templateId, mode: 'insensitive' } }],
+        },
+      });
+      if (dbTemplate && dbTemplate.content) {
+        try {
+          const parsedContent = typeof dbTemplate.content === 'string' ? JSON.parse(dbTemplate.content) : dbTemplate.content;
+          if (parsedContent?.prompt) {
+            templateConfig = {
+              title: dbTemplate.name,
+              prompt: parsedContent.prompt,
+              fallbackImg: parsedContent.imageUrl || templateConfig?.fallbackImg || "/images/marcus.webp",
+            };
+          }
+        } catch (_) {}
+      }
+    } catch (dbErr) {
+      console.warn('[AI Event Template] Prisma template lookup skipped:', dbErr.message);
+    }
+  }
+
+  // Default fallback if templateId not matched
+  if (!templateConfig) {
+    templateConfig = CURATED_TEMPLATE_PROMPTS.marcus;
+  }
+
+  // Construct combined FLUX prompt
+  const basePrompt = rawPrompt || templateConfig.prompt;
+  const fluxPrompt = `Cinematic vertical 9:16 mobile invitation background artwork for ${rawEventType} event titled "${rawTitle}". ${basePrompt}. Elegant atmospheric lighting, photorealistic 4K luxury celebration aesthetic, ample negative space in center for text typography, no text, no words, no lettering.`;
 
   let finalImageUrl = null;
+  const replicateToken = getReplicateToken();
 
-  try {
-    const replicateToken = getReplicateToken();
+  if (replicateToken && replicateToken.length > 10) {
+    try {
+      const Replicate = require('replicate');
+      const replicate = new Replicate({ auth: replicateToken });
 
-    if (replicateToken && replicateToken.length > 10) {
-      const styleHints = (() => {
-        const t = rawEventType.toLowerCase();
-        if (t.includes('wedding') || t.includes('marriage')) return 'soft romantic blush and ivory palette, delicate floral arch, golden hour bokeh';
-        if (t.includes('birthday') || t.includes('bday')) return 'vibrant confetti bursts, festive ribbon textures, celebratory gradient';
-        if (t.includes('corporate') || t.includes('summit') || t.includes('launch')) return 'sleek dark navy and gold corporate geometric lines, professional';
-        if (t.includes('baby') || t.includes('shower')) return 'pastel mint and blush tones, cute balloon elements, soft watercolor texture';
-        if (t.includes('anniversary')) return 'deep rose gold and champagne palette, elegant bokeh romance';
-        if (t.includes('dinner') || t.includes('gala') || t.includes('cocktail')) return 'moody candlelit amber and obsidian luxury, fine dining atmosphere';
-        if (t.includes('graduation') || t.includes('convocation')) return 'rich navy and gold academic palette, subtle confetti';
-        return 'elegant luxury celebration, vibrant premium color palette, sophisticated';
-      })();
+      let resolvedPhotoUrl = null;
+      if (rawPhoto && typeof rawPhoto === 'string') {
+        if (rawPhoto.startsWith('http://') || rawPhoto.startsWith('https://')) {
+          resolvedPhotoUrl = rawPhoto;
+        } else if (rawPhoto.startsWith('data:image/')) {
+          try {
+            const parts = rawPhoto.split(',');
+            const mimeMatch = parts[0].match(/data:(.*?);base64/);
+            const ext = (mimeMatch ? mimeMatch[1] : 'image/jpeg').split('/')[1] || 'jpg';
+            const buffer = Buffer.from(parts[1] || '', 'base64');
+            const fileObj = await replicate.files.create(buffer, { filename: `user_photo_${Date.now()}.${ext}` });
+            if (fileObj?.urls?.get || fileObj?.url) {
+              resolvedPhotoUrl = fileObj.urls?.get || fileObj.url;
+            }
+          } catch (uploadErr) {
+            console.warn('[AI Event Template] replicate.files.create error:', uploadErr.message);
+          }
+        }
+      }
 
-      const fluxPrompt = `Vertical 3:4 luxury invitation card background image, ${styleHints}, for ${rawEventType} event titled "${rawTitle}", ample negative space in center for text overlay, ultra-high quality, cinematic lighting, 4k print design, no text, no lettering.`;
+      console.log(`[Replicate FLUX] Generating invitation artwork (photo=${resolvedPhotoUrl ? 'attached' : 'none'})...`);
 
-      console.log('[Replicate FLUX] Generating template image for event type:', rawEventType);
+      // 1. If user photo is provided, attempt PuLID-FLUX or Face Fusion for identity adaptation
+      if (resolvedPhotoUrl) {
+        try {
+          console.log('[Replicate] Attempting PuLID-FLUX with user photo and template prompt...');
+          const pulidOutput = await replicate.run("zsxkib/pulid-flux:43d309c37ab4e6d0f3e72131a973ab79a75166a913fa48a43ac549d296a830a3", {
+            input: {
+              image: resolvedPhotoUrl,
+              prompt: fluxPrompt,
+              aspect_ratio: "9:16",
+              num_steps: 20,
+              id_weight: 1.0,
+            },
+          });
 
-      try {
-        const Replicate = require('replicate');
-        const replicate = new Replicate({ auth: replicateToken });
+          if (Array.isArray(pulidOutput) && pulidOutput.length > 0) {
+            finalImageUrl = typeof pulidOutput[0] === 'string' ? pulidOutput[0] : (pulidOutput[0]?.url ? pulidOutput[0].url() : String(pulidOutput[0]));
+          } else if (typeof pulidOutput === 'string') {
+            finalImageUrl = pulidOutput;
+          }
+        } catch (pulidErr) {
+          console.warn('[Replicate PuLID-FLUX] Not available or failed, falling back to FLUX schnell:', pulidErr.message);
+        }
+      }
 
+      // 2. Standard FLUX schnell generation if not already produced
+      if (!finalImageUrl) {
         const output = await replicate.run("black-forest-labs/flux-schnell", {
           input: {
             prompt: fluxPrompt,
-            aspect_ratio: "3:4",
+            aspect_ratio: "9:16",
             num_outputs: 1,
-            output_format: "jpg"
-          }
+            output_format: "webp",
+          },
         });
 
         if (Array.isArray(output) && output.length > 0) {
@@ -953,60 +1090,68 @@ const generateEventTemplate = async (req, res) => {
         } else if (typeof output === 'string') {
           finalImageUrl = output;
         }
-
-        if (finalImageUrl) {
-          console.log('[Replicate FLUX] Image generated successfully:', finalImageUrl.substring(0, 80));
-        }
-      } catch (fluxErr) {
-        console.warn('[Replicate FLUX] Generation failed:', fluxErr.message, '— using curated fallback.');
-        finalImageUrl = getCategorizedFallback(rawPrompt);
       }
-    } else {
-      finalImageUrl = getCategorizedFallback(rawPrompt);
-    }
 
-    if (!finalImageUrl) {
-      finalImageUrl = getCategorizedFallback(rawPrompt);
+      if (finalImageUrl) {
+        console.log('[Replicate FLUX] Image generated successfully:', String(finalImageUrl).substring(0, 80));
+      }
+    } catch (fluxErr) {
+      console.warn('[Replicate FLUX] Generation failed:', fluxErr.message, '— falling back to curated template image.');
     }
-
-    return res.status(200).json({
-      success: true,
-      imageUrl: finalImageUrl,
-      generatedBy: finalImageUrl?.includes('replicate') ? 'replicate-flux' : 'curated-template',
-      details: {
-        title: rawTitle,
-        date: rawDate,
-        venue: rawVenue,
-        subtitle: `Celebration of ${rawTitle}`,
-      },
-      meta: {
-        title: rawTitle,
-        date: rawDate,
-        venue: rawVenue,
-        eventType: rawEventType,
-      },
-    });
-  } catch (err) {
-    console.error('[AI Template] Exception caught:', err.message);
-    const fallbackUrl = getCategorizedFallback(rawPrompt);
-    return res.status(200).json({
-      success: true,
-      imageUrl: fallbackUrl,
-      generatedBy: 'fallback',
-      details: {
-        title: rawTitle || 'Special Event',
-        date: rawDate || 'Saturday, 25 October • 6:00 PM',
-        venue: rawVenue || 'Skyline Ballroom & Gardens',
-        subtitle: 'Celebration',
-      },
-      meta: {
-        title: rawTitle || 'Special Event',
-        date: rawDate || 'Saturday, 25 October • 6:00 PM',
-        venue: rawVenue || 'Skyline Ballroom & Gardens',
-        eventType: rawEventType,
-      },
-    });
   }
+
+  // Fallback if Replicate token was unavailable or model failed
+  if (!finalImageUrl) {
+    finalImageUrl = rawPhoto || templateConfig.fallbackImg || getCategorizedFallback(rawPrompt);
+  }
+
+  // Prisma Event & Invitation Database Synchronization
+  if (eventId && prisma && prisma.event) {
+    try {
+      await prisma.event.update({
+        where: { id: eventId },
+        data: {
+          coverImage: finalImageUrl,
+          selectedTemplateId: templateId,
+          updatedAt: new Date(),
+        },
+      });
+
+      if (prisma.invitation) {
+        await prisma.invitation.updateMany({
+          where: { eventId },
+          data: {
+            imageUrl: finalImageUrl,
+            templateId,
+            updatedAt: new Date(),
+          },
+        });
+      }
+      console.log(`[AI Event Template] Synced generated image to Prisma event ${eventId}`);
+    } catch (prismaSyncErr) {
+      console.warn('[AI Event Template] Prisma event sync error:', prismaSyncErr.message);
+    }
+  }
+
+  return res.status(200).json({
+    success: true,
+    imageUrl: finalImageUrl,
+    templateId,
+    generatedBy: finalImageUrl?.includes('replicate') ? 'replicate-flux' : (rawPhoto ? 'user-photo' : 'curated-template'),
+    details: {
+      title: rawTitle,
+      date: rawDate,
+      venue: rawVenue,
+      subtitle: `Celebration of ${rawTitle}`,
+    },
+    meta: {
+      title: rawTitle,
+      date: rawDate,
+      venue: rawVenue,
+      eventType: rawEventType,
+      templateId,
+    },
+  });
 };
 
 const FALLBACK_VIDEOS = {
@@ -1122,50 +1267,72 @@ const generateVideoTemplate = async (req, res) => {
     };
     const styleDesc = styleDescriptions[templateId] || styleDescriptions['burj-khalifa'];
 
-    const videoPrompt = `Cinematic vertical 9:16 mobile invitation video backdrop for ${effectiveTitle}${rawAge ? ' - ' + rawAge : ''}. Style: ${styleDesc}. ${rawPrompt ? 'User guidance: ' + rawPrompt : ''}. Ultra-smooth slow camera motion, 4k photorealistic, aesthetic lighting, seamless loop, clean negative space for invitation text.`;
+    let videoPrompt = "";
+    if (rawPrompt) {
+      videoPrompt = `Cinematic vertical 9:16 mobile invitation video backdrop for ${effectiveTitle}${rawAge ? ' - ' + rawAge : ''}. Animate the subject in this uploaded photo according to user instructions: "${rawPrompt}". Styled in theme of ${templateId}: ${styleDesc}. Ultra-smooth 4K photorealistic motion, natural facial animation and gentle smile, festive sparkles, cinematic lighting.`;
+    } else {
+      videoPrompt = `Cinematic vertical 9:16 mobile invitation video backdrop for ${effectiveTitle}${rawAge ? ' - ' + rawAge : ''}. ${styleDesc}. Animate the subject in this uploaded photo with subtle natural movement, gentle cheerful smile, celebratory golden particles and festive atmosphere, beautiful camera depth, 4K photorealistic lighting.`;
+    }
 
     console.log(`[Replicate Video] Initiating prediction for template '${templateId}', photo: ${rawPhoto ? 'provided' : 'none'}...`);
 
     let prediction;
     try {
       if (rawPhoto && (rawPhoto.startsWith('http') || rawPhoto.startsWith('data:image/'))) {
-        // Model Strategy: Face-Swap or Conditioned Image-to-Video
-        // 1. If template has a base video, attempt Face-Swap / Video-to-Video
-        if (templateVideoUrl && (templateVideoUrl.startsWith('http') || templateVideoUrl.startsWith('/videos/'))) {
+        // Upload base64 to Replicate files if needed
+        let resolvedPhotoUrl = rawPhoto;
+        if (rawPhoto.startsWith('data:image/')) {
           try {
-            console.log('[Replicate] Attempting face-swap/subject replacement pipeline...');
-            prediction = await replicate.predictions.create({
-              model: "cdingram/face-swap",
-              input: {
-                swap_image: rawPhoto,
-                target_image: rawPhoto, // Face swap input reference
-              }
-            });
-          } catch (faceErr) {
-            console.warn('[Replicate] Face swap pipeline bypassed, falling back to conditioned Image-to-Video:', faceErr.message);
+            const parts = rawPhoto.split(',');
+            const mimeMatch = parts[0].match(/data:(.*?);base64/);
+            const ext = (mimeMatch ? mimeMatch[1] : 'image/jpeg').split('/')[1] || 'jpg';
+            const buffer = Buffer.from(parts[1] || '', 'base64');
+            const fileObj = await replicate.files.create(buffer, { filename: `photo_${Date.now()}.${ext}` });
+            if (fileObj?.urls?.get || fileObj?.url) {
+              resolvedPhotoUrl = fileObj.urls?.get || fileObj.url;
+            }
+          } catch (uploadErr) {
+            console.warn('[Replicate Video] replicate.files.create error:', uploadErr.message);
           }
         }
 
-        // 2. Conditioned Image-to-Video using uploaded photo as primary input
-        if (!prediction) {
+        // Primary: Bytedance Seedance-1.5-Pro (High quality 24fps + Prompt guidance + Audio)
+        try {
+          console.log('[Replicate Video] Calling bytedance/seedance-1.5-pro with image & prompt...');
+          prediction = await replicate.predictions.create({
+            model: "bytedance/seedance-1.5-pro",
+            input: {
+              image: resolvedPhotoUrl,
+              prompt: videoPrompt,
+              duration: 5,
+              fps: 24,
+              camera_fixed: false,
+              generate_audio: true,
+            }
+          });
+        } catch (seedanceErr) {
+          console.warn('[Replicate Video] Seedance failed, trying Minimax video-01:', seedanceErr.message);
+
+          // Fallback 1: Minimax video-01 with first_frame_image
           try {
-            console.log('[Replicate] Calling minimax/video-01 with first_frame_image...');
             prediction = await replicate.predictions.create({
               model: "minimax/video-01",
               input: {
                 prompt: videoPrompt,
-                first_frame_image: rawPhoto,
-                prompt_optimizer: false,
+                first_frame_image: resolvedPhotoUrl,
+                prompt_optimizer: true,
               }
             });
           } catch (minimaxErr) {
-            console.warn('[Replicate] Minimax failed, trying Stable Video Diffusion:', minimaxErr.message);
+            console.warn('[Replicate Video] Minimax failed, trying SVD fallback:', minimaxErr.message);
             prediction = await replicate.predictions.create({
               version: "3f0457e4619daac51203dedb472816fd4af51f3149fa7a9e0b5ffcf1b8172438",
               input: {
-                input_image: rawPhoto,
-                motion_bucket_id: 130,
-                fps: 7,
+                input_image: resolvedPhotoUrl,
+                motion_bucket_id: 127,
+                frames_per_second: 6,
+                decoding_t: 14,
+                sizing_strategy: "maintain_aspect_ratio",
               }
             });
           }

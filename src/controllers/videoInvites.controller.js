@@ -235,24 +235,141 @@ const CURATED_FALLBACK_VIDEOS = {
   default: "/videos/golden-celebration.mp4",
 };
 
+// In-memory wallet store for unauthenticated guest sessions
+const guestWallets = new Map();
+
+// Active prediction tracking for polling refund safety
+// Key: predictionId -> { userId, guestId, creditsDeducted, refunded, createdAt }
+const activePredictions = new Map();
+
 /**
- * Controller: POST /api/video-invites/create-ai-template
- * Main full-stack Image-to-Video generation endpoint
+ * Helper to fetch balance for user or guest session
  */
-const createAiTemplate = async (req, res) => {
+async function getBalance(userId, guestId) {
+  if (userId) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { credits: true },
+    });
+    return user ? user.credits : 0;
+  }
+  if (!guestWallets.has(guestId)) {
+    guestWallets.set(guestId, 30);
+  }
+  return guestWallets.get(guestId);
+}
+
+/**
+ * Helper to refund deducted credits in DB or guest wallet
+ */
+async function refundUserCredits(userId, guestId, amount = 2) {
+  if (userId) {
+    try {
+      const updated = await prisma.user.update({
+        where: { id: userId },
+        data: { credits: { increment: amount } },
+        select: { credits: true },
+      });
+      console.log(`[VideoInvites] Successfully refunded ${amount} credits to user ${userId}. New balance: ${updated.credits}`);
+      return updated.credits;
+    } catch (e) {
+      console.error("[VideoInvites] Credit refund error for user:", e.message);
+    }
+  } else if (guestId) {
+    const current = guestWallets.get(guestId) ?? 30;
+    const newBal = current + amount;
+    guestWallets.set(guestId, newBal);
+    console.log(`[VideoInvites] Refunded ${amount} credits to guest session ${guestId}. New balance: ${newBal}`);
+    return newBal;
+  }
+  return 0;
+}
+
+/**
+ * Controller: POST /api/video-invites/generate
+ * Main endpoint for Replicate Seedance video generation with credit management & rollback logic
+ */
+const generateVideoInvite = async (req, res) => {
+  const userId = req.user?.id || null;
+  const guestId = req.headers["x-guest-session-id"] || req.cookies?.guestId || req.ip || "guest_default";
+  let creditDeducted = false;
+  let remainingCredits = 0;
+
   try {
+    // 1. Credit Check & Transaction Lock: Ensure user has >= 2 credits
+    if (userId) {
+      try {
+        const txResult = await prisma.$transaction(async (tx) => {
+          const user = await tx.user.findUnique({
+            where: { id: userId },
+            select: { id: true, credits: true },
+          });
+
+          if (!user) {
+            throw new Error("USER_NOT_FOUND");
+          }
+
+          if (user.credits < 2) {
+            const err = new Error("INSUFFICIENT_CREDITS");
+            err.statusCode = 402;
+            err.credits = user.credits;
+            throw err;
+          }
+
+          // Atomically deduct 2 credits
+          const updated = await tx.user.update({
+            where: { id: userId },
+            data: { credits: { decrement: 2 } },
+            select: { id: true, credits: true },
+          });
+
+          return updated;
+        });
+
+        creditDeducted = true;
+        remainingCredits = txResult.credits;
+        console.log(`[VideoInvites] Deducted 2 credits from user ${userId}. Remaining credits: ${remainingCredits}`);
+      } catch (txErr) {
+        if (txErr.message === "INSUFFICIENT_CREDITS" || txErr.statusCode === 402) {
+          return res.status(402).json({
+            success: false,
+            error: "Insufficient credits. You need at least 2 credits to generate a video invite.",
+            requiresCredits: true,
+            remainingCredits: txErr.credits !== undefined ? txErr.credits : 0,
+          });
+        }
+        return res.status(400).json({ success: false, error: txErr.message });
+      }
+    } else {
+      // Guest wallet (starts with 30 free credits)
+      const current = guestWallets.get(guestId) ?? 30;
+      if (current < 2) {
+        return res.status(402).json({
+          success: false,
+          error: "Insufficient credits. You need at least 2 credits to generate a video invite.",
+          requiresCredits: true,
+          remainingCredits: current,
+        });
+      }
+      remainingCredits = current - 2;
+      guestWallets.set(guestId, remainingCredits);
+      creditDeducted = true;
+      console.log(`[VideoInvites] Deducted 2 credits from guest ${guestId}. Remaining: ${remainingCredits}`);
+    }
+
+    // 2. Parse creation mode & parameters
+    const creationMode = req.body?.creationMode === "describe" ? "describe" : "template";
     const templateId = (
       req.body?.selectedTemplateId ||
       req.body?.templateId ||
       "premiere"
     ).trim();
-
     const selectedTemplate = TEMPLATE_STYLES[templateId] || TEMPLATE_STYLES.premiere;
 
-    const userDescription = (
+    const userPrompt = (
+      req.body?.prompt ||
       req.body?.userDescription ||
       req.body?.eventDescription ||
-      req.body?.prompt ||
       req.body?.notes ||
       ""
     ).trim();
@@ -264,18 +381,18 @@ const createAiTemplate = async (req, res) => {
       req.body?.isViral === "1";
 
     const eventDetails = req.body?.eventDetails || {};
-    const eventTitle = eventDetails.title || req.body?.eventTitle || selectedTemplate.title;
-    const eventDate = eventDetails.date || req.body?.eventDate || "Saturday, 25 October • 6:00 PM";
-    const eventVenue = eventDetails.venue || req.body?.eventVenue || "Sky Lounge & Terrace";
+    const eventTitle = eventDetails.title || req.body?.eventTitle || req.body?.title || selectedTemplate.title;
+    const eventDate = eventDetails.date || req.body?.eventDate || req.body?.date || "Saturday, 25 October • 6:00 PM";
+    const eventVenue = eventDetails.venue || req.body?.eventVenue || req.body?.venue || "Sky Lounge & Terrace";
     const waitForCompletion =
       req.body?.waitForCompletion === true ||
       req.body?.waitForCompletion === "true";
 
-    // 1. Resolve photo upload (multipart/form-data or body URL or base64 data URI)
+    // 3. Resolve uploaded photo
     let uploadedPhotoUrl = null;
     let designUrl = req.body?.designUrl || null;
 
-    // A. Check multipart files if uploaded via multer
+    // A. Check multipart files
     const photoFile =
       req.files?.photo?.[0] ||
       req.files?.uploadedPhoto?.[0] ||
@@ -293,7 +410,7 @@ const createAiTemplate = async (req, res) => {
           uploadedPhotoUrl = uploadResult.url || uploadResult.fileUrl;
         }
       } catch (uploadErr) {
-        console.warn("[VideoInvites] Photo file upload to R2 failed:", uploadErr.message);
+        console.warn("[VideoInvites] Photo file upload failed:", uploadErr.message);
       }
     }
 
@@ -304,16 +421,15 @@ const createAiTemplate = async (req, res) => {
           designUrl = designUpload.url || designUpload.fileUrl;
         }
       } catch (designErr) {
-        console.warn("[VideoInvites] Design file upload to R2 failed:", designErr.message);
+        console.warn("[VideoInvites] Design file upload failed:", designErr.message);
       }
     }
 
-    // B. Check raw body photo if not from multipart
+    // B. Check body photo (URL or base64)
     if (!uploadedPhotoUrl) {
       const rawPhoto = req.body?.uploadedImageUrl || req.body?.uploadedPhotoUrl || req.body?.photoUrl || req.body?.photo;
       if (rawPhoto && typeof rawPhoto === "string") {
         if (rawPhoto.startsWith("data:image/")) {
-          // Convert base64 data URI to persistent Cloudflare R2 / storage URL
           try {
             const b64Result = await saveBase64Image(rawPhoto, req, "video_photo");
             if (b64Result?.url || b64Result?.fileUrl) {
@@ -330,35 +446,42 @@ const createAiTemplate = async (req, res) => {
       }
     }
 
-    // C. Validation: Verify photo is uploaded
-    if (!uploadedPhotoUrl) {
-      // If user did not provide a photo, check if fallback sample photo is permitted
+    // C. Validation for "Pick a template" mode: User photo is required
+    if (creationMode === "template" && !uploadedPhotoUrl) {
       if (req.body?.allowSamplePhoto === true || req.body?.allowSamplePhoto === "true") {
-        uploadedPhotoUrl = selectedTemplate.defaultPhoto || CURATED_FALLBACK_VIDEOS.default;
+        uploadedPhotoUrl = selectedTemplate.defaultPhoto || "https://pub-b01a35ccbe054425bacd868be6412477.r2.dev/template_assets/grad.webp";
       } else {
+        // Rollback / refund 2 credits
+        const restored = await refundUserCredits(userId, guestId, 2);
         return res.status(400).json({
           success: false,
-          error:
-            "Please upload a photo of the celebrant or event. An image is required to generate the Image-to-Video invite.",
+          error: "Please upload your photo. An image is required to generate the template video invite.",
           requiresPhoto: true,
+          refunded: true,
+          remainingCredits: restored,
         });
       }
     }
 
-    // 2. Synthesize optimized prompt specifically tailored to animate the user's photo
+    // 4. Input mapping for ByteDance Seedance Video Model
+    // Aspect ratio: 9:16 (vertical mobile preview)
     const viralPromptEnhancement = isViral
-      ? "viral party celebration energy, dynamic camera zoom, trending social media motion, volumetric golden lighting"
+      ? "Viral party celebration energy, dynamic camera motion, trending social media cinematography, volumetric golden rim lighting."
       : "";
 
-    const combinedPrompt = `Animate the subject in this uploaded photo for a ${selectedTemplate.title} celebration. ${
-      selectedTemplate.stylePrefix
-    }. ${userDescription ? userDescription + ". " : ""}${
-      viralPromptEnhancement ? viralPromptEnhancement + ". " : ""
-    }Subtle natural movement, gentle smiling, cinematic camera depth and lighting. Ultra-smooth vertical 9:16 mobile video invitation loop.`;
+    let combinedPrompt = "";
+    if (creationMode === "template") {
+      // Template Mode: template predefined prompt + user photo
+      combinedPrompt = `Cinematic vertical 9:16 mobile invitation video backdrop for ${eventTitle}. ${selectedTemplate.stylePrefix}. ${viralPromptEnhancement} Animate the subject in this uploaded photo with subtle natural movement, gentle cheerful smile, celebratory golden particles and festive atmosphere, beautiful camera depth, 4K photorealistic lighting, ultra-smooth 24fps motion.`;
+    } else {
+      // Describe Mode: user custom text prompt (+ optional reference image)
+      const promptCore = userPrompt || `${eventTitle} luxury celebration`;
+      combinedPrompt = `Cinematic vertical 9:16 mobile celebration video invitation backdrop for ${eventTitle}. User prompt: "${promptCore}". ${viralPromptEnhancement} Photorealistic 4K quality, natural facial animation and gentle joyful expression, festive sparkles, cinematic lighting, ultra-smooth 24fps vertical motion.`;
+    }
 
     const inviteId = crypto.randomUUID();
 
-    // 3. Check Replicate API Token
+    // 5. Check Replicate API Token
     const replicateToken = getReplicateToken();
     if (!replicateToken || replicateToken.length < 10) {
       console.warn("[VideoInvites] Replicate API token missing or invalid. Returning curated video template.");
@@ -369,6 +492,7 @@ const createAiTemplate = async (req, res) => {
         videoUrl: fallbackUrl,
         inviteId,
         isFallback: true,
+        remainingCredits,
         warning: "Replicate API token not configured. Generated high-definition motion template.",
         prompt: combinedPrompt,
         template: {
@@ -386,95 +510,91 @@ const createAiTemplate = async (req, res) => {
       });
     }
 
-    // 4. Initialize Replicate SDK and run Image-to-Video prediction
+    // 6. Initialize Replicate SDK and run Seedance Video Model
     const Replicate = require("replicate");
     const replicate = new Replicate({ auth: replicateToken });
 
-    let prediction;
-    console.log(
-      `[VideoInvites] Initiating Replicate Image-to-Video for template '${templateId}' with photo: ${uploadedPhotoUrl.slice(
-        0,
-        70
-      )}...`
-    );
-
-    const motionIntensity = isViral ? 150 : (selectedTemplate.motionBucket || 127);
-    const speedMode = req.body?.speedMode || req.body?.modelPreference || "fast";
-
-    // Primary: Stable Video Diffusion (fast, ~15-20s, directly transforms user's photo)
-    if (speedMode !== "cinematic") {
+    // Handle base64 photo via Replicate Files API if needed
+    if (uploadedPhotoUrl && uploadedPhotoUrl.startsWith("data:image/")) {
       try {
-        console.log(`[VideoInvites] Calling Stability AI Stable Video Diffusion (Fast Mode, motion: ${motionIntensity})...`);
-        prediction = await replicate.predictions.create({
-          version: "3f0457e4619daac51203dedb472816fd4af51f3149fa7a9e0b5ffcf1b8172438",
-          input: {
-            input_image: uploadedPhotoUrl,
-            motion_bucket_id: motionIntensity,
-            fps: 7,
-            decoding_t: 14,
-            sizing_strategy: "maintain_aspect_ratio",
-          },
-        });
-      } catch (svdErr) {
-        console.warn("[VideoInvites] SVD call failed:", svdErr.message, "— attempting Minimax fallback");
+        const parts = uploadedPhotoUrl.split(",");
+        const mimeMatch = parts[0].match(/data:(.*?);base64/);
+        const mimeType = mimeMatch ? mimeMatch[1] : "image/jpeg";
+        const ext = mimeType.split("/")[1] || "jpg";
+        const buffer = Buffer.from(parts[1] || "", "base64");
+        console.log(`[VideoInvites] Uploading base64 image (${buffer.length} bytes) to Replicate files...`);
+        const fileObj = await replicate.files.create(buffer, { filename: `photo_${Date.now()}.${ext}` });
+        const fileUrl = fileObj?.urls?.get || fileObj?.url;
+        if (fileUrl) {
+          uploadedPhotoUrl = fileUrl;
+          console.log(`[VideoInvites] Uploaded to Replicate file URL: ${uploadedPhotoUrl}`);
+        }
+      } catch (uploadErr) {
+        console.warn("[VideoInvites] Replicate files upload error:", uploadErr.message);
       }
     }
 
-    // Fallback or Cinematic mode: Minimax video-01 with prompt_optimizer: false (for speed)
-    if (!prediction) {
+    // Seedance Model Input Mapping:
+    // Aspect ratio: 9:16 for vertical mobile preview
+    const seedanceInput = {
+      prompt: combinedPrompt,
+      duration: 5,
+      fps: 24,
+      aspect_ratio: "9:16",
+      camera_fixed: false,
+      generate_audio: true,
+    };
+
+    if (uploadedPhotoUrl) {
+      seedanceInput.image = uploadedPhotoUrl;
+    }
+
+    let prediction;
+    console.log(
+      `[VideoInvites] Initiating ByteDance Seedance video generation (model: bytedance/seedance-1.5-pro, mode: ${creationMode}, 9:16)...`
+    );
+
+    try {
+      prediction = await replicate.predictions.create({
+        model: "bytedance/seedance-1.5-pro",
+        input: seedanceInput,
+      });
+    } catch (seedanceErr) {
+      console.warn("[VideoInvites] Seedance model invocation failed, trying Minimax fallback:", seedanceErr.message);
       try {
-        console.log(`[VideoInvites] Calling Minimax video-01 with prompt_optimizer: false...`);
         prediction = await replicate.predictions.create({
           model: "minimax/video-01",
           input: {
             prompt: combinedPrompt,
-            first_frame_image: uploadedPhotoUrl,
-            prompt_optimizer: false,
+            first_frame_image: uploadedPhotoUrl || undefined,
+            prompt_optimizer: true,
           },
         });
-      } catch (minimaxErr) {
-        console.warn("[VideoInvites] Minimax call failed:", minimaxErr.message);
-        try {
-          // Retry SVD if not attempted
-          prediction = await replicate.predictions.create({
-            version: "3f0457e4619daac51203dedb472816fd4af51f3149fa7a9e0b5ffcf1b8172438",
-            input: {
-              input_image: uploadedPhotoUrl,
-              motion_bucket_id: motionIntensity,
-              fps: 7,
-            },
-          });
-        } catch (finalReplicateErr) {
-          console.error("[VideoInvites] All Replicate model invocations failed:", finalReplicateErr.message);
-          const fallbackUrl = CURATED_FALLBACK_VIDEOS[templateId] || CURATED_FALLBACK_VIDEOS.default;
-          return res.status(200).json({
-            success: true,
-            async: false,
-            videoUrl: fallbackUrl,
-            inviteId,
-            isFallback: true,
-            warning: `AI video queue busy (${finalReplicateErr.message}). Provided preview template.`,
-            prompt: combinedPrompt,
-            template: {
-              id: selectedTemplate.id,
-              title: selectedTemplate.title,
-              stylePrefix: selectedTemplate.stylePrefix,
-            },
-            details: {
-              title: eventTitle,
-              date: eventDate,
-              venue: eventVenue,
-              photoUrl: uploadedPhotoUrl,
-              designUrl,
-            },
-          });
-        }
+      } catch (fallbackErr) {
+        console.error("[VideoInvites] All Replicate video models failed:", fallbackErr.message);
+        // Automatic refund / rollback of deducted credits!
+        const restored = await refundUserCredits(userId, guestId, 2);
+        return res.status(500).json({
+          success: false,
+          error: `AI video generation failed: ${fallbackErr.message}. Your 2 credits have been refunded.`,
+          refunded: true,
+          remainingCredits: restored,
+        });
       }
     }
 
     console.log(`[VideoInvites] Prediction created successfully: ${prediction.id}, status: ${prediction.status}`);
 
-    // 5. Handle synchronous polling if requested
+    // Track active prediction for status polling and rollback safety
+    activePredictions.set(prediction.id, {
+      userId,
+      guestId,
+      creditsDeducted: 2,
+      refunded: false,
+      createdAt: Date.now(),
+    });
+
+    // 7. Handle synchronous wait if requested
     if (waitForCompletion) {
       const maxWaitMs = 55000;
       const startTime = Date.now();
@@ -500,13 +620,17 @@ const createAiTemplate = async (req, res) => {
           finalVideoUrl = currentPrediction.output;
         } else if (Array.isArray(currentPrediction.output) && currentPrediction.output.length > 0) {
           finalVideoUrl = currentPrediction.output[0];
+        } else if (currentPrediction.output?.url) {
+          finalVideoUrl = typeof currentPrediction.output.url === "function" ? currentPrediction.output.url() : currentPrediction.output.url;
         }
 
         return res.status(200).json({
           success: true,
           videoUrl: finalVideoUrl,
+          remainingCredits,
           inviteId,
           prompt: combinedPrompt,
+          message: "Video generated successfully. 2 credits deducted.",
           template: {
             id: selectedTemplate.id,
             title: selectedTemplate.title,
@@ -520,15 +644,26 @@ const createAiTemplate = async (req, res) => {
             designUrl,
           },
         });
+      } else if (currentPrediction.status === "failed" || currentPrediction.status === "canceled") {
+        // Rollback / refund deducted credits
+        const restored = await refundUserCredits(userId, guestId, 2);
+        return res.status(500).json({
+          success: false,
+          error: "Video generation failed. Your 2 credits have been refunded.",
+          refunded: true,
+          remainingCredits: restored,
+        });
       }
     }
 
-    // Default asynchronous response — client polls prediction endpoint
+    // Default: asynchronous polling response
     return res.status(200).json({
       success: true,
       async: true,
       predictionId: prediction.id,
       status: prediction.status,
+      remainingCredits,
+      message: "ByteDance Seedance video generation started. 2 credits deducted.",
       inviteId,
       prompt: combinedPrompt,
       template: {
@@ -545,7 +680,17 @@ const createAiTemplate = async (req, res) => {
       },
     });
   } catch (err) {
-    console.error("[VideoInvites] Unhandled exception in createAiTemplate:", err);
+    console.error("[VideoInvites] Unhandled exception in generateVideoInvite:", err);
+    // Automatic refund / rollback if credits were deducted
+    if (creditDeducted) {
+      const restored = await refundUserCredits(userId, guestId, 2);
+      return res.status(500).json({
+        success: false,
+        error: err.message || "Failed to initiate AI video generation",
+        refunded: true,
+        remainingCredits: restored,
+      });
+    }
     return res.status(500).json({
       success: false,
       error: err.message || "Failed to initiate AI video generation",
@@ -555,7 +700,8 @@ const createAiTemplate = async (req, res) => {
 
 /**
  * Controller: GET /api/video-invites/status/:predictionId
- * Polling endpoint for checking prediction status and retrieving video output
+ * Polling endpoint for checking prediction status and retrieving video output.
+ * Automatically refunds user's 2 credits if Replicate generation failed.
  */
 const checkPredictionStatus = async (req, res) => {
   const { predictionId } = req.params;
@@ -581,8 +727,22 @@ const checkPredictionStatus = async (req, res) => {
       if (typeof prediction.output === "string") {
         videoUrl = prediction.output;
       } else if (Array.isArray(prediction.output) && prediction.output.length > 0) {
-        videoUrl = prediction.output[0];
+        const first = prediction.output[0];
+        videoUrl = typeof first === "string" ? first : (first?.url || String(first));
+      } else if (prediction.output?.url) {
+        videoUrl = typeof prediction.output.url === "function" ? prediction.output.url() : prediction.output.url;
       }
+    }
+
+    // Rollback / refund logic if status is failed or canceled
+    let refunded = false;
+    let remainingCredits = null;
+    const tracked = activePredictions.get(predictionId);
+    if ((prediction.status === "failed" || prediction.status === "canceled") && tracked && !tracked.refunded) {
+      remainingCredits = await refundUserCredits(tracked.userId, tracked.guestId, tracked.creditsDeducted || 2);
+      tracked.refunded = true;
+      refunded = true;
+      console.log(`[VideoInvites] Prediction ${predictionId} failed. Refunded ${tracked.creditsDeducted || 2} credits to user/guest.`);
     }
 
     return res.status(200).json({
@@ -590,6 +750,8 @@ const checkPredictionStatus = async (req, res) => {
       status: prediction.status, // "starting" | "processing" | "succeeded" | "failed" | "canceled"
       videoUrl,
       error: prediction.error || null,
+      refunded,
+      remainingCredits,
       logs: prediction.logs || null,
     });
   } catch (err) {
@@ -598,6 +760,59 @@ const checkPredictionStatus = async (req, res) => {
       success: false,
       error: err.message || "Failed to fetch prediction status",
     });
+  }
+};
+
+/**
+ * Controller: GET /api/video-invites/credits
+ * Returns user's current credit balance
+ */
+const getUserCredits = async (req, res) => {
+  const userId = req.user?.id || null;
+  const guestId = req.headers["x-guest-session-id"] || req.cookies?.guestId || req.ip || "guest_default";
+  try {
+    const credits = await getBalance(userId, guestId);
+    return res.status(200).json({
+      success: true,
+      credits,
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+/**
+ * Controller: POST /api/video-invites/buy-credits
+ * Credit purchase endpoint to top-up user or guest account
+ */
+const buyCredits = async (req, res) => {
+  const userId = req.user?.id || null;
+  const guestId = req.headers["x-guest-session-id"] || req.cookies?.guestId || req.ip || "guest_default";
+  const amount = Math.max(1, parseInt(req.body?.amount || 20, 10));
+
+  try {
+    let updatedCredits = 0;
+    if (userId) {
+      const user = await prisma.user.update({
+        where: { id: userId },
+        data: { credits: { increment: amount } },
+        select: { credits: true },
+      });
+      updatedCredits = user.credits;
+    } else {
+      const current = guestWallets.get(guestId) ?? 30;
+      updatedCredits = current + amount;
+      guestWallets.set(guestId, updatedCredits);
+    }
+
+    return res.status(200).json({
+      success: true,
+      credits: updatedCredits,
+      addedAmount: amount,
+      message: `Successfully purchased ${amount} credits! Your new balance is ${updatedCredits} credits.`,
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
   }
 };
 
@@ -613,8 +828,11 @@ const listTemplates = (req, res) => {
 };
 
 module.exports = {
-  createAiTemplate,
+  generateVideoInvite,
+  createAiTemplate: generateVideoInvite, // Backward compatibility alias
   checkPredictionStatus,
+  getUserCredits,
+  buyCredits,
   listTemplates,
   TEMPLATE_STYLES,
 };

@@ -15,11 +15,16 @@ const globalForPrisma = globalThis;
  */
 function buildPrismaClient() {
   const baseUrl = process.env.DATABASE_URL || "";
-  // Inject connect_timeout only if not already present
   let datasourceUrl = baseUrl;
-  if (baseUrl && !baseUrl.includes("connect_timeout")) {
+  if (baseUrl) {
     const sep = baseUrl.includes("?") ? "&" : "?";
-    datasourceUrl = `${baseUrl}${sep}connect_timeout=5`;
+    if (!datasourceUrl.includes("connect_timeout")) {
+      datasourceUrl = `${datasourceUrl}${sep}connect_timeout=30`;
+    }
+    const currentSep = datasourceUrl.includes("?") ? "&" : "?";
+    if (!datasourceUrl.includes("pool_timeout")) {
+      datasourceUrl = `${datasourceUrl}${currentSep}pool_timeout=30`;
+    }
   }
 
   return new PrismaClient({

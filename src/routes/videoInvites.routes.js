@@ -28,10 +28,24 @@ const uploadFields = upload.fields([
   { name: "designAsset", maxCount: 1 },
 ]);
 
-// POST /api/video-invites/create-ai-template — Generate AI video invite from uploaded photo & prompt
-router.post("/create-ai-template", uploadFields, videoInvitesController.createAiTemplate);
+const { optionalAuthMiddleware } = require("../middleware/auth.middleware");
 
-// GET /api/video-invites/status/:predictionId — Check Replicate generation status
+// Attach optional authentication so logged in users have req.user populated
+router.use(optionalAuthMiddleware);
+
+// POST /api/video-invites/generate — Main Seedance video generation endpoint with credit check & transaction lock
+router.post("/generate", uploadFields, videoInvitesController.generateVideoInvite);
+
+// GET /api/video-invites/credits — Get current available credits for user or guest
+router.get("/credits", videoInvitesController.getUserCredits);
+
+// POST /api/video-invites/buy-credits — Purchase credits modal trigger
+router.post("/buy-credits", videoInvitesController.buyCredits);
+
+// POST /api/video-invites/create-ai-template — Backward compatibility alias
+router.post("/create-ai-template", uploadFields, videoInvitesController.generateVideoInvite);
+
+// GET /api/video-invites/status/:predictionId — Check Replicate generation status with rollback
 router.get("/status/:predictionId", videoInvitesController.checkPredictionStatus);
 
 // GET /api/video-invites/templates — Get list of supported styles and templates

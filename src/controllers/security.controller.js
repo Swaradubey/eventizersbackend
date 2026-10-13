@@ -634,24 +634,11 @@ const updateAttendanceGuarantee = async (req, res) => {
  * POST /api/security/attendance-guarantee/auto-waive
  */
 const triggerAutoWaive = async (req, res) => {
-  try {
-    const { processAutoWaive } = require("../jobs/autoWaive.job");
-    const result = await processAutoWaive();
-    if (!result.success) {
-      return res.status(500).json({ success: false, error: result.error });
-    }
-    return res.status(200).json({
-      success: true,
-      message: `Auto-waive job executed. Waived ${result.totalWaived} pending guarantee fees.`,
-      data: result,
-    });
-  } catch (error) {
-    console.error("Trigger Auto-Waive Error:", error);
-    return res.status(500).json({
-      success: false,
-      error: "Server error executing auto-waive job.",
-    });
-  }
+  return res.status(200).json({
+    success: true,
+    message: "Auto-waive job has been retired.",
+    data: { totalWaived: 0 },
+  });
 };
 
 module.exports = {
