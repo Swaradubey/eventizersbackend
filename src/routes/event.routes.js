@@ -15,6 +15,10 @@ const aiController = require("../controllers/ai.controller");
 // Public / Guest accessible AI route
 router.post("/ai-generate", authMiddleware.optionalAuthMiddleware, aiController.generateEventWithAI);
 
+// Publish & Share via Mail routes (supports both authenticated hosts and seamless landing page wizard dispatches)
+router.post("/:id/publish", authMiddleware.optionalAuthMiddleware, eventController.publishEvent);
+router.post("/:id/send-invites", authMiddleware.optionalAuthMiddleware, eventController.sendInvites);
+
 // Protect remaining routes with authMiddleware
 router.use(authMiddleware);
 

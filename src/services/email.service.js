@@ -2215,6 +2215,257 @@ const sendEventReminderEmail = async ({ guest, event, reminderMessage, daysBefor
   }
 };
 
+/**
+ * Generate branded HTML invitation email
+ */
+const generatePublishInviteHtml = ({ event, guest, inviteUrl, hostNote }) => {
+  const eventTitle = event?.title || "Special Event";
+  const venue = event?.venue || event?.location || "Private Venue";
+  const note = hostNote || event?.description || event?.emailDescription || "You have been cordially invited to celebrate with us.";
+  
+  let dateStr = "";
+  if (event?.eventDate) {
+    const d = new Date(event.eventDate);
+    dateStr = isNaN(d.getTime()) ? String(event.eventDate) : d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+  }
+  let timeStr = "";
+  if (event?.eventTime) {
+    if (event.eventTime instanceof Date) {
+      timeStr = event.eventTime.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+    } else {
+      timeStr = String(event.eventTime);
+    }
+  }
+
+  const whenStr = [dateStr, timeStr].filter(Boolean).join(" • ") || "Date details enclosed";
+  const guestSalutation = guest?.name ? `Dear ${guest.name},` : "Hello,";
+
+  // Resolve Replicate AI artwork or cover image URL
+  const tData = event?.templateData || event?.canvasState || {};
+  const isVideoInvite = Boolean(
+    tData.inviteFormat === "video" ||
+    event?.isVideo ||
+    tData.generatedVideoUrl ||
+    event?.videoUrl ||
+    (event?.previewUrl && typeof event.previewUrl === "string" && event.previewUrl.endsWith(".mp4")) ||
+    (event?.coverImage && typeof event.coverImage === "string" && event.coverImage.endsWith(".mp4"))
+  );
+
+  // For email card preview, find the visual image/poster (email clients require an image tag, not a raw mp4)
+  const candidateImages = [
+    tData.posterUrl,
+    tData.generatedImageUrl,
+    tData.activeDisplayPhoto,
+    tData.userPhoto,
+    event?.coverImage,
+    event?.previewUrl,
+  ];
+
+  const rawImage = candidateImages.find(
+    (img) => typeof img === "string" && img.trim().length > 0 && !img.endsWith(".mp4") && !img.endsWith(".webm")
+  ) || (isVideoInvite ? "/images/marcus.webp" : "/images/party.webp");
+
+  let previewImageUrl = null;
+  if (rawImage && typeof rawImage === "string") {
+    if (rawImage.startsWith("http://") || rawImage.startsWith("https://")) {
+      previewImageUrl = rawImage;
+    } else if (rawImage.startsWith("/")) {
+      const frontendUrl = (process.env.FRONTEND_URL || "http://localhost:3000").replace(/\/+$/, "");
+      previewImageUrl = `${frontendUrl}${rawImage}`;
+    }
+  }
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${eventTitle} - Invitation</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #0b0f14; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #f3f4f6; -webkit-font-smoothing: antialiased;">
+  <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #0b0f14; min-height: 100vh;">
+    <tr>
+      <td align="center" style="padding: 40px 16px;">
+        <!-- Card Container -->
+        <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 580px; background-color: #121820; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 24px; overflow: hidden; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);">
+          
+          <!-- Header Banner -->
+          <tr>
+            <td align="center" style="padding: 32px 32px 16px 32px; background: linear-gradient(180deg, rgba(251, 191, 36, 0.12) 0%, rgba(18, 24, 32, 0) 100%);">
+              <span style="display: inline-block; font-size: 11px; font-weight: 800; letter-spacing: 0.25em; text-transform: uppercase; color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.35); border-radius: 999px; padding: 6px 16px; background-color: rgba(0, 0, 0, 0.4);">
+                YOU'RE INVITED
+              </span>
+              <h1 style="margin: 20px 0 8px 0; font-size: 30px; line-height: 1.2; font-weight: 800; color: #ffffff; letter-spacing: -0.02em; text-align: center;">
+                ${eventTitle}
+              </h1>
+            </td>
+          </tr>
+
+          <!-- Content Body -->
+          <tr>
+            <td style="padding: 0 32px 28px 32px; text-align: center;">
+              <p style="margin: 0 0 12px 0; font-size: 15px; font-weight: 600; color: #fbbf24;">
+                ${guestSalutation}
+              </p>
+              <p style="margin: 0 0 20px 0; font-size: 14px; line-height: 1.6; color: #cbd5e1; max-width: 460px; margin-left: auto; margin-right: auto;">
+                ${note}
+              </p>
+
+              <!-- Exact Visual Artwork Preview Card (Replicate AI / Video Poster with Play overlay) -->
+              ${previewImageUrl ? `
+              <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 0 auto 24px auto; max-width: 320px;">
+                <tr>
+                  <td align="center" style="position: relative; border-radius: 20px; overflow: hidden; border: 2px solid rgba(255, 255, 255, 0.15); box-shadow: 0 16px 36px rgba(0, 0, 0, 0.7); background-color: #070a0e;">
+                    <a href="${inviteUrl}" target="_blank" rel="noopener noreferrer" style="display: block; text-decoration: none; position: relative;">
+                      <img src="${previewImageUrl}" alt="${eventTitle}" width="320" style="display: block; width: 100%; max-width: 320px; height: auto; aspect-ratio: 9/14; object-fit: cover; border-radius: 18px;" />
+                      ${isVideoInvite ? `
+                      <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 62px; height: 62px; border-radius: 50%; background: rgba(0, 0, 0, 0.75); border: 2px solid #fbbf24; box-shadow: 0 0 20px rgba(251, 191, 36, 0.6); text-align: center; line-height: 58px;">
+                        <span style="display: inline-block; font-size: 24px; color: #fbbf24; margin-left: 3px;">▶</span>
+                      </div>
+                      <div style="position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); background: rgba(0, 0, 0, 0.85); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 999px; padding: 4px 14px; font-size: 10px; font-weight: 800; color: #fbbf24; letter-spacing: 0.1em; text-transform: uppercase; white-space: nowrap;">
+                        ✦ AI Video Invite • Click to Play
+                      </div>
+                      ` : `
+                      <div style="position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); background: rgba(0, 0, 0, 0.85); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 999px; padding: 4px 14px; font-size: 10px; font-weight: 800; color: #fbbf24; letter-spacing: 0.1em; text-transform: uppercase; white-space: nowrap;">
+                        ✦ Interactive Invite • Click to View
+                      </div>
+                      `}
+                    </a>
+                  </td>
+                </tr>
+              </table>
+              ` : ""}
+
+              <!-- Event Details Box -->
+              <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 20px 0; background-color: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 16px; text-align: left;">
+                <tr>
+                  <td style="padding: 14px 20px; border-bottom: 1px solid rgba(255, 255, 255, 0.06);">
+                    <span style="display: block; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.15em; color: #94a3b8; margin-bottom: 3px;">WHEN</span>
+                    <span style="font-size: 14px; font-weight: 700; color: #ffffff;">${whenStr}</span>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 14px 20px;">
+                    <span style="display: block; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.15em; color: #94a3b8; margin-bottom: 3px;">WHERE</span>
+                    <span style="font-size: 14px; font-weight: 700; color: #ffffff;">${venue}</span>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Prominent CTA Button -->
+              <table role="presentation" border="0" cellspacing="0" cellpadding="0" style="margin: 28px auto 14px auto;">
+                <tr>
+                  <td align="center" style="border-radius: 999px; background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); box-shadow: 0 8px 24px rgba(251, 191, 36, 0.35);">
+                    <a href="${inviteUrl}" target="_blank" rel="noopener noreferrer" style="display: inline-block; padding: 16px 38px; font-size: 15px; font-weight: 800; color: #000000; text-decoration: none; border-radius: 999px; letter-spacing: 0.02em;">
+                      ${isVideoInvite ? "▶ Watch Video Invite & RSVP" : "View Invitation & RSVP →"}
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin: 18px 0 0 0; font-size: 12px; color: #64748b;">
+                Or copy and paste this link into your browser:<br>
+                <a href="${inviteUrl}" style="color: #fbbf24; text-decoration: underline; word-break: break-all;">${inviteUrl}</a>
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td align="center" style="padding: 22px; border-top: 1px solid rgba(255, 255, 255, 0.08); background-color: rgba(0, 0, 0, 0.25);">
+              <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #94a3b8;">
+                Powered by <strong style="color: #fbbf24;">InviteHub</strong>
+              </span>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+};
+
+/**
+ * Dispatch personalized invitation emails to multiple guests with batch processing
+ */
+const sendPublishInvitationEmails = async ({ event, guests, hostNote }) => {
+  if (!guests || guests.length === 0) {
+    return { success: true, count: 0, sentGuests: [] };
+  }
+
+  const transporter = await getTransporter();
+  const frontendUrl = (process.env.FRONTEND_URL || "http://localhost:3000").replace(/\/+$/, "");
+  const baseInviteUrl = `${frontendUrl}/invite/${event.id}`;
+  
+  const fromEmail = process.env.EMAIL_FROM || process.env.SMTP_USER || "invitations@invitehub.com";
+  const fromName = event.hostName || "InviteHub Events";
+
+  const results = [];
+  const BATCH_SIZE = 5;
+
+  for (let i = 0; i < guests.length; i += BATCH_SIZE) {
+    const batch = guests.slice(i, i + BATCH_SIZE);
+    const batchPromises = batch.map(async (guest) => {
+      try {
+        const guestUrl = `${baseInviteUrl}?to=${encodeURIComponent(guest.name || "")}`;
+        const html = generatePublishInviteHtml({
+          event,
+          guest,
+          inviteUrl: guestUrl,
+          hostNote,
+        });
+
+        const mailOptions = {
+          from: `"${fromName}" <${fromEmail}>`,
+          to: guest.email,
+          subject: `You're Invited: ${event.title || "Special Celebration"}`,
+          html,
+        };
+
+        const info = await transporter.sendMail(mailOptions);
+        console.log(`[EmailService] Invitation dispatched to ${guest.email} (id: ${guest.id}). MessageId: ${info.messageId || "sent"}`);
+
+        return {
+          guestId: guest.id,
+          email: guest.email,
+          success: true,
+          messageId: info.messageId || info.response,
+        };
+      } catch (err) {
+        console.error(`[EmailService] Error sending to ${guest.email}:`, err.message);
+        return {
+          guestId: guest.id,
+          email: guest.email,
+          success: false,
+          error: err.message,
+        };
+      }
+    });
+
+    const batchResults = await Promise.allSettled(batchPromises);
+    batchResults.forEach((r) => {
+      if (r.status === "fulfilled") {
+        results.push(r.value);
+      } else {
+        results.push({ success: false, error: r.reason?.message });
+      }
+    });
+
+    if (i + BATCH_SIZE < guests.length) {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    }
+  }
+
+  return {
+    success: true,
+    total: guests.length,
+    sentCount: results.filter((r) => r.success).length,
+    results,
+  };
+};
+
 module.exports = {
   sendInvitationEmails,
   generateInvitationHtml,
@@ -2229,4 +2480,7 @@ module.exports = {
   sendViaResend,
   generateGuestToken,
   validateGuestToken,
+  sendPublishInvitationEmails,
+  generatePublishInviteHtml,
 };
+

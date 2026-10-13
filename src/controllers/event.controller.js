@@ -1789,6 +1789,235 @@ const updateGeofenceRadius = async (req, res) => {
     return res.status(500).json({ success: false, error: "Failed to update geofence parameter." });
   }
 };
+/**
+ * Helper to generate a clean URL slug from title and id
+ */
+const generateSlug = (title, id) => {
+  const base = (title || "celebration")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 40) || "celebration";
+  const suffix = (id ? id.replace(/-/g, "").slice(0, 6) : Math.random().toString(36).substring(2, 6));
+  return `${base}-${suffix}`;
+};
+
+/**
+ * Publish an event: updates isPublished = true, generates public URL/slug, saves publishedAt, and returns the finalized public link
+ * POST /api/events/:id/publish
+ */
+const publishEvent = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { templateData, shareSlug, location, eventTitle, venue } = req.body || {};
+
+    const event = await prisma.event.findUnique({
+      where: { id },
+      include: { invitation: true }
+    });
+
+    if (!event) {
+      return res.status(404).json({ success: false, error: "Event not found" });
+    }
+
+    const effectiveSlug = shareSlug || event.shareSlug || generateSlug(eventTitle || event.title, event.id);
+    const frontendUrl = (process.env.FRONTEND_URL || "http://localhost:3000").replace(/\/+$/, "");
+    const publicUrl = `${frontendUrl}/invite/${event.id}`;
+    const slugUrl = `${frontendUrl}/invite/${effectiveSlug}`;
+
+    const updateData = {
+      isPublished: true,
+      status: "published",
+      publishedAt: new Date(),
+      shareSlug: effectiveSlug,
+      shareLink: publicUrl,
+    };
+
+    if (location || venue) {
+      updateData.venue = venue || location || event.venue;
+      updateData.location = location || venue || event.location;
+    }
+    if (eventTitle) {
+      updateData.title = eventTitle;
+    }
+    if (templateData) {
+      updateData.templateData = templateData;
+      updateData.canvasState = templateData;
+      if (templateData.activeDisplayPhoto || templateData.generatedImageUrl || templateData.userPhoto) {
+        updateData.coverImage = templateData.activeDisplayPhoto || templateData.generatedImageUrl || templateData.userPhoto;
+      }
+      if (templateData.generatedVideoUrl) {
+        updateData.previewUrl = templateData.generatedVideoUrl;
+      }
+      if (templateData.selectedTemplateId) {
+        updateData.selectedTemplateId = templateData.selectedTemplateId;
+      }
+    }
+
+    const updatedEvent = await prisma.event.update({
+      where: { id },
+      data: updateData,
+    });
+
+    if (event.invitation) {
+      try {
+        await prisma.invitation.update({
+          where: { eventId: id },
+          data: {
+            status: "published",
+            imageUrl: templateData?.activeDisplayPhoto || templateData?.generatedImageUrl || updatedEvent.coverImage,
+          }
+        });
+      } catch (invErr) {
+        console.warn("[EventController] Invitation update warning during publish:", invErr.message);
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Event published successfully",
+      event: updatedEvent,
+      shareSlug: effectiveSlug,
+      shareLink: publicUrl,
+      publicUrl: publicUrl,
+      slugUrl: slugUrl,
+    });
+  } catch (error) {
+    console.error("[EventController] Publish Event Error:", error);
+    return res.status(500).json({ success: false, error: error.message || "Failed to publish event" });
+  }
+};
+
+/**
+ * Send personalized invitation emails to selected guests
+ * POST /api/events/:id/send-invites
+ */
+const sendInvites = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { guests: incomingGuests, guestIds, hostNote } = req.body || {};
+
+    const event = await prisma.event.findUnique({
+      where: { id },
+      include: { invitation: true, rsvpSettings: true },
+    });
+
+    if (!event) {
+      return res.status(404).json({ success: false, error: "Event not found" });
+    }
+
+    // 1. If incomingGuests list was passed from Step 3 (who and how), ensure/upsert them in DB
+    if (Array.isArray(incomingGuests) && incomingGuests.length > 0) {
+      for (const g of incomingGuests) {
+        if (!g.email || !g.email.trim()) continue;
+        const normalizedEmail = g.email.toLowerCase().trim();
+        const guestName = g.name || normalizedEmail.split("@")[0];
+
+        let existingGuest = null;
+        if (g.id && typeof g.id === "string" && g.id.length > 10) {
+          try {
+            existingGuest = await prisma.guest.findUnique({ where: { id: g.id } });
+          } catch (_) {}
+        }
+        if (!existingGuest) {
+          existingGuest = await prisma.guest.findFirst({
+            where: { eventId: id, email: normalizedEmail },
+          });
+        }
+
+        if (existingGuest) {
+          await prisma.guest.update({
+            where: { id: existingGuest.id },
+            data: {
+              name: guestName,
+              isSelected: true,
+            },
+          });
+        } else {
+          await prisma.guest.create({
+            data: {
+              eventId: id,
+              name: guestName,
+              email: normalizedEmail,
+              isSelected: true,
+              rsvpStatus: "PENDING",
+              status: "invited",
+            },
+          });
+        }
+      }
+    }
+
+    // 2. Query target selected guests
+    let targetGuests = [];
+    if (Array.isArray(guestIds) && guestIds.length > 0) {
+      targetGuests = await prisma.guest.findMany({
+        where: {
+          eventId: id,
+          id: { in: guestIds },
+        },
+      });
+    } else {
+      targetGuests = await prisma.guest.findMany({
+        where: {
+          eventId: id,
+          isSelected: true,
+        },
+      });
+      // Fallback: If no guests explicitly have isSelected=true, find all guests for this event
+      if (targetGuests.length === 0) {
+        targetGuests = await prisma.guest.findMany({
+          where: { eventId: id },
+        });
+      }
+    }
+
+    if (targetGuests.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: "No guests found or selected for this event. Please select guests in Step 3 before sending emails.",
+      });
+    }
+
+    // 3. Dispatch emails via Nodemailer batch service
+    const dispatchResult = await emailService.sendPublishInvitationEmails({
+      event,
+      guests: targetGuests,
+      hostNote: hostNote || event.emailDescription || event.description,
+    });
+
+    // 4. Update each successfully sent guest: inviteSent = true
+    const successfulGuestIds = dispatchResult.results
+      .filter((r) => r.success && r.guestId)
+      .map((r) => r.guestId);
+
+    if (successfulGuestIds.length > 0) {
+      await prisma.guest.updateMany({
+        where: {
+          id: { in: successfulGuestIds },
+        },
+        data: {
+          inviteSent: true,
+          sentAt: new Date(),
+        },
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Successfully sent invitation emails to ${dispatchResult.sentCount} guest(s)`,
+      sentCount: dispatchResult.sentCount,
+      total: targetGuests.length,
+      results: dispatchResult.results,
+    });
+  } catch (error) {
+    console.error("[EventController] Send Invites Error:", error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || "Failed to send invitation emails",
+    });
+  }
+};
 
 module.exports = {
   getEvents,
@@ -1808,6 +2037,9 @@ module.exports = {
   getLiveArrivals,
   updateGeofenceRadius,
   calculateHaversineDistance,
+  publishEvent,
+  sendInvites,
 };
+
 
 

@@ -76,6 +76,12 @@ model Event {
   canvasState  Json?         @map("canvas_state")
   previewUrl   String?       @map("preview_url")
   status       String        @default("draft")
+  location     String?
+  templateData Json?         @map("template_data")
+  isPublished  Boolean       @default(false) @map("is_published")
+  publishedAt  DateTime?     @map("published_at")
+  shareSlug    String?       @unique @map("share_slug")
+  shareLink    String?       @map("share_link")
   createdBy    Int           @map("created_by")
   user         User          @relation(fields: [createdBy], references: [id], onDelete: Cascade)
   createdAt    DateTime      @default(now()) @map("created_at")
@@ -159,6 +165,8 @@ model Guest {
   additionalGuests      Int       @default(0) @map("additional_guests")
   dietaryPreference     String?   @map("dietary_preference") @db.VarChar(50)
   specialDietaryRequests String?  @map("special_dietary_requests") @db.Text
+  isSelected            Boolean   @default(false) @map("is_selected")
+  inviteSent            Boolean   @default(false) @map("invite_sent")
 
   @@map("guests")
 }

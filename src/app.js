@@ -120,6 +120,10 @@ app.use("/api/admin", adminRoutes);
 // Event Routes
 app.use("/api/events", eventRoutes);
 
+// Public Routes (unauthenticated event view & RSVP)
+const publicRoutes = require("./routes/public.routes");
+app.use("/api/public", publicRoutes);
+
 // AI Routes
 app.use("/api/ai", aiRoutes);
 
